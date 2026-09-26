@@ -1,0 +1,31 @@
+{
+  "compilerOptions": {
+    // Language
+    "target": "ESNext",
+    "module": "ESNext",
+    "lib": ["ESNext"],
+    // Module handling
+    "composite": true,
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+
+    // Linting
+    "exactOptionalPropertyTypes": true,
+    "noErrorTruncation": true,
+    "strict": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noUncheckedSideEffectImports": false, // TODO: enable
+    "moduleDetection": "force",
+    // Third-party .d.ts files (e.g. transform-async-modules-webpack-plugin)
+    // reference @babel/core types that don't exist on Babel 8.
+    "skipLibCheck": true,
+
+    // Emit
+    "emitDeclarationOnly": true,
+    "outDir": "./node_modules/.cache/tsc_build"
+  }
+}
