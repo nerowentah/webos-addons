@@ -19,10 +19,6 @@ function makeConfig(api) {
     // https://github.com/webpack/webpack/issues/9379#issuecomment-509628205
     // https://babel.dev/docs/options#sourcetype
     sourceType: 'unambiguous',
-    // https://babel.dev/docs/assumptions
-    assumptions: {
-      noNewArrows: true
-    },
     plugins: [
       [
         '@babel/plugin-transform-runtime',
@@ -31,6 +27,8 @@ function makeConfig(api) {
         }
       ],
       [
+        // Still required at the webOS 6 / Chrome 79 floor: structuredClone,
+        // used by src/hooks/json-stringify.ts, did not ship until Chrome 98.
         'polyfill-corejs3',
         {
           method: 'usage-pure',
@@ -42,12 +40,6 @@ function makeConfig(api) {
            * See https://github.com/babel/babel-polyfills/blob/a5db9c31c5b5474b4018e6178bc40882fc3eb5bf/packages/babel-plugin-polyfill-corejs3/README.md#version
            */
           exclude: ['es.json.parse', 'esnext.json.parse']
-        }
-      ],
-      [
-        'polyfill-regenerator',
-        {
-          method: 'usage-pure'
         }
       ]
     ],

@@ -36,16 +36,32 @@ export const videoCodecModes = {
 /**
  * Panel Care Mode.
  *
- * 'off' leaves the UI untouched. 'oled' applies the true-black treatment that
- * reduces OLED burn-in risk (and is what the app has always done). 'qned'
- * targets QNED / MiniLED (LCD) panels, which have no permanent burn-in but
- * benefit from a dark-grey, low-contrast UI and semi-transparent scrims that
- * keep MiniLED local-dimming zones from blooming/haloing around bright text.
+ * 'off' leaves the UI untouched. 'auto' asks tv-specs to read the model out of
+ * the app UA and picks 'oled' or 'qned' from it, so a QNED that has never
+ * opened the panel still gets the right treatment; see resolvePanelCareMode().
+ * 'oled' applies the true-black treatment that reduces OLED burn-in risk (and
+ * is what the app has always done). 'qned' targets QNED / MiniLED (LCD) panels,
+ * which have no permanent burn-in but benefit from a dark-grey, low-contrast UI
+ * and semi-transparent scrims that keep MiniLED local-dimming zones from
+ * blooming/haloing around bright text.
+ *
+ * auto resolves to 'off' when the model is unknown or unrecognised, so 'auto' is
+ * never brighter than the user would have got by leaving it off.
+ *
+ * The labels are deliberately bare - just the panel type, no "Care" suffix or
+ * "True Black UI" hint. They render in the cycle control's value column, which
+ * holds one line at a fixed width, so a descriptive label overflows into the
+ * arrows instead of wrapping. videoCodecModes, the other cycle control in this
+ * panel, keeps its labels to the same discipline ('AVC (H.264)', 'Avoid AV1');
+ * the row's own name already says "Panel Care Mode", so repeating it per value
+ * only competes with the value. The reasoning for each mode lives in the doc
+ * comment above, which is where someone changing a label will look.
  */
 export const panelCareModes = {
+  auto: 'Auto',
   off: 'Off',
-  oled: 'OLED-Care (True Black UI)',
-  qned: 'QNED MiniLED-Care (Dark Comfort UI)'
+  oled: 'OLED',
+  qned: 'QNED'
 };
 
 const configOptions = new Map([
@@ -139,11 +155,9 @@ const configOptions = new Map([
       desc: 'Bypass initial account selection on startup'
     }
   ],
-  ['uiTheme', { default: 'blue-force-field', desc: 'UI Theme' }],
-  ['panelCareMode', { default: 'off', desc: 'Panel Care Mode' }],
+  ['panelCareMode', { default: 'auto', desc: 'Panel Care Mode' }],
   ['videoShelfOpacity', { default: 100, desc: 'Video shelf opacity' }],
   ['fixMultilineTitles', { default: true, desc: 'Fix Multiline Titles' }],
-  ['removeBlackBorders', { default: false, desc: 'New Liquid Glass UI' }],
   ['forceVideoCodec', { default: 'auto', desc: 'Force Video Codec' }],
   ['skipSegmentsOnce', { default: false, desc: 'Skip Segments Once' }],
   [
@@ -204,6 +218,25 @@ function loadStoredConfig() {
         parsed.panelCareMode = 'oled';
       }
       delete parsed.enableOledCareMode;
+    }
+
+    // Drop the retired UI theme key. Classic Red is now the only theme, so
+    // there is nothing for a stored 'blue-force-field' or 'classic-red' to
+    // select. This has to happen here rather than being left to sit unused:
+    // configRead() throws on an unknown key, and the stored value is read back
+    // straight into localConfig, so a leftover key would break the panel.
+    if (parsed && Object.keys(parsed).includes('uiTheme')) {
+      delete parsed.uiTheme;
+    }
+
+    // Drop the retired Liquid Glass toggle along with its stylesheet. The
+    // selectors it drove were legacy ytd-* names that this build's ytlr-* React
+    // markup no longer renders, so the option could only ever restyle nothing.
+    // Deleted rather than left inert because configRead() throws on an unknown
+    // key: keeping the option as a hidden no-op would preserve a checkbox the
+    // feature no longer backs.
+    if (parsed && Object.keys(parsed).includes('removeBlackBorders')) {
+      delete parsed.removeBlackBorders;
     }
 
     return parsed;

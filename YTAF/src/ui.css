@@ -1,3 +1,18 @@
+/* Classic Red accent tiers
+
+   Classic Red is the only theme, so these are the base values for every
+   element rather than an override layered on a cyan default. There is no
+   theme class to toggle any more.
+
+   #ff0000 pure  - borders, focus rings
+   #ff4444 soft  - heading and label text
+   #cc0000 dark  - filled controls (checkbox, scrollbar thumb)
+
+   A care-mode border is the pure red at one alpha, 0.35, on every surface that
+   carries one - panel, toast and clock alike. Care mode is not allowed to
+   invent its own weight or opacity per surface: switching modes then changes
+   only a hue and a plate, never the presence, width or strength of an edge. */
+
 .ytaf-ui-container {
   position: fixed;
   top: 5vh;
@@ -15,19 +30,15 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background-color: #001a2e;
-  background-image:
-    linear-gradient(rgba(0, 212, 255, 0.15) 0.09vh, transparent 0.09vh),
-    linear-gradient(90deg, rgba(0, 212, 255, 0.15) 0.09vh, transparent 0.09vh);
-  background-size: 3.7vh 3.7vh;
-  background-position: -0.09vh -0.09vh;
-  border: 0.09vh solid rgba(0, 212, 255, 0.4);
+  background-color: #1a1a1a;
+  background-image: none;
+  border: 0.09vh solid #3f3f3f;
   border-radius: 1.5vh;
   box-shadow: none;
   opacity: 1;
   transition:
-    opacity 180ms ease,
-    transform 180ms ease;
+    opacity 150ms ease,
+    transform 150ms ease;
 }
 
 /* Show/hide poses. The container keeps its centering transform in every pose
@@ -41,14 +52,6 @@
 .ytaf-ui-container.collapse-end {
   opacity: 1;
   transform: translateX(-50%);
-}
-
-/* Red Theme Variant */
-.ytaf-ui-container.theme-classic-red {
-  background-color: #1a1a1a;
-  background-image: none;
-  border-color: #3f3f3f;
-  box-shadow: none;
 }
 
 .ytaf-ui-container::before {
@@ -66,18 +69,13 @@
   text-align: center;
   font-size: 3.89vh;
   font-weight: 700;
-  border-bottom: 0.09vh solid rgba(0, 212, 255, 0.3);
-  color: #00d4ff;
+  border-bottom: 0.09vh solid #3f3f3f;
+  color: #ff4444;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
   text-shadow: none;
-}
-
-.ytaf-ui-container.theme-classic-red h1 {
-  color: #ff4444;
-  border-bottom-color: #3f3f3f;
 }
 
 .ytaf-close-btn {
@@ -90,9 +88,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 50, 80, 0.8);
-  color: #00d4ff;
-  border: 0.19vh solid rgba(0, 150, 200, 0.5);
+  background: #2a2a2a;
+  color: #ff4444;
+  border: 0.19vh solid #4a4a4a;
   border-radius: 50%;
   font-size: 2vh;
   font-weight: bold;
@@ -105,20 +103,9 @@
     color 150ms ease;
 }
 
-.ytaf-ui-container.theme-classic-red .ytaf-close-btn {
-  background: #2a2a2a;
-  color: #ff4444;
-  border-color: #4a4a4a;
-}
-
 .ytaf-close-btn:focus {
-  outline: 0.19vh solid #00d4ff;
+  outline: 0.19vh solid #ff0000;
   outline-offset: 0.19vh;
-  color: #ffffff;
-}
-
-.ytaf-ui-container.theme-classic-red .ytaf-close-btn:focus {
-  outline-color: #ff0000;
   color: #ffffff;
 }
 
@@ -130,7 +117,7 @@
   min-height: 0;
   /* Pages swap display:none <-> block on tab change; the animation restarts on
      every flip, so tab switches fade in with no JS. */
-  animation: ytaf-page-in 160ms ease;
+  animation: ytaf-page-in 150ms ease;
 }
 
 @keyframes ytaf-page-in {
@@ -149,31 +136,30 @@
 }
 
 .ytaf-ui-container > div::-webkit-scrollbar-track {
-  background: rgba(0, 212, 255, 0.05);
-}
-
-.ytaf-ui-container > div::-webkit-scrollbar-thumb {
-  background: #0099cc;
-  border-radius: 0.4vh;
-}
-
-.ytaf-ui-container.theme-classic-red > div::-webkit-scrollbar-track {
   background: rgba(255, 255, 255, 0.05);
 }
 
-.ytaf-ui-container.theme-classic-red > div::-webkit-scrollbar-thumb {
+.ytaf-ui-container > div::-webkit-scrollbar-thumb {
   background: #cc0000;
+  border-radius: 0.4vh;
 }
 
 .ytaf-ui-container input[type='checkbox'] {
+  /* Owned here, not inherited. The panel lives in YouTube's document, so the
+     host's global normalize currently hands us box-sizing: border-box; under
+     that, the 1.85vh below is the border box. Should the host ever drop it, the
+     same rule would fall back to content-box and the 0.19vh border would add
+     0.38vh per axis - widening the checkbox column and pushing the cycle rows
+     out of line with it again. Declaring it makes the width mean one thing. */
+  box-sizing: border-box;
   width: 1.85vh;
   height: 1.85vh;
   margin: 0;
   margin-right: 1.1vh;
   appearance: none;
   -webkit-appearance: none;
-  background: rgba(0, 50, 80, 0.8);
-  border: 0.19vh solid rgba(0, 150, 200, 0.5);
+  background: #2a2a2a;
+  border: 0.19vh solid #4a4a4a;
   border-radius: 0.4vh;
   position: relative;
   cursor: pointer;
@@ -184,19 +170,9 @@
 }
 
 .ytaf-ui-container input[type='checkbox']:checked {
-  background: #00d4ff;
-  border-color: #00d4ff;
-  box-shadow: none;
-}
-
-.ytaf-ui-container.theme-classic-red input[type='checkbox'] {
-  background: #2a2a2a;
-  border-color: #4a4a4a;
-}
-
-.ytaf-ui-container.theme-classic-red input[type='checkbox']:checked {
   background: #cc0000;
   border-color: #ff0000;
+  box-shadow: none;
 }
 
 .ytaf-ui-container input[type='checkbox']:checked::after {
@@ -205,18 +181,14 @@
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  color: white;
+  color: #ffffff;
   font-size: 1.3vh;
   font-weight: bold;
 }
 
 .ytaf-ui-container input[type='checkbox']:focus {
-  outline: 0.19vh solid #00d4ff;
-  outline-offset: 0.19vh;
-}
-
-.ytaf-ui-container.theme-classic-red input[type='checkbox']:focus {
   outline: 0.19vh solid #ff0000;
+  outline-offset: 0.19vh;
   border-color: #ff0000;
 }
 
@@ -240,23 +212,10 @@
   flex: 1;
 }
 
-.ytaf-ui-container .shortcut-control-row:focus {
-  background: rgba(0, 212, 255, 0.2);
-  border-radius: 0.75vh;
-  box-shadow: 0 0 0 0.19vh #00d4ff;
-  outline: none;
-}
-
+.ytaf-ui-container .shortcut-control-row:focus,
 .ytaf-ui-container label:focus-within {
-  background: rgba(0, 212, 255, 0.2);
-  border-radius: 0.75vh;
-  box-shadow: 0 0 0 0.19vh #00d4ff;
-  outline: none;
-}
-
-.ytaf-ui-container.theme-classic-red .shortcut-control-row:focus,
-.ytaf-ui-container.theme-classic-red label:focus-within {
   background: rgba(255, 0, 0, 0.1);
+  border-radius: 0.75vh;
   box-shadow: 0 0 0 0.19vh rgba(255, 0, 0, 0.5);
   outline: none;
 }
@@ -264,14 +223,9 @@
 .ytaf-ui-container blockquote {
   margin: 1.5vh 0 1.5vh 2.2vh;
   padding-left: 2.2vh;
-  border-left: 0.28vh solid #00d4ff;
-  background: rgba(0, 212, 255, 0.05);
-  border-radius: 0 0.75vh 0.75vh 0;
-}
-
-.ytaf-ui-container.theme-classic-red blockquote {
-  border-left-color: #ff0000;
+  border-left: 0.28vh solid #ff0000;
   background: rgba(255, 0, 0, 0.05);
+  border-radius: 0 0.75vh 0.75vh 0;
 }
 
 .ytaf-ui-container blockquote label {
@@ -287,11 +241,7 @@
   font-size: 1.48vh;
   margin-top: 1.85vh;
   padding-top: 1.5vh;
-  border-top: 0.09vh solid rgba(0, 212, 255, 0.2);
-}
-
-.ytaf-ui-container.theme-classic-red small {
-  border-top-color: #3f3f3f;
+  border-top: 0.09vh solid #3f3f3f;
 }
 
 .ytaf-notification-container {
@@ -303,30 +253,40 @@
   max-width: 37vh;
 }
 
+/* The toast shares the top-right corner with the on-screen clock and paints
+   above it (z-index 1200 vs 1199), so the two can overlap - with alwaysShowClock
+   on, and on a codec change made from the home feed. They are styled as one
+   family for that reason: same translucent scrim, same white hairline, same
+   radius language.
+
+   The plate sits a little lighter than the clock's 0.62 because this element is
+   transient rather than always-on. It does not carry --ytaf-panel-opacity: the
+   shelf slider has never reached it, and wiring that up is a separate change.
+
+   The border colour lives here rather than in JS. showNotification() only sets
+   an inline border-color when the caller passes an explicit colour, and no
+   current caller does, so these rules are what actually paint the border: a red
+   hairline at 0.35, in every care mode as well as off. The 0.37vh left border is
+   the accent bar that distinguishes a toast from a plain plate, and it stays
+   opaque - the care rules restore it after setting the translucent hairline. */
 .ytaf-notification-container .message {
-  background: #002840;
-  border: 0.09vh solid rgba(0, 212, 255, 0.4);
-  color: white;
+  background: rgba(0, 0, 0, 0.55);
+  border: 0.09vh solid rgba(255, 0, 0, 0.35);
+  color: #ffffff;
   -webkit-font-smoothing: antialiased;
   padding: 1.5vh 1.85vh;
   margin-bottom: 1.1vh;
   border-radius: 1.1vh;
-  box-shadow: 0 0.5vh 1.4vh rgba(0, 0, 0, 0.5);
+  box-shadow: 0 0.2vh 0.6vh rgba(0, 0, 0, 0.35);
   transition:
-    opacity 0.3s ease,
-    transform 0.3s ease;
+    opacity 150ms ease,
+    transform 150ms ease;
   opacity: 1;
   transform: translateX(0);
-  border-left: 0.37vh solid #00d4ff;
+  border-left: 0.37vh solid #ff0000;
   font-weight: 400;
   line-height: 1.4;
   overflow-wrap: break-word;
-}
-
-.ytaf-notification-container.theme-classic-red .message {
-  background: #1a1a1a;
-  border-color: #3f3f3f;
-  border-left-color: #ff0000;
 }
 
 .ytaf-notification-container .message-hidden {
@@ -334,51 +294,127 @@
   transform: translateX(1.85vh);
 }
 
-/* Panel Care Modes (OLED / QNED MiniLED) */
+/* On-Screen Clock
+
+   The plate is a translucent scrim rather than a solid fill, matching the
+   neutral language of the on-screen entry point (.ytaf-ui-badge below) rather
+   than the flat fills the options panel and notifications are built from.
+
+   Two adjustments keep that safe here, where the badge has no equivalent
+   problem. The badge dims itself to opacity 0.6 and sits over the dark shelf;
+   this is always-on over live video, so the alpha is raised from the badge's
+   0.45 to 0.62 and the text shadow carries the remaining contrast on a bright
+   frame. And the border stays 0.09vh rather than the badge's 1px, which
+   disappears once the panel's density is scaled down. */
+/* Classic Red is the only theme, so the hairline is red at rest. A translucent
+   scrim over whatever is behind it is theme-neutral, so it stays untinted. */
+.webOs-watch {
+  position: fixed;
+  right: 0;
+  top: 0;
+  margin: 1rem 2rem;
+  background-color: rgba(0, 0, 0, 0.62);
+  border: 0.09vh solid rgba(255, 0, 0, 0.35);
+  border-radius: 999px;
+  box-shadow: 0 0.2vh 0.6vh rgba(0, 0, 0, 0.35);
+  padding: 0.4rem 0.9rem;
+  font-size: 1.2rem;
+  letter-spacing: 0.05rem;
+  /* Not dimmed by the care modes the way the notification body text is: that
+     text is a paragraph to read at leisure, this is a glanceable time string. */
+  color: #ffffff;
+  text-shadow: 0 0.1rem 0.3rem rgba(0, 0, 0, 0.9);
+  z-index: 1199;
+  /* Nothing here is interactive, and the notifications own this corner. */
+  pointer-events: none;
+  transition:
+    opacity 150ms ease,
+    background-color 150ms ease,
+    border-color 150ms ease;
+}
+
+.webOs-watch.clock-hidden {
+  opacity: 0;
+}
+
+/* Panel Care Modes (OLED / QNED MiniLED)
+
+   The border width here must match the base .ytaf-ui-container 0.09vh. It used
+   to be 0.19vh, which added 0.1vh to each edge, shrank the content box by
+   0.2vh and shifted every row - checkbox column included - out of line with
+   care mode off. That also contradicted the accent-tier note at the top of this
+   file. Care mode changes the plate and the neutral border; the red accent is
+   the theme, so the border keeps its red at the care mode's own alpha.
+
+   The hairline itself is shared, and only the plate differs between the two
+   modes - which is the whole of what distinguishes them for this panel. OLED
+   used to carry 0.4 here against QNED's 0.35, so toggling between them changed
+   the strength of the edge rather than only its hue. */
+.ytaf-ui-container.oled-care,
+.ytaf-ui-container.qned-care {
+  border: 0.09vh solid rgba(255, 0, 0, 0.35);
+}
+
 .ytaf-ui-container.oled-care {
   background: #000000;
-  border: 0.09vh solid rgba(0, 212, 255, 0.4);
-  box-shadow: none;
 }
 
-.ytaf-ui-container.oled-care.theme-classic-red {
-  border-color: rgba(255, 0, 0, 0.4);
-}
-
+/* Each checkbox plate matches the panel plate behind it, so the control reads
+   as a hole in the panel rather than a chip sitting on it. QNED was #1e1e1e
+   against a #141414 panel. */
 .ytaf-ui-container.oled-care input[type='checkbox'] {
-  background: #000;
-  border-color: #555;
-}
-
-.ytaf-ui-container.oled-care input[type='checkbox']:checked {
-  background: #555;
-}
-
-.ytaf-notification-container.oled-care .message {
   background: #000000;
-  border: 0.09vh solid #00d4ff;
-  border-left: 0.37vh solid #00d4ff;
-  box-shadow: none;
-  color: #cccccc;
+  border-color: #555555;
 }
 
-.ytaf-notification-container.oled-care.theme-classic-red .message {
-  border-color: #ff4444;
-  border-left-color: #ff4444;
+.ytaf-ui-container.qned-care input[type='checkbox'] {
+  background: #141414;
+  border-color: #555555;
+}
+
+/* Care modes step the checked fill down to a neutral grey, dropping the red
+   #cc0000 entirely, and then restate the border so the box still has an edge:
+   with the fill at #555555 and the border left at #555555 the two vanish into
+   each other. #666666 keeps the base relationship of a darker fill against a
+   lighter border, and is already in this file's neutral ramp. */
+.ytaf-ui-container.oled-care input[type='checkbox']:checked,
+.ytaf-ui-container.qned-care input[type='checkbox']:checked {
+  background: #555555;
+  border-color: #666666;
+}
+
+/* Care-mode plates are lifted off the page colour for the same reason the
+   clock's are: over OLED's true black a matching scrim composites to nothing
+   and the message reads as bare text.
+
+   The two modes share one rule, exactly as the clock's do below. They flatten
+   the page to different colours - #000000 for OLED, #141414 for QNED - but both
+   lift the toast plate to the same #2a2a2a, so a second set of rules could only
+   have differed by accident. When OLED pinned its border to an opaque #ff0000
+   and QNED to the 0.35 hairline, and gave each a different text grey, none of it
+   tracked a real difference between the panels.
+
+   border-color is the shorthand and therefore sets all four sides; border-left-color
+   follows it to put the accent bar back to opaque. Reversing those two lines
+   would fade the bar along with the hairline. */
+.ytaf-notification-container.oled-care .message,
+.ytaf-notification-container.qned-care .message {
+  background: rgba(42, 42, 42, 0.55);
+  border-color: rgba(255, 0, 0, 0.35);
+  border-left-color: #ff0000;
+  box-shadow: none;
+  color: #dddddd;
 }
 
 .ytaf-ui-container.qned-care {
   background: #141414;
-  border: 0.09vh solid rgba(128, 128, 128, 0.35);
-  box-shadow: none;
 }
 
-.ytaf-ui-container.qned-care.theme-classic-red {
-  border-color: rgba(255, 90, 90, 0.35);
-}
-
+/* QNED dims the inactive tab ink toward the plate instead of the base #aaaaaa.
+   It used to pick a desaturated cyan here; with Classic Red as the only theme
+   that hue had no base to relate to, so it now just greys down. */
 .ytaf-ui-container.qned-care .ytaf-tab-btn {
-  color: #7fb8cc;
+  color: #8a8a8a;
 }
 
 .ytaf-ui-container.qned-care small {
@@ -389,26 +425,25 @@
   color: #a0a0a0;
 }
 
-.ytaf-ui-container.qned-care input[type='checkbox'] {
-  background: #1e1e1e;
-  border-color: #555;
-}
+/* The clock's care plates carry --ytaf-panel-opacity so the slider dims the
+   clock alongside the shelf. It is deliberately absent from the base rule: with
+   care mode off the clock keeps its own fixed alpha regardless of the shelf
+   setting. The property is declared in the runtime style block in src/ui.js
+   rather than here, and the 1 fallback covers the window before that block is
+   injected.
 
-.ytaf-ui-container.qned-care input[type='checkbox']:checked {
-  background: #555;
-}
-
-.ytaf-notification-container.qned-care .message {
-  background: #141414;
-  border: 0.09vh solid rgba(128, 128, 128, 0.7);
-  border-left: 0.37vh solid rgba(128, 128, 128, 0.7);
-  box-shadow: none;
-  color: #dddddd;
-}
-
-.ytaf-notification-container.qned-care.theme-classic-red .message {
-  border-color: rgba(255, 90, 90, 0.7);
-  border-left-color: rgba(255, 90, 90, 0.7);
+   The plate is lifted to #2a2a2a rather than sharing the base scrim's black.
+   Both care modes flatten the page underneath to a fixed dark colour - #000000
+   for OLED, #141414 for QNED - and a scrim matching that colour is invisible:
+   over an OLED's true black, rgba(0,0,0,0.62) composites to black, which left
+   the clock reading as bare text inside a border. #2a2a2a is the neutral
+   checkbox plate from the panel above, so it costs no new colour. The two modes
+   are otherwise identical for the clock and share one rule; only the QNED border
+   that used to sit here is gone, since the white hairline is already the neutral
+   it was reaching for. */
+.webOs-watch.oled-care,
+.webOs-watch.qned-care {
+  background-color: rgba(42, 42, 42, calc(0.62 * var(--ytaf-panel-opacity, 1)));
 }
 
 /* Tab Menu */
@@ -416,14 +451,10 @@
   display: flex;
   justify-content: center;
   background: rgba(0, 0, 0, 0.2);
-  border-bottom: 0.19vh solid rgba(0, 212, 255, 0.3);
+  border-bottom: 0.19vh solid #3f3f3f;
   padding: 0.5vh 1vh;
   flex-shrink: 0;
   margin-bottom: 1vh;
-}
-
-.ytaf-ui-container.theme-classic-red .ytaf-tab-menu {
-  border-bottom-color: #3f3f3f;
 }
 
 .ytaf-tab-btn {
@@ -431,7 +462,7 @@
   margin: 0 0.5vh;
   background: transparent;
   border: none;
-  color: #5599aa;
+  color: #aaaaaa;
   font-size: 2.1vh;
   font-weight: 700;
   padding: 1vh 2vh;
@@ -439,33 +470,18 @@
   cursor: pointer;
   outline: none;
   transition:
-    background-color 0.2s ease,
-    color 0.2s ease,
-    box-shadow 0.2s ease;
+    background-color 150ms ease,
+    color 150ms ease,
+    box-shadow 150ms ease;
   font-family: inherit;
 }
 
-.ytaf-ui-container.theme-classic-red .ytaf-tab-btn {
-  color: #aaaaaa;
-}
-
 .ytaf-tab-btn.active {
-  color: #00d4ff;
-  background: rgba(0, 212, 255, 0.15);
-}
-
-.ytaf-ui-container.theme-classic-red .ytaf-tab-btn.active {
   color: #ff4444;
   background: rgba(255, 0, 0, 0.15);
 }
 
 .ytaf-tab-btn:focus {
-  background: rgba(0, 212, 255, 0.3);
-  box-shadow: 0 0 0 0.19vh #00d4ff;
-  color: #ffffff;
-}
-
-.ytaf-ui-container.theme-classic-red .ytaf-tab-btn:focus {
   background: rgba(255, 0, 0, 0.3);
   box-shadow: 0 0 0 0.19vh #ff0000;
   color: #ffffff;
@@ -486,12 +502,8 @@
 }
 
 .shortcut-label {
-  color: #b8e6f5;
-  font-weight: 400;
-}
-
-.ytaf-ui-container.theme-classic-red .shortcut-label {
   color: #e0e0e0;
+  font-weight: 400;
 }
 
 .shortcut-value-container {
@@ -512,18 +524,23 @@
 }
 
 .shortcut-value-container .arrow-btn {
-  color: #00d4ff;
+  color: #ff4444;
   font-weight: bold;
   font-size: 2.22vh;
   user-select: none;
 }
 
-.ytaf-ui-container.theme-classic-red .shortcut-value-container .arrow-btn {
-  color: #ff4444;
-}
-
 .shortcut-value-container .current-value {
   min-width: 14vh;
+  /* One line, always. The row is nowrap, so without an upper bound a label too
+     long for the value column spills into the arrows instead of truncating -
+     silently, since the panel clips rather than scrolls. ellipsis makes the
+     overflow visible and caps the widest case, which is videoCodecModes'
+     'AVC (H.264)' and 'HEVC (H.265)' at 2.5vh; the panel-care labels are
+     shorter still. */
+  max-width: 22vh;
+  overflow: hidden;
+  text-overflow: ellipsis;
   text-align: center;
   font-weight: 400;
   white-space: nowrap;
@@ -531,9 +548,9 @@
 
 /* Color Picker */
 .reset-color-btn {
-  background: rgba(0, 100, 150, 0.5);
+  background: #4f4f4f;
   color: #ffffff;
-  border: 0.09vh solid rgba(0, 150, 200, 0.5);
+  border: 0.09vh solid #666666;
   border-radius: 0.4vh;
   padding: 0.2vh 0.75vh;
   margin-right: 0.75vh;
@@ -545,16 +562,7 @@
     border-color 150ms ease;
 }
 
-.ytaf-ui-container.theme-classic-red .reset-color-btn {
-  background: #4f4f4f;
-  border-color: #666666;
-}
-
 .reset-color-btn:focus {
-  outline: 0.19vh solid #00d4ff;
-}
-
-.ytaf-ui-container.theme-classic-red .reset-color-btn:focus {
   outline: 0.19vh solid #ff0000;
 }
 
@@ -563,15 +571,11 @@
   appearance: none;
   width: 3.7vh;
   height: 2.22vh;
-  border: 0.09vh solid rgba(0, 150, 200, 0.5);
+  border: 0.09vh solid #4a4a4a;
   border-radius: 0.4vh;
   background-color: transparent;
   cursor: pointer;
   transition: border-color 150ms ease;
-}
-
-.ytaf-ui-container.theme-classic-red input[type='color'] {
-  border-color: #4a4a4a;
 }
 
 /* --- Page 1 density ------------------------------------------------------- */
@@ -593,16 +597,6 @@
   margin-bottom: 0.35vh;
 }
 
-/* QHD/4K panels: plenty of vertical room once a tab doesn't overflow. Let the
-   compact trims stay engaged when needed, but give non-overflowing pages a
-   touch more air than the 1080p baseline so the panel doesn't look crammed at
-   high density. --ytaf-ui-scale is the site-calibrated zoom from tv-specs. */
-html.ytaf-tier-qhd .ytaf-ui-container:not(.ytaf-panel-compact) label,
-html.ytaf-tier-uhd .ytaf-ui-container:not(.ytaf-panel-compact) label {
-  padding-top: calc(1.3vh * var(--ytaf-ui-scale, 1));
-  padding-bottom: calc(1.3vh * var(--ytaf-ui-scale, 1));
-}
-
 /* ---------------------------------------------------------------------------
    Main settings page layout
 
@@ -611,18 +605,21 @@ html.ytaf-tier-uhd .ytaf-ui-container:not(.ytaf-panel-compact) label {
    type are a pair: halving the height of Cosmetic Filtering is what buys the
    room to grow the text without pushing the page into a scroll.
 
-   Flexbox, not grid - webOS 3 is Chrome 38 and CSS Grid did not ship until 57.
+   Flexbox, not grid. Grid has been available since Chrome 57 and the webOS 6
+   floor is Chrome 79, so this is now a choice rather than a constraint: the
+   flexbox version predates the grid floor and is known-good, so there is no
+   reason to churn the layout for it.
    --------------------------------------------------------------------------- */
 
 .ytaf-settings-section {
   margin: 1vh 0 0.5vh;
   padding: 0 1vh 0.5vh;
-  border: 0.19vh solid #444;
+  border: 0.19vh solid #444444;
   border-radius: 0.6vh;
 }
 
 .ytaf-settings-section > .section-title {
-  color: #aaa;
+  color: #bbbbbb;
   font-size: 2.6vh;
   font-weight: bold;
   text-transform: uppercase;
@@ -630,16 +627,14 @@ html.ytaf-tier-uhd .ytaf-ui-container:not(.ytaf-panel-compact) label {
   margin: 0.6vh 0 0.5vh;
 }
 
-.ytaf-ui-container.theme-classic-red .ytaf-settings-section > .section-title {
-  color: #bbb;
-}
-
 /* Two-column sections.
 
-   `flex: none` with an explicit width rather than `flex: 0 0 50%`: old Chrome
+   `flex: none` with an explicit width rather than `flex: 0 0 50%`: Chrome
    miscomputes a percentage flex-basis against a border-box child, and these
-   rows carry horizontal padding. Width plus border-box is the boring, stable
-   way to say the same thing.
+   rows carry horizontal padding. That was fixed in Chrome 84, so this still
+   applies at the Chrome 79 floor and can only be simplified once the floor
+   passes 84. Width plus border-box is the boring, stable way to say the same
+   thing.
 
    The negative side margins the single-column rows use to bleed their focus
    highlight past the section padding are removed here - at half width they
@@ -729,7 +724,7 @@ html.ytaf-tier-uhd .ytaf-ui-container:not(.ytaf-panel-compact) label {
 .ytaf-ui-badge:hover,
 .ytaf-ui-badge:focus {
   opacity: 1;
-  color: white;
+  color: #ffffff;
   outline: 3px solid rgba(255, 255, 255, 0.6);
 }
 

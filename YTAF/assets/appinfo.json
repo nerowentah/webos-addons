@@ -3,6 +3,7 @@
   "vendor": "webosbrew.org",
   "type": "web",
   "main": "index.html",
+  "resolution": "1920x1080",
   "title": "YouTube Ad-Free",
   "icon": "extraLargeIcon.png",
   "largeIcon": "extraLargeIcon.png",

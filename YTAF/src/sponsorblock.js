@@ -455,12 +455,13 @@ class SponsorBlockHandler {
   }
 }
 
-// When this global variable was declared using let and two consecutive hashchange
-// events were fired (due to bubbling? not sure...) the second call handled below
-// would not see the value change from first call, and that would cause multiple
-// SponsorBlockHandler initializations... This has been noticed on Chromium 38.
-// This either reveals some bug in chromium/webpack/babel scope handling, or
-// shows my lack of understanding of javascript. (or both)
+// Declared as an explicit window property rather than a module-scope `let`.
+// Originally it was a `let`, and two consecutive hashchange events meant the
+// second handler never saw the first one's value change, causing multiple
+// SponsorBlockHandler initialisations. That was observed on Chromium 38, and
+// the cause was never identified, so the workaround is kept rather than
+// reverted: the webOS 6 floor (Chrome 79) postdates the report, but we have no
+// evidence the underlying engine behaviour is actually fixed.
 window.sponsorblock = null;
 
 // The options panel toggles the SponsorBlock popup through the ui.js seam.

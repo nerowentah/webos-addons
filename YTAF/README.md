@@ -19,7 +19,7 @@
 
 ### Ad Blocking & Content
 
-- Ad Blocking (home, search, watch, and Shorts feeds)
+- Ad Blocking (home, search, watch, and Shorts feeds), including the promoted and sponsored placements that only appear once signed in
 - Remove end screens
 - Shorts Removal (from subscriptions)
 - Higher-Quality Thumbnails
@@ -43,9 +43,9 @@
 
 - On-Screen Clock Overlay (optionally always visible)
 - Panel Care Mode with per-panel profiles: OLED-Care (True Black UI) and QNED MiniLED-Care (Dark Comfort UI), with video shelf opacity control
-- UI Themes (Blue Force Field / Classic Red)
+- Panel Care Mode defaults to Auto, which reads the panel type from the TV model in the app's user agent and applies the matching profile. Any panel it cannot classify falls back to Off; the manual setting always overrides the detection
+- Classic Red is the only UI theme
 - Fix Multiline Titles
-- New Liquid Glass UI (remove black borders)
 - Bypass account selector screen
 
 ### System
@@ -59,7 +59,27 @@
 
 ## Requirements
 
+- **webOS 6 or newer** (webOS TV 6, 2018 onwards).
 - Uninstall the official YouTube app before installing this one.
+
+### Supported versions
+
+The app runs inside the webOS webview, so what matters is the TV's webOS
+version, which determines the browser engine:
+
+| webOS  | Engine           | Status                        |
+| ------ | ---------------- | ----------------------------- |
+| 1 – 2  | Safari 7/8 (WAM) | Not supported — dropped       |
+| 3 – 5  | Chrome 38 – 68   | Not supported — dropped       |
+| 6      | Chrome 79        | **Minimum supported version** |
+| 7 – 25 | Chrome 87+       | Supported                     |
+
+Support for webOS 5 and older was removed because those engines lack features
+the app now relies on directly. Dropping them lets the build ship ES2019
+instead of ES5 and removes the fetch, `DOMRect` and generator polyfills.
+
+`.browserslistrc` is the support matrix of record — changing the floor there
+changes what the build is allowed to emit.
 
 ---
 
@@ -95,6 +115,8 @@ luna-send-pub -n 1 'luna://com.webos.service.eim/deleteDevice' '{"appId":"youtub
 
 ## Compatibility notes
 
+### Cast to TV is disabled on webOS 2025
+
 On webOS 2025 firmware (webOS platform ≥ 10 / firmware ≥ 33), the built-in
 Chromecast ("cast core") service conflicts with this app and freezes it
 ([webosbrew/youtube-webos#343](https://github.com/webosbrew/youtube-webos/issues/343)).
@@ -102,6 +124,11 @@ The fix blocks the app's `/wake_cast_core` fetch on those firmware versions,
 which means the "cast/push video from the mobile YouTube app" flow is disabled
 there. Older firmware leaves the fetch alone, so phone-to-TV casting keeps
 working.
+
+Note: `dialAppName` is what registers the app with the TV's DIAL service
+(`com.webos.service.dial`), which is the _only_ way the mobile YouTube app
+discovers the TV. Do not remove it — without it the TV disappears from the
+phone's cast list entirely.
 
 ---
 
@@ -135,6 +162,16 @@ npm run package
 ```
 
 The `.ipk` file will be generated in the project root directory. You can stop here if you're fine with installing the IPK via [the webOS Dev Manager app](https://github.com/webosbrew/dev-manager-desktop). Alternatively, continue below if you want to make it so you can install the IPK on your TV with one command.
+
+#### Graphics resolution (1920x1080 or 1280x720)
+
+webOS only offers web apps two graphics canvases, `1920x1080` and `1280x720` — there is no UHD canvas, and the TV upscales whichever one it is given to the panel in hardware. The default build declares `1920x1080`; to build the 720p variant:
+
+```sh
+npm run build:hd   # or: npm run package:hd
+```
+
+Both variants install under the same app ID, so they replace one another rather than appearing as two apps. Nothing else differs: the UI lays out in `vh` and so scales to the smaller canvas on its own, and playback still happens at the panel's own output resolution either way. Install the 720p build on 1080p sets to cut graphics memory, or on 720p sets where it is a pixel-for-pixel match.
 
 ### On the TV
 

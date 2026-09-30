@@ -1,5 +1,7 @@
 import { configRead, configAddChangeListener } from './config.js';
 import { showNotification } from './notifications.js';
+import { addTVSpecsChangeListener, getTVSpecs } from './tv-specs';
+import { canDecodeAt, codecRefusalReason } from './webos-caps';
 
 /**
  * Force Video Codec.
@@ -38,11 +40,12 @@ import { showNotification } from './notifications.js';
  *     that list is left exactly as it was and the request is treated as
  *     unsatisfiable for that video. A stream the user did not ask for beats no
  *     stream at all.
- *   - Force a codec the platform denies. The choice is probed against the
- *     untouched isTypeSupported before any hook goes in. HEVC in particular is
- *     rarely exposed through MSE on webOS even where the panel decodes it in
- *     hardware, so that selection will usually be refused here with a message
- *     rather than producing a black screen.
+ *   - Force a codec the platform denies. The choice is checked against both the
+ *     UHD container table for the panel's actual output resolution and the
+ *     untouched isTypeSupported before any hook goes in, and a refusal says why.
+ *     HEVC in particular is rarely exposed through MSE on webOS even where the
+ *     panel decodes it in hardware, so that selection will usually be refused
+ *     here with a message rather than producing a black screen.
  *
  * TAKES EFFECT ON RELOAD
  *   The player probes codecs once, at startup, and caches the answer. Changing
@@ -306,6 +309,47 @@ function installHooks() {
 /* ---------------------------------------------------------------- wiring --- */
 
 /**
+ * The video plane height, or undefined while it is still unknown.
+ *
+ * This is the panel's output resolution, not the graphics canvas: a 4K TV runs
+ * this app on a 1920x1080 canvas, and gating a codec on the canvas would decide
+ * a 4K question from a 1080p number.
+ *
+ * Undefined until deviceInfo answers - and undefined means "do not refuse",
+ * because the platform probe is the better authority when it is available.
+ */
+function playbackHeight() {
+  const specs = getTVSpecs();
+  if (specs === undefined) return undefined;
+  return specs.playbackHeight > 0 ? specs.playbackHeight : undefined;
+}
+
+/**
+ * Why a pinned codec cannot work here, or null when it can.
+ *
+ * Two independent questions, both of which have to be no:
+ *
+ *   1. Can the platform decode it *at this video plane height*? MSE says yes to
+ *      VP9 and AV1 on webOS broadly, but the UHD container table only pairs with
+ *      H.264 and HEVC - so a 4K panel decodes neither, and the probe would not
+ *      know to say so.
+ *   2. Does MSE expose it at all? HEVC is rarely exposed through MSE on webOS
+ *      even where the panel decodes it in hardware.
+ *
+ * The first is checked first because its refusal reason is the more useful of
+ * the two, and because it is the one this change was made to catch.
+ */
+function pinnedCodecBlocked(codec) {
+  if (!canDecodeAt(codec, playbackHeight())) {
+    return codecRefusalReason(codec, playbackHeight());
+  }
+  if (!platformSupports(codec)) {
+    return `${codec.toUpperCase()} is not available through MSE on this TV`;
+  }
+  return null;
+}
+
+/**
  * Apply the stored setting.
  *
  * @param {boolean} interactive true when the user just changed it, which is the
@@ -322,33 +366,48 @@ function applyMode(interactive) {
     return;
   }
 
+  if (wanted === 'no_av1') {
+    // A negative preference, not a pin, so the resolution table does not apply:
+    // avoiding AV1 is satisfiable by every codec the platform can decode.
+    mode = 'no_av1';
+    unsatisfiable = false;
+    if (interactive)
+      showNotification('Video codec: Avoid AV1 — reload to apply');
+    return;
+  }
+
   // Install first so the probe below goes through the saved original rather
   // than whatever else may have wrapped isTypeSupported since startup.
   installHooks();
 
-  if (PINNED_MODES.indexOf(wanted) !== -1 && !platformSupports(wanted)) {
-    mode = 'auto';
-    const label = wanted.toUpperCase();
-    console.warn(
-      `[ForceCodec] ${label} is not available through MSE on this device; leaving codec selection alone.`
-    );
-    if (interactive) {
-      showNotification(
-        `${label} is not available on this TV — leaving codec on Auto`
-      );
+  if (PINNED_MODES.indexOf(wanted) !== -1) {
+    const refusal = pinnedCodecBlocked(wanted);
+    if (refusal !== null) {
+      mode = 'auto';
+      console.warn(`[ForceCodec] ${refusal}; leaving codec selection alone.`);
+      if (interactive) {
+        showNotification(`${refusal} — leaving codec on Auto`);
+      }
+      return;
     }
-    return;
   }
 
   mode = wanted;
   unsatisfiable = false;
 
   if (interactive) {
-    const label = mode === 'no_av1' ? 'Avoid AV1' : mode.toUpperCase();
-    showNotification(`Video codec: ${label} — reload to apply`);
+    showNotification(`Video codec: ${mode.toUpperCase()} — reload to apply`);
   }
 }
 
 configAddChangeListener('forceVideoCodec', () => applyMode(true));
 
 applyMode(false);
+
+// The video plane is only known once deviceInfo answers, which is after this
+// module evaluates. Re-apply when it lands: a pin that was accepted against an
+// unknown height - and so decided on the platform probe alone - can turn out to
+// be undecodable on a 4K panel. Silent, because this is a correction of a gate
+// the user already made, not a new decision; and late, so a notification would
+// arrive after the message explaining the setting had long since gone.
+addTVSpecsChangeListener(() => applyMode(false));

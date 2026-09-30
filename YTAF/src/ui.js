@@ -10,20 +10,18 @@ import {
   videoCodecModes
 } from './config.js';
 import './ui.css';
-import { addTVSpecsChangeListener, computeCalibratedScale } from './tv-specs';
+import {
+  addTVSpecsChangeListener,
+  refreshUIScale,
+  resolvePanelCareMode
+} from './tv-specs';
 import {
   showNotification as notificationsShowNotification,
-  setNotificationPanelCare,
-  setNotificationTheme
+  setNotificationPanelCare
 } from './notifications.js';
 import { isWatchPage } from './utils.js';
 
 export const showNotification = notificationsShowNotification;
-
-const UI_THEMES = {
-  'blue-force-field': 'Blue Force Field',
-  'classic-red': 'Classic Red'
-};
 
 const createElement = (tag, props = {}, ...children) => {
   const el = document.createElement(tag);
@@ -204,16 +202,20 @@ function createAlignedCycleControl(configKey, displayMap) {
 
   const label = control.querySelector('.shortcut-label');
   if (label) {
-    const dummyBox = createElement('input', {
-      style: {
-        visibility: 'hidden',
-        paddingLeft: '2.2vh'
-      }
-    });
-    dummyBox.setAttribute('type', 'checkbox');
+    // An unstyled checkbox spacer, not a padded one: it inherits the 1.85vh
+    // width and 1.1vh right margin from the base checkbox rule, which is
+    // exactly the space a real checkbox occupies. It previously carried
+    // `padding-left: 2.2vh`, which widened the spacer and pushed these labels
+    // ~2.2vh right of the checkbox rows. Nothing here should grow the box -
+    // the rule's own box-sizing: border-box keeps 1.85vh meaning the same
+    // thing whether or not the host page also sets one.
+    const spacer = createElement('input', { type: 'checkbox' });
+    spacer.tabIndex = -1;
+    spacer.style.visibility = 'hidden';
+    spacer.setAttribute('aria-hidden', 'true');
 
     label.textContent = '';
-    label.appendChild(dummyBox);
+    label.appendChild(spacer);
     label.appendChild(
       document.createTextNode('\u00A0' + configGetDesc(configKey))
     );
@@ -519,9 +521,7 @@ function createOptionsPanel() {
             text: 'Adjusts opacity of the background underneath videos (Requires a Panel Care Mode)',
             style: { color: '#aaa', fontSize: '18px', padding: '4px 12px 12px' }
           }),
-          createConfigCheckbox('fixMultilineTitles'),
-          createConfigCheckbox('removeBlackBorders'),
-          createAlignedCycleControl('uiTheme', UI_THEMES)
+          createConfigCheckbox('fixMultilineTitles')
         ])
       );
 
@@ -674,7 +674,6 @@ function showOptionsPanel(visible) {
       document.body.appendChild(optionsPanel);
 
       applyPanelCareMode(configRead('panelCareMode'));
-      applyTheme(configRead('uiTheme'));
     }
 
     console.debug('Showing and focusing options panel!');
@@ -713,7 +712,7 @@ document.addEventListener(
     const target = e.target;
     const isSafeFocus =
       (optionsPanel && optionsPanel.contains(target)) ||
-      (target.closest && target.closest('.sb-segments-popup'));
+      target.closest('.sb-segments-popup');
     if (isSafeFocus) lastSafeFocus = target;
     else {
       e.stopPropagation();
@@ -818,40 +817,6 @@ function initGlobalStyles() {
         padding-bottom: 0.37vh !important;
         padding-top: 0.37vh !important;
     }
-
-    html.ytaf-remove-borders yt-formatted-string,
-    html.ytaf-remove-borders .style-scope.ytd-rich-grid-media,
-    html.ytaf-remove-borders #video-title,
-    html.ytaf-remove-borders #metadata-line,
-    html.ytaf-remove-borders .ytd-video-meta-block {
-        background-color: transparent !important;
-        background: none !important;
-        box-shadow: none !important;
-    }
-    html.ytaf-remove-borders #details.ytd-rich-grid-media {
-        background-color: transparent !important;
-        margin-top: 4px !important;
-    }
-    html.ytaf-remove-borders ytd-thumbnail,
-    html.ytaf-remove-borders .ytd-searchbox,
-    html.ytaf-remove-borders .ytp-videowall-still-info-bg {
-        background-color: transparent !important;
-    }
-    html.ytaf-remove-borders .boSXqb .QFqCxd:before,
-    html.ytaf-remove-borders .V7jTHe,
-    html.ytaf-remove-borders .g6XRz,
-    html.ytaf-remove-borders .UGcxnc .sjENQb {
-        background-color: transparent !important;
-    }
-    html.ytaf-remove-borders .ltewod.BZ345e { background-color: #f1f1f1 !important; }
-    html.ytaf-remove-borders .MIiKQd.CgA6bd,
-    html.ytaf-remove-borders .clJQEe,
-    html.ytaf-remove-borders .dySudf,
-    html.ytaf-remove-borders .ltewod {
-        background-color: rgba(45, 45, 45, 0.45) !important;
-        background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0) 100%) !important;
-        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3) !important;
-    }
   `;
   document.head.appendChild(style);
 
@@ -859,8 +824,7 @@ function initGlobalStyles() {
     document.documentElement.classList.toggle(cls, !!configRead(key));
   const CLASS_KEYS = {
     'ytaf-hide-logo': 'hideLogo',
-    'ytaf-fix-titles': 'fixMultilineTitles',
-    'ytaf-remove-borders': 'removeBlackBorders'
+    'ytaf-fix-titles': 'fixMultilineTitles'
   };
   for (const [cls, key] of Object.entries(CLASS_KEYS)) {
     syncClass(cls, key);
@@ -874,8 +838,8 @@ function syncShelfOpacity() {
     '--ytaf-panel-opacity',
     String(opacityVal / 100)
   );
-  const isOled = configRead('panelCareMode') === 'oled';
-  const isQned = configRead('panelCareMode') === 'qned';
+  const isOled = resolvedPanelCareMode === 'oled';
+  const isQned = resolvedPanelCareMode === 'qned';
   document.documentElement.classList.toggle(
     'oled-transparent-shelf',
     isOled && opacityVal > 50
@@ -886,16 +850,25 @@ function syncShelfOpacity() {
   );
 }
 
+/**
+ * The care mode to actually apply, with 'auto' already resolved against the
+ * detected panel. Everything downstream (the panel, the clock, notifications,
+ * the shelf opacity) reads this rather than configRead('panelCareMode'), so the
+ * three of them cannot disagree about which mode is active.
+ */
+let resolvedPanelCareMode = resolvePanelCareMode(configRead('panelCareMode'));
+
 function applyPanelCareMode(mode) {
-  const isOled = mode === 'oled';
-  const isQned = mode === 'qned';
+  resolvedPanelCareMode = resolvePanelCareMode(mode);
+  const isOled = resolvedPanelCareMode === 'oled';
+  const isQned = resolvedPanelCareMode === 'qned';
   const active = isOled || isQned;
 
   if (optionsPanel) {
     optionsPanel.classList.toggle('oled-care', isOled);
     optionsPanel.classList.toggle('qned-care', isQned);
   }
-  setNotificationPanelCare(mode);
+  setNotificationPanelCare(resolvedPanelCareMode);
 
   document.documentElement.classList.toggle('oled-theme-active', isOled);
   document.documentElement.classList.toggle('qned-theme-active', isQned);
@@ -906,13 +879,6 @@ function applyPanelCareMode(mode) {
   }
 }
 
-function applyTheme(theme) {
-  if (optionsPanel) {
-    optionsPanel.classList.toggle('theme-classic-red', theme === 'classic-red');
-  }
-  setNotificationTheme(theme);
-}
-
 // --- Start-up ---
 initGlobalStyles();
 
@@ -921,26 +887,24 @@ configAddChangeListener('panelCareMode', (evt) =>
   applyPanelCareMode(evt.detail.newValue)
 );
 
-applyTheme(configRead('uiTheme'));
-configAddChangeListener('uiTheme', (evt) => applyTheme(evt.detail.newValue));
+// 'auto' resolves against the model in the UA, which tv-specs computes at
+// startup - so the resolved mode can change once tv-specs finishes, e.g. after
+// a window resize triggers its update().
+addTVSpecsChangeListener(() => applyPanelCareMode(configRead('panelCareMode')));
 
 configAddChangeListener('videoShelfOpacity', () => {
-  if (configRead('panelCareMode') !== 'off') syncShelfOpacity();
+  if (resolvedPanelCareMode !== 'off') syncShelfOpacity();
 });
 
 applyUIFixes();
 
-// TV-spec-aware UI scale. tv-specs tags <html> with the tier class and a
-// render scale; here we override that scale with the site-calibrated value so
-// the options panel tracks the density of the YouTube UI it renders beside,
-// and retune panel density whenever the displayed resolution changes.
-function applyUIScale() {
-  const scale = computeCalibratedScale();
-  document.documentElement.style.setProperty('--ytaf-ui-scale', String(scale));
-}
-
-applyUIScale();
+// --ytaf-ui-scale is written by tv-specs, which owns the density knob and
+// re-measures it whenever the specs change. Measuring it needs the site's
+// stylesheets, which are only present here rather than in the app shell, so the
+// call is repeated on entry and the panel's density-dependent relayout rides
+// along on the same notification.
 addTVSpecsChangeListener(() => {
-  applyUIScale();
+  refreshUIScale();
   optionsPanel?.recalcDensity?.();
 });
+refreshUIScale();

@@ -6,7 +6,9 @@
   "scripts": {
     "build": "webpack --mode=production",
     "build:dev": "webpack --mode=development",
+    "build:hd": "webpack --mode=production --env resolution=1280x720",
     "package": "ares-package -n dist",
+    "package:hd": "npm run build:hd && npm run package",
     "deploy": "node tools/deploy.js",
     "inspect": "ares-inspect youtube.leanback.v4",
     "launch": "ares-launch youtube.leanback.v4",
@@ -30,8 +32,7 @@
   "dependencies": {
     "@babel/runtime-corejs3": "^8.0.6",
     "core-js-pure": "^3.50.0",
-    "tiny-sha256": "^1.0.2",
-    "whatwg-fetch": "^3.6.20"
+    "tiny-sha256": "^1.0.2"
   },
   "devDependencies": {
     "@babel/core": "^8.0.6",

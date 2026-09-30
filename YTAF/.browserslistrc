@@ -1,9 +1,11 @@
-# WAM uses WebKit on webOS 1 and 2
-safari 7 # [WebKit 537.71] for webOS 1 [WebKit 537.41]
-safari 8 # [WebKit 538.35] for webOS 2 [WebKit 538.2]
-chrome 38 # webOS 3.x
-chrome 53 # webOS 4.x
-chrome 68 # webOS 5
+# Minimum supported webOS TV version is webOS 6 (Chrome 79).
+#
+# webOS 1-5 are no longer supported. They were Safari 7/8 (webOS 1-2, via WAM)
+# and Chrome 38-68 (webOS 3-5). Dropping them is what allows the build to emit
+# ES2019, native fetch, and CSS custom properties without manual fallbacks.
+#
+# This file is the support matrix of record: the webview engine version is
+# determined by the TV's webOS version, not by anything the app can detect.
 chrome 79 # webOS 6
 chrome 87 # webOS 7 (22)
 chrome 94 # webOS 8 (23)

@@ -1,5 +1,7 @@
 {
-  "checkBrowser": true,
+  "_comment": "Pinned, not derived. `checkBrowser: true` maps chrome 79 (the .browserslistrc floor) to ES10/ES2019, but Chrome 79 supports class fields, public and private, so Babel leaves them in the output and an ES2019 parser rejects the `#`. ES2022 is the lowest level that parses what we actually ship. This gate checks syntax only; the real Chrome 79 ceiling (no ?. or ??, which are Chrome 80) is enforced by babel and terser reading .browserslistrc, not by this file.",
+  "ecmaVersion": 2022,
+  "checkBrowser": false,
   "files": [
     "./dist/**/*.js"
   ]
