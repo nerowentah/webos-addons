@@ -100,7 +100,31 @@
   transition:
     background-color 150ms ease,
     border-color 150ms ease,
-    color 150ms ease;
+    color 150ms ease,
+    transform 150ms ease;
+  /* The panel owns its type, so the glyph is a text node in a <button> and
+     would otherwise resolve against the host document's font. */
+  font-family: inherit;
+}
+
+/* Pointer feedback for a connected mouse. A remote drives :focus only, so this
+   pair is dormant on a TV and the rule below is the one that has to speak.
+
+   Only border-color moves: the button is a fixed 3.4vh border-box, so a width
+   change here would eat the content box and push the glyph off centre. */
+.ytaf-close-btn:hover {
+  background: rgba(255, 0, 0, 0.15);
+  border-color: #ff0000;
+  color: #ffffff;
+}
+
+/* Declared after :hover so the equal-specificity pressed state wins. #cc0000 is
+   the filled-control tier from the top of this file, the same one a checked
+   checkbox uses. */
+.ytaf-close-btn:active {
+  background: #cc0000;
+  color: #ffffff;
+  transform: scale(0.92);
 }
 
 .ytaf-close-btn:focus {
