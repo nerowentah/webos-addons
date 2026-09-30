@@ -29,7 +29,7 @@ const configs = [
 
   {
     plugins: {
-      // Cast needed due to type mismatch even though this is the recommmended way to use the plugin.
+      // Cast needed due to type mismatch even though this is the recommended way to use the plugin.
       '@stylistic': stylistic as ESLint.Plugin
     },
 
