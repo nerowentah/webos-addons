@@ -49,7 +49,7 @@ const playerCtrlObs = new MutationObserver((mutations, obs) => {
 let videoObserverBusy = false;
 
 async function ensureVideoObserver() {
-  // YouTube TV re-uses the same video element for everything. Guard against
+  // YouTube TV reuses the same video element for everything. Guard against
   // stacking concurrent waits when the body class changes while one is running.
   if (videoObserverBusy) return;
   videoObserverBusy = true;

@@ -169,7 +169,7 @@ const obs = new MutationObserver((mutations) => {
   const dummy = document.createElement('div');
 
   // handle backgroundImage change
-  // YT re-uses thumbnail elements in its virtual list implementation.
+  // YT reuses thumbnail elements in its virtual list implementation.
   mutations
     .filter((mut) => mut.type === 'attributes')
     .map((mut) => [mut.target, mut] as const)
