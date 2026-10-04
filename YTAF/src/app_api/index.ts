@@ -24,6 +24,8 @@ export interface ResolveCommandHook {
 }
 
 const HOOK_POLL_MS = 250;
+const MAX_RETRY_ATTEMPTS = 10;
+const MAX_POLL_ATTEMPTS = 120; // 120 * 250ms = 30 seconds max polling
 
 let registry: ResolveCommandRegistry | null = null;
 let pending: Promise<ResolveCommandRegistry> | null = null;
@@ -110,13 +112,24 @@ export class ResolveCommandRegistry {
 
     if (hook) return Promise.resolve(hook);
 
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
+      let attempts = 0;
       const poll = () => {
-        if (disposed) return;
+        if (disposed) {
+          reject(new Error('ResolveCommandRegistry disposed during polling'));
+          return;
+        }
+        attempts++;
         const found = this.findHookTarget(exclude);
 
         if (found) {
           resolve(found);
+        } else if (attempts >= MAX_POLL_ATTEMPTS) {
+          reject(
+            new Error(
+              `Failed to find hook target after ${attempts} polling attempts`
+            )
+          );
         } else {
           setTimeout(poll, HOOK_POLL_MS);
         }
@@ -127,21 +140,39 @@ export class ResolveCommandRegistry {
 
   private static init(): Promise<ResolveCommandRegistry> {
     const failed = new Set<string>();
+    let attempts = 0;
 
-    const attempt = (): Promise<ResolveCommandRegistry> =>
-      this.getHookTarget(failed).then((key) => {
-        try {
-          registry = new ResolveCommandRegistry(key);
-          return registry;
-        } catch (err) {
-          failed.add(key);
+    const attempt = (): Promise<ResolveCommandRegistry> => {
+      attempts++;
+      if (attempts > MAX_RETRY_ATTEMPTS) {
+        return Promise.reject(
+          new Error(
+            `ResolveCommandRegistry initialization failed after ${attempts - 1} attempts`
+          )
+        );
+      }
+      return this.getHookTarget(failed)
+        .then((key) => {
+          try {
+            registry = new ResolveCommandRegistry(key);
+            return registry;
+          } catch (err) {
+            failed.add(key);
+            console.error(
+              `[${this.constructor.name}] Failed to hook "${key}", retrying...`,
+              err
+            );
+            return attempt();
+          }
+        })
+        .catch((err) => {
           console.error(
-            `[${this.constructor.name}] Failed to hook "${key}", retrying...`,
+            `[${this.constructor.name}] Failed to get hook target, retrying...`,
             err
           );
           return attempt();
-        }
-      });
+        });
+    };
 
     return attempt();
   }
@@ -151,7 +182,12 @@ export class ResolveCommandRegistry {
 
     if (disposed) disposed = false;
 
-    pending = pending ?? this.init();
+    if (!pending) {
+      pending = this.init().catch((err) => {
+        pending = null;
+        throw err;
+      });
+    }
     return pending;
   }
 

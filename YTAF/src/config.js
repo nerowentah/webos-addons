@@ -71,6 +71,7 @@ const configOptions = new Map([
     'removeShorts',
     { default: false, desc: 'Remove Shorts from subscriptions' }
   ],
+  ['removeMembersOnly', { default: false, desc: 'Hide members-only videos' }],
   ['enableSponsorBlock', { default: true, desc: 'Enable SponsorBlock' }],
   [
     'enableSponsorBlockSponsor',
@@ -111,20 +112,6 @@ const configOptions = new Map([
     {
       default: false,
       desc: 'Hide YouTube logo'
-    }
-  ],
-  [
-    'showWatch',
-    {
-      default: false,
-      desc: 'Display time in UI'
-    }
-  ],
-  [
-    'alwaysShowClock',
-    {
-      default: false,
-      desc: 'Always show the clock, even on hover'
     }
   ],
   [
@@ -237,6 +224,15 @@ function loadStoredConfig() {
     // feature no longer backs.
     if (parsed && Object.keys(parsed).includes('removeBlackBorders')) {
       delete parsed.removeBlackBorders;
+    }
+
+    // Drop the retired clock toggles along with the widget they drove. The
+    // on-screen clock is gone, so both keys are now unknown to configRead(),
+    // which throws on an unknown key - a stored value left in place would
+    // break the panel on the next load for anyone who had enabled the clock.
+    if (parsed) {
+      delete parsed.showWatch;
+      delete parsed.alwaysShowClock;
     }
 
     return parsed;

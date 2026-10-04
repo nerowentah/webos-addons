@@ -277,15 +277,17 @@
   max-width: 37vh;
 }
 
-/* The toast shares the top-right corner with the on-screen clock and paints
-   above it (z-index 1200 vs 1199), so the two can overlap - with alwaysShowClock
-   on, and on a codec change made from the home feed. They are styled as one
-   family for that reason: same translucent scrim, same white hairline, same
-   radius language.
+/* The toast owns the top-right corner outright, and the panel's top-left corner
+   starts at 5vh below it, so nothing else competes for this space.
 
-   The plate sits a little lighter than the clock's 0.62 because this element is
-   transient rather than always-on. It does not carry --ytaf-panel-opacity: the
-   shelf slider has never reached it, and wiring that up is a separate change.
+   The plate is a translucent scrim over whatever is behind it - the same neutral
+   language the on-screen entry point (.ytaf-ui-badge below) uses, rather than
+   the flat fills the options panel is built from. That is safe here because the
+   toast is transient: a 0.55 scrim clears a bright video frame long enough to
+   read, without needing the solid plate the panel uses.
+
+   It does not carry --ytaf-panel-opacity: the shelf slider has never reached
+   it, and wiring that up is a separate change.
 
    The border colour lives here rather than in JS. showNotification() only sets
    an inline border-color when the caller passes an explicit colour, and no
@@ -316,49 +318,6 @@
 .ytaf-notification-container .message-hidden {
   opacity: 0;
   transform: translateX(1.85vh);
-}
-
-/* On-Screen Clock
-
-   The plate is a translucent scrim rather than a solid fill, matching the
-   neutral language of the on-screen entry point (.ytaf-ui-badge below) rather
-   than the flat fills the options panel and notifications are built from.
-
-   Two adjustments keep that safe here, where the badge has no equivalent
-   problem. The badge dims itself to opacity 0.6 and sits over the dark shelf;
-   this is always-on over live video, so the alpha is raised from the badge's
-   0.45 to 0.62 and the text shadow carries the remaining contrast on a bright
-   frame. And the border stays 0.09vh rather than the badge's 1px, which
-   disappears once the panel's density is scaled down. */
-/* Classic Red is the only theme, so the hairline is red at rest. A translucent
-   scrim over whatever is behind it is theme-neutral, so it stays untinted. */
-.webOs-watch {
-  position: fixed;
-  right: 0;
-  top: 0;
-  margin: 1rem 2rem;
-  background-color: rgba(0, 0, 0, 0.62);
-  border: 0.09vh solid rgba(255, 0, 0, 0.35);
-  border-radius: 999px;
-  box-shadow: 0 0.2vh 0.6vh rgba(0, 0, 0, 0.35);
-  padding: 0.4rem 0.9rem;
-  font-size: 1.2rem;
-  letter-spacing: 0.05rem;
-  /* Not dimmed by the care modes the way the notification body text is: that
-     text is a paragraph to read at leisure, this is a glanceable time string. */
-  color: #ffffff;
-  text-shadow: 0 0.1rem 0.3rem rgba(0, 0, 0, 0.9);
-  z-index: 1199;
-  /* Nothing here is interactive, and the notifications own this corner. */
-  pointer-events: none;
-  transition:
-    opacity 150ms ease,
-    background-color 150ms ease,
-    border-color 150ms ease;
-}
-
-.webOs-watch.clock-hidden {
-  opacity: 0;
 }
 
 /* Panel Care Modes (OLED / QNED MiniLED)
@@ -447,27 +406,6 @@
 
 .ytaf-ui-container.qned-care .ytaf-ui-version {
   color: #a0a0a0;
-}
-
-/* The clock's care plates carry --ytaf-panel-opacity so the slider dims the
-   clock alongside the shelf. It is deliberately absent from the base rule: with
-   care mode off the clock keeps its own fixed alpha regardless of the shelf
-   setting. The property is declared in the runtime style block in src/ui.js
-   rather than here, and the 1 fallback covers the window before that block is
-   injected.
-
-   The plate is lifted to #2a2a2a rather than sharing the base scrim's black.
-   Both care modes flatten the page underneath to a fixed dark colour - #000000
-   for OLED, #141414 for QNED - and a scrim matching that colour is invisible:
-   over an OLED's true black, rgba(0,0,0,0.62) composites to black, which left
-   the clock reading as bare text inside a border. #2a2a2a is the neutral
-   checkbox plate from the panel above, so it costs no new colour. The two modes
-   are otherwise identical for the clock and share one rule; only the QNED border
-   that used to sit here is gone, since the white hairline is already the neutral
-   it was reaching for. */
-.webOs-watch.oled-care,
-.webOs-watch.qned-care {
-  background-color: rgba(42, 42, 42, calc(0.62 * var(--ytaf-panel-opacity, 1)));
 }
 
 /* Tab Menu */
@@ -725,9 +663,10 @@
 /* On-screen entry point (the "YTAF" badge), for remotes without color buttons
    (e.g. MR25GA). */
 .ytaf-ui-badge {
-  position: absolute;
-  left: 10px;
-  bottom: 10px;
+  position: fixed;
+  left: 4.375vw;
+  top: 95.65vh;
+  transform: translateX(-50%);
   z-index: 1100;
   padding: 0.3em 0.7em;
   font-size: 0.8rem;

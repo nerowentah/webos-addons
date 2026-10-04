@@ -1,19 +1,39 @@
 #!/usr/bin/env node
 
 const { spawnSync } = require('node:child_process');
+const path = require('node:path');
 const pkgJson = require('../package.json');
 
+// Resolved from this module's own location rather than the process cwd, which
+// varies by caller (webpack, deploy, and the manifest each start differently).
+const APP_DIR = path.dirname(require.resolve('../package.json'));
+
+// Resolved once per process: these shell out to git, and callers read them more
+// than once (the manifest reads the version twice). Caching also guarantees a
+// single build cannot observe two different answers if HEAD moves mid-run.
+// `undefined` means "not computed yet", distinct from a cached `null` result.
+/** @type {number | null | undefined} */
+let cachedBuild;
+/** @type {string | null | undefined} */
+let cachedSha;
+/** @type {string | undefined} */
+let cachedVersion;
+
 /**
- * Run a git command from this directory. Git walks up to the enclosing
- * repository (this app is not its own git repo in this checkout), so the short
- * SHA and commit count describe the enclosing repo's HEAD, not this app's
- * history.
+ * Run a git command with the working directory pinned to this app. Git walks up
+ * to the enclosing repository (this app is not its own git repo in this
+ * checkout), so the cwd must be pinned rather than inherited: a pathspec is
+ * resolved relative to the cwd, and an inherited cwd would make the same call
+ * return different results depending on where the process was started.
  *
  * @param {readonly string[]} args
  * @returns {string | null}
  */
 function runGit(args) {
-  const result = spawnSync('git', args, { encoding: 'utf8' });
+  const result = spawnSync('git', args, {
+    cwd: APP_DIR,
+    encoding: 'utf8'
+  });
   if (result.status !== 0) return null;
   return result.stdout.trim();
 }
@@ -22,34 +42,86 @@ function runGit(args) {
  * @returns {string | null} Short SHA of HEAD (e.g. "e4fd19f").
  */
 function getGitShortSha() {
-  return runGit(['rev-parse', '--short', 'HEAD']);
+  if (cachedSha !== undefined) return cachedSha;
+  cachedSha = runGit(['rev-parse', '--short', 'HEAD']);
+  return cachedSha;
 }
 
 /**
- * @returns {number | null} Total commit count of the enclosing repository.
+ * Repo-root-relative path of this app, as a git pathspec. The `:(top)` magic
+ * anchors the pathspec to the repository root, so the result is the same no
+ * matter which directory git is invoked from. Resolved at runtime rather than
+ * hardcoded so the app keeps working if it moves within the enclosing repo.
+ *
+ * @returns {string | null} The pathspec, `''` when this app is the repository
+ *   root, or `null` when git is unavailable.
+ */
+function getAppPathspec() {
+  const prefix = runGit(['rev-parse', '--show-prefix']);
+  if (prefix === null) return null;
+  if (prefix === '') return '';
+  return `:(top)${prefix.replace(/\\/g, '/')}`;
+}
+
+/**
+ * Commits that actually touched this app. Counting the whole enclosing repo
+ * would bump the version for unrelated changes anywhere in the monorepo, so
+ * the count is restricted to this app's paths.
+ *
+ * @returns {number | null}
  */
 function getBuildNumber() {
-  const count = runGit(['rev-list', '--count', 'HEAD']);
-  if (count === null) return null;
+  if (cachedBuild !== undefined) return cachedBuild;
+  cachedBuild = null;
+  const pathspec = getAppPathspec();
+  if (pathspec === null) return cachedBuild;
+  const args = ['rev-list', '--count', 'HEAD'];
+  if (pathspec !== '') args.push('--', pathspec);
+  const count = runGit(args);
+  if (count === null) return cachedBuild;
   const parsed = Number.parseInt(count, 10);
-  return Number.isFinite(parsed) ? parsed : null;
+  cachedBuild = Number.isFinite(parsed) ? parsed : null;
+  return cachedBuild;
+}
+
+/**
+ * Parse one numeric version component, tolerating malformed package.json
+ * versions rather than emitting "NaN" or silently dropping a component.
+ *
+ * @param {string | undefined} value
+ * @returns {number}
+ */
+function toVersionPart(value) {
+  const parsed = Number.parseInt(value ?? '', 10);
+  return Number.isFinite(parsed) ? parsed : 0;
 }
 
 /**
  * Version used everywhere (appinfo.json, IPK filename, Homebrew manifest,
  * UI badge). ares-package and webOS require exactly three numeric parts
  * (major.minor.patch), so the package.json base contributes the major and
- * minor while the repository commit count fills the patch. This keeps every
- * build distinct and increasing. Falls back to the package.json version
- * when git is unavailable.
+ * minor while the app's commit count fills the patch. This keeps every build
+ * distinct and increasing. Falls back to the package.json version when git is
+ * unavailable.
+ *
+ * The patch never drops below package.json's own patch. A rebase or history
+ * squash can lower the commit count, and webOS compares versions, so shipping
+ * a lower number would look like a downgrade. Raising the package.json patch
+ * pins a floor for a release that must not be undercut.
  *
  * @returns {string}
  */
 function getVersion() {
+  if (cachedVersion !== undefined) return cachedVersion;
   const build = getBuildNumber();
-  if (build === null) return pkgJson.version;
-  const [major, minor] = pkgJson.version.split('.');
-  return `${major ?? 0}.${minor ?? 0}.${build}`;
+  if (build === null) {
+    cachedVersion = pkgJson.version;
+    return cachedVersion;
+  }
+  const [major, minor, patch] = pkgJson.version.split('.');
+  const floor = toVersionPart(patch);
+  cachedVersion = `${toVersionPart(major)}.${toVersionPart(minor)}.${Math.max(build, floor)}`;
+  return cachedVersion;
 }
 
 /**

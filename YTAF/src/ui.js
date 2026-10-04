@@ -445,6 +445,7 @@ function createOptionsPanel() {
       [
         createConfigCheckbox('enableAdBlock'),
         createConfigCheckbox('removeShorts'),
+        createConfigCheckbox('removeMembersOnly'),
         createConfigCheckbox('hideLogo'),
         createConfigCheckbox('upgradeThumbnails')
       ],
@@ -460,8 +461,6 @@ function createOptionsPanel() {
   );
   pageMain.appendChild(
     createSection('Interface', [
-      createConfigCheckbox('showWatch'),
-      createConfigCheckbox('alwaysShowClock'),
       createConfigCheckbox('showYtafButton'),
       createConfigCheckbox('autoAccountSelect'),
       createAlignedCycleControl('panelCareMode', panelCareModes)

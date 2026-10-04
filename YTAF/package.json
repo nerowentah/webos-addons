@@ -1,6 +1,6 @@
 {
   "name": "youtube-webos",
-  "version": "0.5.3",
+  "version": "1.0.0",
   "description": "Ad-Free YouTube app for webOS",
   "type": "module",
   "scripts": {
@@ -25,10 +25,10 @@
     "lint:all": "npm run audit && npm run lint && npm run type-check && npm run prettier-check",
     "verify": "npm run build && npm run test:compat"
   },
-  "repository": "github:webosbrew/youtube-webos",
+  "repository": "github:nerowentah/scripts",
   "license": "GPL-3.0-only",
-  "bugs": "https://github.com/webosbrew/youtube-webos/issues",
-  "homepage": "https://github.com/webosbrew/youtube-webos#readme",
+  "bugs": "https://github.com/nerowentah/scripts/issues",
+  "homepage": "https://github.com/nerowentah/scripts#readme",
   "dependencies": {
     "@babel/runtime-corejs3": "^8.0.6",
     "core-js-pure": "^3.50.0",
@@ -63,7 +63,7 @@
     "style-loader": "^4.0.0",
     "terser-webpack-plugin": "^5.4.0",
     "transform-async-modules-webpack-plugin": "^1.1.1",
-    "typescript": "^5.9.3",
+    "typescript": "^6.0.3",
     "typescript-eslint": "^8.70.1",
     "webpack": "^5.111.1",
     "webpack-cli": "^7.2.3",

@@ -43,20 +43,33 @@ export class FetchRegistry extends CustomEventTarget<EventMap> {
     )
       return null;
 
-    const blob = await resource.clone().blob();
-    if (!blob.size) return null;
+    try {
+      const blob = await resource.clone().blob();
+      if (!blob.size) return null;
 
-    const fr = new FileReader();
+      const fr = new FileReader();
 
-    const res = new Promise((resolve) => {
-      fr.addEventListener('load', () => {
-        resolve(fr.result);
+      const res = new Promise((resolve, reject) => {
+        fr.addEventListener('load', () => {
+          resolve(fr.result);
+        });
+        fr.addEventListener('error', () => {
+          reject(new Error('FileReader error while reading blob'));
+        });
+        fr.addEventListener('abort', () => {
+          reject(new Error('FileReader aborted while reading blob'));
+        });
       });
-    });
 
-    fr.readAsDataURL(blob);
+      fr.readAsDataURL(blob);
 
-    return res;
+      return await res;
+    } catch (err) {
+      if (window.__ytaf_debug__) {
+        console.warn('[FetchRegistry] Failed to dump body:', err);
+      }
+      return null;
+    }
   }
 
   #customFetch = async (resource: FetchTarget, init?: RequestInit) => {

@@ -22,6 +22,7 @@
 - Ad Blocking (home, search, watch, and Shorts feeds), including the promoted and sponsored placements that only appear once signed in
 - Remove end screens
 - Shorts Removal (from subscriptions)
+- Members-Only Removal across the home, search, subscription, channel, and Live feeds, including members-only channel sections (also covers early-access "members first" posts)
 - Higher-Quality Thumbnails
 - YouTube Logo Removal
 
@@ -53,7 +54,7 @@
 - [Autostart Support](#autostart)
 
 > [!NOTE]
-> Press the 🟩 **Green** button on your remote, or click the **YTAF** badge (bottom-left) with the Magic Remote pointer, to access the configuration screen. Remotes without color buttons (e.g. MR25GA) use the badge.
+> Press the 🟩 **Green** button on your remote, or click the **YTAF** badge (below the **Settings** entry in the left guide) with the Magic Remote pointer, to access the configuration screen. Remotes without color buttons (e.g. MR25GA) use the badge.
 
 ---
 

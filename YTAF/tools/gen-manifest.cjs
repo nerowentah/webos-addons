@@ -23,8 +23,8 @@ fs.writeFileSync(
     title: appinfo.title,
     // appDescription: appinfo.appDescription,
     iconUri:
-      'https://raw.githubusercontent.com/webosbrew/youtube-webos/main/assets/extraLargeIcon.png',
-    sourceUrl: 'https://github.com/webosbrew/youtube-webos',
+      'https://raw.githubusercontent.com/nerowentah/scripts/main/Cross-Platform/webOS/YTAF/assets/extraLargeIcon.png',
+    sourceUrl: 'https://github.com/nerowentah/scripts',
     rootRequired: false,
     ipkUrl: ipkfile,
     ipkHash: {

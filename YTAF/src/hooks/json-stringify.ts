@@ -14,21 +14,28 @@ function stringify(
   replacer?: FunctionReplacer | WhitelistReplacer,
   space?: string | number
 ): string {
-  if (!isPrimitive(value)) {
-    value = structuredClone(value);
+  let processedValue = value;
+  if (!isPrimitive(processedValue)) {
+    try {
+      processedValue = structuredClone(processedValue);
 
-    // @ts-expect-error TS doesn't allow optional chaining on `unknown`. See: https://github.com/microsoft/TypeScript/issues/37700
-    const ctx = value?.playbackContext?.contentPlaybackContext as unknown;
-    if (!isPrimitive(ctx)) {
-      (ctx as Record<string, unknown>).isInlinePlaybackNoAd = true;
-      console.info('[JSON.stringify] Set isInlinePlaybackNoAd');
+      const processed = processedValue as Record<string, unknown>;
+      const ctx = (processed?.playbackContext as Record<string, unknown>)
+        ?.contentPlaybackContext as unknown;
+      if (!isPrimitive(ctx)) {
+        (ctx as Record<string, unknown>).isInlinePlaybackNoAd = true;
+        console.info('[JSON.stringify] Set isInlinePlaybackNoAd');
+      }
+    } catch (err) {
+      console.warn('[JSON.stringify] structuredClone failed:', err);
+      processedValue = value;
     }
   }
 
   if (typeof replacer === 'function') {
-    return originalStringify(value, replacer, space);
+    return originalStringify(processedValue, replacer, space);
   }
-  return originalStringify(value, replacer, space);
+  return originalStringify(processedValue, replacer, space);
 }
 
 JSON.stringify = stringify;

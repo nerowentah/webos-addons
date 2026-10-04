@@ -48,3 +48,19 @@ ytlr-tile-renderer[style*='width: 12.75rem; height: 21.25rem;']
   visibility: visible !important;
   transition: none !important;
 }
+
+/* Hide the "offer" surface, which is where YouTube renders its subscription
+ * upsells (Premium trials, upgrade prompts, plan offers) on this build.
+ *
+ * Observed via the live inspector on 65QNED86ASA / webOS 23 while signed out:
+ * the element exists inside ytlr-squeezeback > ytlr-watch-default but arrives
+ * dormant - display:none, 0x0, empty text - so it costs nothing to hide now.
+ * When an upsell is actually served, this is the node that becomes visible.
+ *
+ * Verified absent-from-payload as well: a captured 500KB youtubei/v1/browse
+ * response held no promo/upsell/premium/offer/banner/statement/masthead renderer
+ * keys, so nothing is being suppressed at the JSON layer - this element is the
+ * only upsell surface present in the DOM. */
+ytlr-offer-button-list-renderer {
+  display: none !important;
+}
