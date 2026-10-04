@@ -41,7 +41,7 @@
     "@babel/preset-typescript": "^8.0.0",
     "@eslint/js": "^10.0.0",
     "@stylistic/eslint-plugin": "^5.10.0",
-    "@types/node": "^24.0.0",
+    "@types/node": "^26.6.3",
     "@webos-tools/cli": "^3.2.6",
     "babel-loader": "^10.1.1",
     "babel-plugin-polyfill-corejs3": "^1.0.0",
