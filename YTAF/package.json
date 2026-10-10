@@ -63,7 +63,7 @@
     "style-loader": "^4.0.0",
     "terser-webpack-plugin": "^5.4.0",
     "transform-async-modules-webpack-plugin": "^1.1.1",
-    "typescript": "^6.0.3",
+    "typescript": "^7.0.2",
     "typescript-eslint": "^8.70.1",
     "webpack": "^5.111.1",
     "webpack-cli": "^7.2.3",
