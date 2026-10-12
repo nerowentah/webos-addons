@@ -1,5 +1,6 @@
 import './sponsorblock-ui.css';
 import sponsorBlockIcon from './icons/sponsorblock-icon.png';
+import { segmentColors } from './config.js';
 
 class SponsorBlockUI {
   constructor() {
@@ -16,19 +17,7 @@ class SponsorBlockUI {
   }
 
   getSegmentColor(category) {
-    const colors = {
-      sponsor: '#00d400',
-      intro: '#00ffff',
-      outro: '#0202ed',
-      interaction: '#cc00ff',
-      selfpromo: '#ffff00',
-      music_offtopic: '#ff9900',
-      preview: '#008fd6',
-      filler: '#7300ff',
-      poi_highlight: '#ff1684',
-      hook: '#395699'
-    };
-    return colors[category] || '#777';
+    return segmentColors[category] || '#777';
   }
 
   getCategoryName(category) {

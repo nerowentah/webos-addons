@@ -12,11 +12,9 @@ interface YTPlayerEventMap extends HTMLElementEventMap {
 }
 
 interface VideoQualityData {
-  formatId: string | undefined;
   qualityLabel: string;
   quality: string;
   isPlayable: boolean;
-  paygatedQualityDetails?: unknown;
 }
 
 export type VideoID = string;
@@ -41,7 +39,7 @@ export type PlayerStateKeys =
 export type PlayerStateObject = Record<PlayerStateKeys, boolean>;
 
 export interface VideoStats {
-  el?: 'leanback' | 'shortspage';
+  el?: 'shortspage';
 }
 
 export interface YTPlayer extends HTMLElement {

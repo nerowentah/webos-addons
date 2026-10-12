@@ -97,7 +97,7 @@ declare global {
   interface Window {
     launchParams?: webOSLaunchParams;
     webOS?: WebOSApi;
-    __ytaf_debug__?: boolean;
+    __ytx_debug__?: boolean;
   }
 
   interface Document {

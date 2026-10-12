@@ -6,7 +6,7 @@ import webpack from 'webpack';
 import { basename } from 'node:path';
 import { getVersionInfo } from './tools/version.cjs';
 
-const { version, gitSha } = getVersionInfo();
+const { version, gitSha, owner } = getVersionInfo();
 
 /**
  * The graphics canvas, overridable per build.
@@ -205,8 +205,9 @@ const makeConfig = (env, argv) => [
         })
       ),
       new webpack.DefinePlugin({
-        __YTAF_VERSION__: JSON.stringify(version),
-        __YTAF_GITSHA__: JSON.stringify(gitSha)
+        __YTX_VERSION__: JSON.stringify(version),
+        __YTX_GITSHA__: JSON.stringify(gitSha),
+        __YTX_OWNER__: JSON.stringify(owner)
       })
     ]
   }

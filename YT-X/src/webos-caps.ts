@@ -122,11 +122,6 @@ export function tvVersionFor(version: WebOSVersion): number | undefined {
   return RELEASES.find((r) => r.internal === version)?.tv;
 }
 
-/** The webview engine version for an internal webOS version, if known. */
-export function chromeVersionFor(version: WebOSVersion): number | undefined {
-  return RELEASES.find((r) => r.internal === version)?.chrome;
-}
-
 /** Which numbering a raw UA version string turned out to be in. */
 export type VersionScheme = 'internal' | 'tv' | 'unrecognised';
 
@@ -201,7 +196,7 @@ export interface Capability {
 }
 
 /**
- * The matrix of record, dumped by `__ytaf_debug__` with a verdict per row.
+ * The matrix of record, dumped by `__ytx_debug__` with a verdict per row.
  *
  * `minInternalVersion` is an expectation to be checked against hardware, not a
  * switch: every row's behaviour is decided by its `probe` string. Where LG

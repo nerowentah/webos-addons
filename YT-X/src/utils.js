@@ -179,7 +179,7 @@ function updatePageState() {
   _isShortsPage = newShorts;
 
   window.dispatchEvent(
-    new CustomEvent('ytaf-page-update', {
+    new CustomEvent('ytx-page-update', {
       detail: {
         isWatch: _isWatchPage,
         isShorts: _isShortsPage
@@ -236,18 +236,9 @@ export function getVideo() {
   return _cachedVideo;
 }
 if (typeof window !== 'undefined') {
-  window.addEventListener('ytaf-page-update', (e) => {
+  window.addEventListener('ytx-page-update', (e) => {
     // Drop the cache whenever we leave a video page; the next getVideo() call
     // will re-query on demand.
     if (!e.detail.isWatch && !e.detail.isShorts) _cachedVideo = null;
   });
-}
-
-export function debounce(func, wait) {
-  let timeout;
-  return function (...args) {
-    const context = this;
-    clearTimeout(timeout);
-    timeout = setTimeout(() => func.apply(context, args), wait);
-  };
 }

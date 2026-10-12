@@ -13,7 +13,7 @@
    invent its own weight or opacity per surface: switching modes then changes
    only a hue and a plate, never the presence, width or strength of an edge. */
 
-.ytaf-ui-container {
+.ytx-ui-container {
   position: fixed;
   top: 5vh;
   left: 30%;
@@ -43,27 +43,27 @@
 
 /* Show/hide poses. The container keeps its centering transform in every pose
    so the slide-up scale reads as an entrance, not a drift. */
-.ytaf-ui-container.collapse-start {
+.ytx-ui-container.collapse-start {
   opacity: 0;
   transform: translateX(-50%) translateY(1.5vh) scale(0.985);
   pointer-events: none;
 }
 
-.ytaf-ui-container.collapse-end {
+.ytx-ui-container.collapse-end {
   opacity: 1;
   transform: translateX(-50%);
 }
 
-.ytaf-ui-container::before {
+.ytx-ui-container::before {
   display: none !important;
 }
 
-.ytaf-ui-container > * {
+.ytx-ui-container > * {
   position: relative;
   z-index: 1;
 }
 
-.ytaf-ui-container h1 {
+.ytx-ui-container h1 {
   margin: 0;
   padding: 1.5vh 3vh 1.1vh;
   text-align: center;
@@ -78,7 +78,7 @@
   text-shadow: none;
 }
 
-.ytaf-close-btn {
+.ytx-close-btn {
   position: absolute;
   top: 0.9vh;
   right: 1.2vh;
@@ -112,7 +112,7 @@
 
    Only border-color moves: the button is a fixed 3.4vh border-box, so a width
    change here would eat the content box and push the glyph off centre. */
-.ytaf-close-btn:hover {
+.ytx-close-btn:hover {
   background: rgba(255, 0, 0, 0.15);
   border-color: #ff0000;
   color: #ffffff;
@@ -121,19 +121,19 @@
 /* Declared after :hover so the equal-specificity pressed state wins. #cc0000 is
    the filled-control tier from the top of this file, the same one a checked
    checkbox uses. */
-.ytaf-close-btn:active {
+.ytx-close-btn:active {
   background: #cc0000;
   color: #ffffff;
   transform: scale(0.92);
 }
 
-.ytaf-close-btn:focus {
+.ytx-close-btn:focus {
   outline: 0.19vh solid #ff0000;
   outline-offset: 0.19vh;
   color: #ffffff;
 }
 
-.ytaf-ui-container > div.ytaf-settings-page {
+.ytx-ui-container > div.ytx-settings-page {
   padding: 0 3vh 2.2vh;
   overflow-y: auto;
   overflow-x: hidden;
@@ -141,10 +141,10 @@
   min-height: 0;
   /* Pages swap display:none <-> block on tab change; the animation restarts on
      every flip, so tab switches fade in with no JS. */
-  animation: ytaf-page-in 150ms ease;
+  animation: ytx-page-in 150ms ease;
 }
 
-@keyframes ytaf-page-in {
+@keyframes ytx-page-in {
   from {
     opacity: 0;
     transform: translateY(0.6vh);
@@ -155,20 +155,20 @@
   }
 }
 
-.ytaf-ui-container > div::-webkit-scrollbar {
+.ytx-ui-container > div::-webkit-scrollbar {
   width: 0.75vh;
 }
 
-.ytaf-ui-container > div::-webkit-scrollbar-track {
+.ytx-ui-container > div::-webkit-scrollbar-track {
   background: rgba(255, 255, 255, 0.05);
 }
 
-.ytaf-ui-container > div::-webkit-scrollbar-thumb {
+.ytx-ui-container > div::-webkit-scrollbar-thumb {
   background: #cc0000;
   border-radius: 0.4vh;
 }
 
-.ytaf-ui-container input[type='checkbox'] {
+.ytx-ui-container input[type='checkbox'] {
   /* Owned here, not inherited. The panel lives in YouTube's document, so the
      host's global normalize currently hands us box-sizing: border-box; under
      that, the 1.85vh below is the border box. Should the host ever drop it, the
@@ -193,13 +193,13 @@
     border-color 150ms ease;
 }
 
-.ytaf-ui-container input[type='checkbox']:checked {
+.ytx-ui-container input[type='checkbox']:checked {
   background: #cc0000;
   border-color: #ff0000;
   box-shadow: none;
 }
 
-.ytaf-ui-container input[type='checkbox']:checked::after {
+.ytx-ui-container input[type='checkbox']:checked::after {
   content: '✓';
   position: absolute;
   top: 50%;
@@ -210,13 +210,13 @@
   font-weight: bold;
 }
 
-.ytaf-ui-container input[type='checkbox']:focus {
+.ytx-ui-container input[type='checkbox']:focus {
   outline: 0.19vh solid #ff0000;
   outline-offset: 0.19vh;
   border-color: #ff0000;
 }
 
-.ytaf-ui-container label {
+.ytx-ui-container label {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -230,21 +230,21 @@
     box-shadow 150ms ease;
 }
 
-.ytaf-ui-container label .label-content {
+.ytx-ui-container label .label-content {
   display: flex;
   align-items: center;
   flex: 1;
 }
 
-.ytaf-ui-container .shortcut-control-row:focus,
-.ytaf-ui-container label:focus-within {
+.ytx-ui-container .shortcut-control-row:focus,
+.ytx-ui-container label:focus-within {
   background: rgba(255, 0, 0, 0.1);
   border-radius: 0.75vh;
   box-shadow: 0 0 0 0.19vh rgba(255, 0, 0, 0.5);
   outline: none;
 }
 
-.ytaf-ui-container blockquote {
+.ytx-ui-container blockquote {
   margin: 1.5vh 0 1.5vh 2.2vh;
   padding-left: 2.2vh;
   border-left: 0.28vh solid #ff0000;
@@ -252,13 +252,13 @@
   border-radius: 0 0.75vh 0.75vh 0;
 }
 
-.ytaf-ui-container blockquote label {
+.ytx-ui-container blockquote label {
   font-size: 1.85vh;
   color: #e0e0e0;
   padding: 0.75vh 0;
 }
 
-.ytaf-ui-container small {
+.ytx-ui-container small {
   display: block;
   text-align: center;
   color: #888888;
@@ -268,7 +268,7 @@
   border-top: 0.09vh solid #3f3f3f;
 }
 
-.ytaf-notification-container {
+.ytx-notification-container {
   position: fixed;
   top: 1.85vh;
   right: 1.85vh;
@@ -281,12 +281,12 @@
    starts at 5vh below it, so nothing else competes for this space.
 
    The plate is a translucent scrim over whatever is behind it - the same neutral
-   language the on-screen entry point (.ytaf-ui-badge below) uses, rather than
+   language the on-screen entry point (.ytx-ui-badge below) uses, rather than
    the flat fills the options panel is built from. That is safe here because the
    toast is transient: a 0.55 scrim clears a bright video frame long enough to
    read, without needing the solid plate the panel uses.
 
-   It does not carry --ytaf-panel-opacity: the shelf slider has never reached
+   It does not carry --ytx-panel-opacity: the shelf slider has never reached
    it, and wiring that up is a separate change.
 
    The border colour lives here rather than in JS. showNotification() only sets
@@ -295,7 +295,7 @@
    hairline at 0.35, in every care mode as well as off. The 0.37vh left border is
    the accent bar that distinguishes a toast from a plain plate, and it stays
    opaque - the care rules restore it after setting the translucent hairline. */
-.ytaf-notification-container .message {
+.ytx-notification-container .message {
   background: rgba(0, 0, 0, 0.55);
   border: 0.09vh solid rgba(255, 0, 0, 0.35);
   color: #ffffff;
@@ -315,14 +315,14 @@
   overflow-wrap: break-word;
 }
 
-.ytaf-notification-container .message-hidden {
+.ytx-notification-container .message-hidden {
   opacity: 0;
   transform: translateX(1.85vh);
 }
 
 /* Panel Care Modes (OLED / QNED MiniLED)
 
-   The border width here must match the base .ytaf-ui-container 0.09vh. It used
+   The border width here must match the base .ytx-ui-container 0.09vh. It used
    to be 0.19vh, which added 0.1vh to each edge, shrank the content box by
    0.2vh and shifted every row - checkbox column included - out of line with
    care mode off. That also contradicted the accent-tier note at the top of this
@@ -333,24 +333,24 @@
    modes - which is the whole of what distinguishes them for this panel. OLED
    used to carry 0.4 here against QNED's 0.35, so toggling between them changed
    the strength of the edge rather than only its hue. */
-.ytaf-ui-container.oled-care,
-.ytaf-ui-container.qned-care {
+.ytx-ui-container.oled-care,
+.ytx-ui-container.qned-care {
   border: 0.09vh solid rgba(255, 0, 0, 0.35);
 }
 
-.ytaf-ui-container.oled-care {
+.ytx-ui-container.oled-care {
   background: #000000;
 }
 
 /* Each checkbox plate matches the panel plate behind it, so the control reads
    as a hole in the panel rather than a chip sitting on it. QNED was #1e1e1e
    against a #141414 panel. */
-.ytaf-ui-container.oled-care input[type='checkbox'] {
+.ytx-ui-container.oled-care input[type='checkbox'] {
   background: #000000;
   border-color: #555555;
 }
 
-.ytaf-ui-container.qned-care input[type='checkbox'] {
+.ytx-ui-container.qned-care input[type='checkbox'] {
   background: #141414;
   border-color: #555555;
 }
@@ -360,8 +360,8 @@
    with the fill at #555555 and the border left at #555555 the two vanish into
    each other. #666666 keeps the base relationship of a darker fill against a
    lighter border, and is already in this file's neutral ramp. */
-.ytaf-ui-container.oled-care input[type='checkbox']:checked,
-.ytaf-ui-container.qned-care input[type='checkbox']:checked {
+.ytx-ui-container.oled-care input[type='checkbox']:checked,
+.ytx-ui-container.qned-care input[type='checkbox']:checked {
   background: #555555;
   border-color: #666666;
 }
@@ -380,8 +380,8 @@
    border-color is the shorthand and therefore sets all four sides; border-left-color
    follows it to put the accent bar back to opaque. Reversing those two lines
    would fade the bar along with the hairline. */
-.ytaf-notification-container.oled-care .message,
-.ytaf-notification-container.qned-care .message {
+.ytx-notification-container.oled-care .message,
+.ytx-notification-container.qned-care .message {
   background: rgba(42, 42, 42, 0.55);
   border-color: rgba(255, 0, 0, 0.35);
   border-left-color: #ff0000;
@@ -389,27 +389,27 @@
   color: #dddddd;
 }
 
-.ytaf-ui-container.qned-care {
+.ytx-ui-container.qned-care {
   background: #141414;
 }
 
 /* QNED dims the inactive tab ink toward the plate instead of the base #aaaaaa.
    It used to pick a desaturated cyan here; with Classic Red as the only theme
    that hue had no base to relate to, so it now just greys down. */
-.ytaf-ui-container.qned-care .ytaf-tab-btn {
+.ytx-ui-container.qned-care .ytx-tab-btn {
   color: #8a8a8a;
 }
 
-.ytaf-ui-container.qned-care small {
+.ytx-ui-container.qned-care small {
   color: #a0a0a0;
 }
 
-.ytaf-ui-container.qned-care .ytaf-ui-version {
+.ytx-ui-container.qned-care .ytx-ui-version {
   color: #a0a0a0;
 }
 
 /* Tab Menu */
-.ytaf-tab-menu {
+.ytx-tab-menu {
   display: flex;
   justify-content: center;
   background: rgba(0, 0, 0, 0.2);
@@ -419,7 +419,7 @@
   margin-bottom: 1vh;
 }
 
-.ytaf-tab-btn {
+.ytx-tab-btn {
   flex: 1;
   margin: 0 0.5vh;
   background: transparent;
@@ -438,12 +438,12 @@
   font-family: inherit;
 }
 
-.ytaf-tab-btn.active {
+.ytx-tab-btn.active {
   color: #ff4444;
   background: rgba(255, 0, 0, 0.15);
 }
 
-.ytaf-tab-btn:focus {
+.ytx-tab-btn:focus {
   background: rgba(255, 0, 0, 0.3);
   box-shadow: 0 0 0 0.19vh #ff0000;
   color: #ffffff;
@@ -508,52 +508,20 @@
   white-space: nowrap;
 }
 
-/* Color Picker */
-.reset-color-btn {
-  background: #4f4f4f;
-  color: #ffffff;
-  border: 0.09vh solid #666666;
-  border-radius: 0.4vh;
-  padding: 0.2vh 0.75vh;
-  margin-right: 0.75vh;
-  cursor: pointer;
-  font-size: 1.2vh;
-  flex-shrink: 0;
-  transition:
-    background-color 150ms ease,
-    border-color 150ms ease;
-}
-
-.reset-color-btn:focus {
-  outline: 0.19vh solid #ff0000;
-}
-
-.ytaf-ui-container input[type='color'] {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 3.7vh;
-  height: 2.22vh;
-  border: 0.09vh solid #4a4a4a;
-  border-radius: 0.4vh;
-  background-color: transparent;
-  cursor: pointer;
-  transition: border-color 150ms ease;
-}
-
 /* --- Page 1 density ------------------------------------------------------- */
-.ytaf-ui-container.ytaf-panel-compact #ytaf-page-main label {
+.ytx-ui-container.ytx-panel-compact #ytx-page-main label {
   padding-top: 0.75vh;
   padding-bottom: 0.75vh;
   margin-bottom: 0.1vh;
 }
 
-.ytaf-ui-container.ytaf-panel-compact #ytaf-page-main .ytaf-settings-section {
+.ytx-ui-container.ytx-panel-compact #ytx-page-main .ytx-settings-section {
   margin-bottom: 0.6vh;
 }
 
-.ytaf-ui-container.ytaf-panel-compact
-  #ytaf-page-main
-  .ytaf-settings-section
+.ytx-ui-container.ytx-panel-compact
+  #ytx-page-main
+  .ytx-settings-section
   > .section-title {
   margin-top: 0.9vh;
   margin-bottom: 0.35vh;
@@ -573,14 +541,14 @@
    reason to churn the layout for it.
    --------------------------------------------------------------------------- */
 
-.ytaf-settings-section {
+.ytx-settings-section {
   margin: 1vh 0 0.5vh;
   padding: 0 1vh 0.5vh;
   border: 0.19vh solid #444444;
   border-radius: 0.6vh;
 }
 
-.ytaf-settings-section > .section-title {
+.ytx-settings-section > .section-title {
   color: #bbbbbb;
   font-size: 2.6vh;
   font-weight: bold;
@@ -601,25 +569,25 @@
    The negative side margins the single-column rows use to bleed their focus
    highlight past the section padding are removed here - at half width they
    would push the second column out of the row and force a wrap. */
-#ytaf-page-main .ytaf-section-2col {
+#ytx-page-main .ytx-section-2col {
   display: flex;
   flex-wrap: wrap;
   align-items: stretch;
 }
 
-#ytaf-page-main .ytaf-section-2col > .section-title {
+#ytx-page-main .ytx-section-2col > .section-title {
   flex: none;
   width: 100%;
 }
 
-#ytaf-page-main .ytaf-section-2col > label {
+#ytx-page-main .ytx-section-2col > label {
   flex: none;
   width: 50%;
 }
 
 /* An odd number of rows (guest mode adds a seventh) leaves the last one alone
    on its row - let it keep half width so the column edge stays straight. */
-#ytaf-page-main .ytaf-section-2col > label:last-child {
+#ytx-page-main .ytx-section-2col > label:last-child {
   margin-bottom: 0.25vh;
 }
 
@@ -632,7 +600,7 @@
      - checkbox rows padded 1.0vh, cycle-control rows 0.6vh
      - only checkbox rows set a line-height, so a cycle row resolved against the
        browser default of roughly 1.2 and sat taller than its neighbours
-     - `.ytaf-settings-section label` cancelled the -0.75vh bleed margin but
+     - `.ytx-settings-section label` cancelled the -0.75vh bleed margin but
        nothing cancelled it for `.shortcut-control-row`, so the cycle rows hung
        three quarters of a vh further left than the checkboxes above them
 
@@ -640,8 +608,8 @@
    re-deriving four numbers by hand every time one of them moves.
    --------------------------------------------------------------------------- */
 
-.ytaf-ui-container label,
-.ytaf-ui-container .shortcut-control-row {
+.ytx-ui-container label,
+.ytx-ui-container .shortcut-control-row {
   box-sizing: border-box;
   padding: 1vh 0.75vh;
   margin: 0 -0.75vh 0.2vh;
@@ -655,14 +623,13 @@
 
 /* Inside a section the bleed margin is not wanted: the section already supplies
    the horizontal padding, and bleeding past it is what misaligned the columns. */
-.ytaf-settings-section label,
-.ytaf-settings-section .shortcut-control-row {
+.ytx-settings-section label,
+.ytx-settings-section .shortcut-control-row {
   margin: 0 0 0.2vh;
 }
 
-/* On-screen entry point (the "YTAF" badge), for remotes without color buttons
-   (e.g. MR25GA). */
-.ytaf-ui-badge {
+/* On-screen entry point (the "YT-X" badge). */
+.ytx-ui-badge {
   position: fixed;
   left: 4.375vw;
   top: 95.65vh;
@@ -684,19 +651,19 @@
     color 150ms ease;
 }
 
-.ytaf-ui-badge:hover,
-.ytaf-ui-badge:focus {
+.ytx-ui-badge:hover,
+.ytx-ui-badge:focus {
   opacity: 1;
   color: #ffffff;
   outline: 3px solid rgba(255, 255, 255, 0.6);
 }
 
-.ytaf-ui-badge-hidden,
-.ytaf-ui-badge.ytaf-badge-disabled {
+.ytx-ui-badge-hidden,
+.ytx-ui-badge.ytx-badge-disabled {
   display: none;
 }
 
-.ytaf-sponsorblock-segment-container {
+.ytx-sponsorblock-segment-container {
   top: 0%;
   height: 100%;
   width: 100%;
@@ -708,19 +675,19 @@
 /* Fix: progress bar w/ chapter markers uses a different layout */
 [idomkey='player-bar-renderer']
   :not([idomkey='slider'])
-  .ytaf-sponsorblock-segment-container {
-  top: 0.1875rem;
+  .ytx-sponsorblock-segment-container {
+  top: 0.28vh;
   height: 75%;
 }
 
 /* Expand to overflow progress bar when focused */
-[idomkey='progress-bar'].zylon-focus .ytaf-sponsorblock-segment-container {
-  top: -25%;
-  height: 150%;
+[idomkey='progress-bar'].zylon-focus .ytx-sponsorblock-segment-container {
+  top: -12%;
+  height: 124%;
 }
 
-.ytaf-sponsorblock-segment {
-  opacity: 0.7;
+.ytx-sponsorblock-segment {
+  opacity: 0.6;
   height: 100%;
   width: 100%;
   position: absolute;
@@ -734,7 +701,7 @@
   overflow: unset !important;
 }
 
-.ytaf-ui-version {
+.ytx-ui-version {
   position: absolute;
   right: 2rem;
   bottom: 0.5rem;

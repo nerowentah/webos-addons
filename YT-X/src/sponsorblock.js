@@ -3,51 +3,30 @@ import {
   configAddChangeListener,
   configRead,
   configRemoveChangeListener,
+  segmentColors,
   sponsorblockAPI
 } from './config';
 import { setSponsorBlockPopupSync, showNotification } from './ui';
 import sponsorBlockUI from './Sponsorblock-UI.js';
 
-// Copied from https://github.com/ajayyy/SponsorBlock/blob/9392d16617d2d48abb6125c00e2ff6042cb7bebe/src/config.ts#L179-L233
+// Category display names for the skip toast.
 const barTypes = {
-  sponsor: { color: '#00d400', name: 'sponsored segment' },
-  intro: { color: '#00ffff', name: 'intro' },
-  outro: { color: '#0202ed', name: 'outro' },
-  interaction: { color: '#cc00ff', name: 'interaction reminder' },
-  selfpromo: { color: '#ffff00', name: 'self-promotion' },
-  music_offtopic: { color: '#ff9900', name: 'non-music part' },
-  preview: { color: '#008fd6', name: 'recap or preview' },
-  poi_highlight: { color: '#ff1684', name: 'highlight' },
-  filler: { color: '#7300ff', name: 'tangents/jokes' },
-  hook: { color: '#395699', name: 'hook/greetings' }
+  sponsor: { name: 'sponsored segment' },
+  intro: { name: 'intro' },
+  outro: { name: 'outro' },
+  interaction: { name: 'interaction reminder' },
+  selfpromo: { name: 'self-promotion' },
+  music_offtopic: { name: 'non-music part' },
+  preview: { name: 'recap or preview' },
+  poi_highlight: { name: 'highlight' },
+  filler: { name: 'tangents/jokes' },
+  hook: { name: 'hook/greetings' }
 };
 
-const SEGMENT_COLOR_KEY = {
-  sponsor: 'sponsorColor',
-  intro: 'introColor',
-  outro: 'outroColor',
-  interaction: 'interactionColor',
-  selfpromo: 'selfpromoColor',
-  music_offtopic: 'musicofftopicColor',
-  preview: 'previewColor',
-  poi_highlight: 'poi_highlightColor',
-  filler: 'fillerColor',
-  hook: 'hookColor'
-};
-
-// Segment colors are user-configurable (Segment Colors section of the options
-// panel). Falls back to the static barTypes palette when a category has no
-// config key of its own.
+// Segment colors are a fixed standard palette shared with the popup
+// (Sponsorblock-UI.js), so the progress-bar overlay and the popup agree.
 function getSegmentColor(category) {
-  const colorKey = SEGMENT_COLOR_KEY[category];
-  if (colorKey) {
-    try {
-      return configRead(colorKey);
-    } catch {
-      // Unknown config key - fall through to the static fallback below.
-    }
-  }
-  return (barTypes[category] && barTypes[category].color) || '#0072ff';
+  return segmentColors[category] || '#0072ff';
 }
 
 class SponsorBlockHandler {
@@ -222,12 +201,11 @@ class SponsorBlockHandler {
     const videoDuration = this.video.duration;
 
     this.sliderSegmentsOverlay = document.createElement('div');
-    this.sliderSegmentsOverlay.className =
-      'ytaf-sponsorblock-segment-container';
+    this.sliderSegmentsOverlay.className = 'ytx-sponsorblock-segment-container';
     this.segments.forEach((segment) => {
       const [start, end] = segment.segment;
       const elm = document.createElement('div');
-      elm.className = 'ytaf-sponsorblock-segment';
+      elm.className = 'ytx-sponsorblock-segment';
       elm.style['background-color'] = getSegmentColor(segment.category);
       elm.style['left'] = `${(start / videoDuration) * 100.0}%`;
       elm.style['width'] = `${((end - start) / videoDuration) * 100.0}%`;
@@ -294,18 +272,6 @@ class SponsorBlockHandler {
     });
 
     watchForSlider();
-  }
-
-  // Re-applies user-configurable colors to an already built overlay. Called by
-  // the options panel whenever a Segment Colors value changes.
-  drawOverlay() {
-    if (!this.sliderSegmentsOverlay || !this.segments) return;
-    const children = this.sliderSegmentsOverlay.children;
-    this.segments.forEach((segment, i) => {
-      const elm = children[i];
-      if (!elm) return;
-      elm.style['background-color'] = getSegmentColor(segment.category);
-    });
   }
 
   scheduleSkip() {

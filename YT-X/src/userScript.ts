@@ -25,6 +25,7 @@ import './lang-settings-fix';
 import './remove-endscreen';
 import './force-codec.js';
 import './previews.js';
+import './keep-playing.js';
 import './hooks';
 import './block-webos-cast';
 import './auto-account-select';

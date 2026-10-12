@@ -9,6 +9,19 @@ import { configRead } from './config';
  * filtered out of the payload rather than merely hidden in the DOM. That also
  * avoids the layout jump a CSS rule leaves behind when a row reflows.
  *
+ * ## Whole-section removal
+ *
+ * The unit removed is the section, not the tile. A named rack - the shape a
+ * channel's "Members only" row arrives in, with the "videos available to
+ * members of this channel" subtitle - is dropped entire as soon as any video
+ * inside it carries the badge: heading and public videos together. Removing
+ * only the badged tiles would leave a half-empty row with a gap, which is the
+ * outcome this is written to avoid. RACK_KEYS below names those racks.
+ *
+ * The one exception is a bare grid: a channel's or playlist's whole catalogue
+ * can be a single gridRenderer, and one members-only entry there must not
+ * erase the public videos beside it. Those keep per-tile removal.
+ *
  * ## Why the marker test is value-based
  *
  * The badge arrives under two different shapes depending on which renderer
@@ -53,11 +66,15 @@ import { configRead } from './config';
  *
  * which is 8 hops before the value is even read - one more than the reference
  * cap of 6, which is why the tighter values matched only the shallow lockup
- * shape and silently missed every TV shelf. 12 leaves room past that without
- * the caps becoming meaningless, since they exist to bound the walk on a
- * half-megabyte home-page response in a webview rather than to be exact.
+ * shape and silently missed every TV shelf.
+ *
+ * 16 rather than 12 because the whole-rack pass below (see RACK_KEYS) tests a
+ * shelf from the rack rather than from the tile, which is four hops higher
+ * up - shelfRenderer -> content -> horizontalListRenderer -> items. The cap
+ * still bounds the walk on a half-megabyte home-page response in a webview
+ * rather than being exact, and the value-based match cannot false-positive.
  */
-const MAX_MARKER_DEPTH = 12;
+const MAX_MARKER_DEPTH = 16;
 const MAX_SCRUB_DEPTH = 16;
 
 /**
@@ -93,6 +110,31 @@ const SHELF_KEYS = new Set([
   'gridRenderer',
   'horizontalListRenderer'
 ]);
+
+/**
+ * Racks that are removed whole the moment they carry a members-only video.
+ *
+ * "Section" means a named rail or shelf - the shape a channel's "Members only"
+ * row arrives in (a shelfRenderer, or a bare horizontalListRenderer). When
+ * such a rack holds even one members-only video the entire rack goes: its
+ * heading and its public videos alike. This is stricter than hiding the
+ * members-only tiles, which would leave a half-empty row with a gap.
+ *
+ * gridRenderer is deliberately absent. A grid can be a channel's or a
+ * playlist's entire catalogue, where one members-only entry must not erase
+ * every public video beside it; those keep per-tile removal and only lose
+ * their heading when this filter is what emptied them.
+ */
+const RACK_KEYS = new Set(['shelfRenderer', 'horizontalListRenderer']);
+
+/** True if this element is one of the whole-removable racks named above. */
+function isRack(item) {
+  if (item === null || typeof item !== 'object') return false;
+  for (const key of Object.keys(item)) {
+    if (RACK_KEYS.has(key)) return true;
+  }
+  return false;
+}
 
 /** Any renderer or view model can hold tiles; this names one for the log. */
 const TILE_KEY_RE = /(?:Renderer|ViewModel)$/;
@@ -235,6 +277,16 @@ function scrubMembersOnly(node, depth) {
       continue;
     }
 
+    // A rack holding any members-only video goes whole, heading included, even
+    // when it also holds public videos - the "remove the entire section"
+    // behaviour. Covers racks that sit as a direct property rather than inside
+    // a list; the array case is handled by filterList below.
+    if (RACK_KEYS.has(key) && hasMembersOnlyMarker(value, 0)) {
+      delete node[key];
+      removed.push(key);
+      continue;
+    }
+
     for (const removedKey of scrubMembersOnly(value, depth + 1)) {
       removed.push(removedKey);
     }
@@ -284,6 +336,16 @@ function filterList(list, depth) {
     const item = list[i];
 
     if (isListContainer(item)) {
+      // Whole-section removal: a rack carrying any members-only video is
+      // dropped entire, so a named row cannot survive as a gap or a lone
+      // surviving tile. Checked before descending so the emptied-list and
+      // stranded-heading machinery stays out of the picture for this case.
+      if (isRack(item) && hasMembersOnlyMarker(item, 0)) {
+        removed.push(describeItem(item));
+        list.splice(i, 1);
+        continue;
+      }
+
       for (const key of scrubMembersOnly(item, depth + 1)) removed.push(key);
       // A container whose only renderer was just deleted is now an empty
       // wrapper; leaving it in the list renders as a blank section.

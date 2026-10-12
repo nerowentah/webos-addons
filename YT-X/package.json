@@ -10,6 +10,7 @@
     "package": "ares-package -n dist",
     "package:hd": "npm run build:hd && npm run package",
     "deploy": "node tools/deploy.js",
+    "deploy:hd": "node tools/deploy.js --resolution 1280x720",
     "inspect": "ares-inspect youtube.leanback.v4",
     "launch": "ares-launch youtube.leanback.v4",
     "manifest": "node tools/gen-manifest.cjs youtube.leanback.v4.manifest.json",
@@ -19,7 +20,7 @@
     "lint:eslint": "npm run lint",
     "type-check": "tsc -b",
     "lint:tsc": "npm run type-check",
-    "prettier-check": "cd ../../.. && prettier --check Cross-Platform/webOS/YTAF",
+    "prettier-check": "cd ../../.. && prettier --check Cross-Platform/webOS/YT-X",
     "lint:prettier": "npm run prettier-check",
     "audit": "node tools/audit.cjs",
     "lint:all": "npm run audit && npm run lint && npm run type-check && npm run prettier-check",
@@ -77,5 +78,8 @@
   },
   "overrides": {
     "qs": "^6.16.0"
+  },
+  "engines": {
+    "node": ">=24.0.0"
   }
 }

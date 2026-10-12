@@ -65,7 +65,7 @@ export class FetchRegistry extends CustomEventTarget<EventMap> {
 
       return await res;
     } catch (err) {
-      if (window.__ytaf_debug__) {
+      if (window.__ytx_debug__) {
         console.warn('[FetchRegistry] Failed to dump body:', err);
       }
       return null;
@@ -73,7 +73,7 @@ export class FetchRegistry extends CustomEventTarget<EventMap> {
   }
 
   #customFetch = async (resource: FetchTarget, init?: RequestInit) => {
-    if (window.__ytaf_debug__) {
+    if (window.__ytx_debug__) {
       console.debug(`Request ${this.#fetchCount}:`, resource);
       if (init) console.debug(`Options  ${this.#fetchCount}:`, init);
 
@@ -106,7 +106,7 @@ export class FetchRegistry extends CustomEventTarget<EventMap> {
     // @ts-expect-error FetchTarget (StringConvertible) is wider than fetch's input signature.
     const res = await this.#originalFetch(resource, init);
 
-    if (window.__ytaf_debug__) {
+    if (window.__ytx_debug__) {
       console.debug(`Response ${this.#fetchCount}:`, res);
 
       const resBody = await FetchRegistry.#dumpBody(res);

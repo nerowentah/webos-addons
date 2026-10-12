@@ -125,14 +125,77 @@ function getVersion() {
 }
 
 /**
- * @returns {{ version: string, gitSha: string | null }}
+ * Extract a clone URL from package.json's `repository`, which npm allows to be
+ * either a shorthand string ("github:user/repo") or an object with a `url`.
+ *
+ * @param {unknown} repository
+ * @returns {string | undefined}
+ */
+function repositoryUrl(repository) {
+  if (typeof repository === 'string') return repository;
+  if (
+    repository !== null &&
+    typeof repository === 'object' &&
+    'url' in repository &&
+    typeof repository.url === 'string'
+  ) {
+    return repository.url;
+  }
+  return undefined;
+}
+
+/**
+ * The GitHub owner/repo pair this app is published under, parsed from
+ * package.json's `repository`.
+ *
+ * package.json is the single source of truth: there is no owner field of its
+ * own, and hardcoding the name in the UI badge and the Homebrew manifest meant
+ * two extra places to edit if the fork moves. Both spellings npm allows are
+ * handled - the shorthand "github:user/repo" and a full URL, with or without a
+ * git+ prefix or .git suffix.
+ *
+ * @returns {{ owner: string, repo: string } | null}
+ */
+function getRepository() {
+  const value = repositoryUrl(pkgJson.repository);
+  if (value === undefined || value === '') return null;
+
+  const path = value
+    .replace(/^github:/, '')
+    .replace(/^git\+/, '')
+    .replace(/^https?:\/\/(?:www\.)?github\.com\//, '')
+    .replace(/\.git$/, '');
+  const [owner, repo] = path.split('/');
+  if (!owner || !repo) return null;
+  return { owner, repo };
+}
+
+/**
+ * The publishing owner, for the UI version badge and the Homebrew manifest.
+ * `undefined` when package.json does not name a parseable repository.
+ *
+ * @returns {string | undefined}
+ */
+function getOwner() {
+  return getRepository()?.owner;
+}
+
+/**
+ * @returns {{ version: string, gitSha: string | null, owner: string | undefined }}
  */
 function getVersionInfo() {
-  return { version: getVersion(), gitSha: getGitShortSha() };
+  return { version: getVersion(), gitSha: getGitShortSha(), owner: getOwner() };
 }
 
 if (require.main === module) {
   process.stdout.write(`${JSON.stringify(getVersionInfo())}\n`);
 }
 
-module.exports = { getGitShortSha, getBuildNumber, getVersion, getVersionInfo };
+module.exports = {
+  getGitShortSha,
+  getBuildNumber,
+  getVersion,
+  getVersionInfo,
+  getRepository,
+  getOwner
+};

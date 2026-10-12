@@ -50,7 +50,6 @@ import type { WebOSDeviceInfo } from './globals';
  * Re-deriving a "design space" from the canvas would make the calibration below
  * divide a viewport ratio by itself.
  */
-export const DESIGN_WIDTH = 1920;
 export const DESIGN_HEIGHT = 1080;
 
 const DESIGN_FONT_SIZE = 16;
@@ -77,7 +76,7 @@ export interface TVSpecs {
   /**
    * min(viewportRatio, 1), for diagnostics only.
    *
-   * This used to drive --ytaf-ui-scale through a ladder of "classic display
+   * This used to drive --ytx-ui-scale through a ladder of "classic display
    * scales". The ladder was fiction: the canvas cannot exceed 1920x1080, so the
    * 1.5 and 2 rungs were unreachable and the 720p package landed on an
    * unsnapped 0.667. Nothing consumes it but the debug dump now.
@@ -265,10 +264,10 @@ function applyToDocument() {
   const root = document.documentElement;
   if (!root) return;
 
-  // --ytaf-ui-scale is the single density knob. It is written here rather than
+  // --ytx-ui-scale is the single density knob. It is written here rather than
   // by the options panel so that every consumer - ui.css and anything added
   // later - reads the same value from one place.
-  root.style.setProperty('--ytaf-ui-scale', String(computeCalibratedScale()));
+  root.style.setProperty('--ytx-ui-scale', String(computeCalibratedScale()));
 }
 
 let currentSpecs: TVSpecs | undefined;
@@ -296,7 +295,7 @@ function update() {
     }
   }
 
-  if (window.__ytaf_debug__) {
+  if (window.__ytx_debug__) {
     console.debug('[tv-specs]', currentSpecs);
     console.debug('[tv-specs] capability matrix', capabilityReport());
   }
@@ -517,7 +516,7 @@ async function enrichFromDevice(): Promise<void> {
   const info = await getDeviceInfo();
 
   if (info === null) {
-    if (window.__ytaf_debug__) {
+    if (window.__ytx_debug__) {
       console.info(
         '[tv-specs] no deviceInfo; the video plane stays on the screen fallback'
       );

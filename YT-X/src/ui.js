@@ -1,12 +1,10 @@
-/*global __YTAF_VERSION__, __YTAF_GITSHA__*/
+/*global __YTX_VERSION__, __YTX_GITSHA__, __YTX_OWNER__*/
 import {
   configAddChangeListener,
-  configGetDefault,
   configGetDesc,
   configRead,
   configWrite,
   panelCareModes,
-  segmentTypes,
   videoCodecModes
 } from './config.js';
 import './ui.css';
@@ -78,7 +76,7 @@ function createSection(title, elements, variant) {
   const legend = createElement('div', { text: title, class: 'section-title' });
   return createElement(
     'div',
-    { class: 'ytaf-settings-section' + (variant ? ` ${variant}` : '') },
+    { class: 'ytx-settings-section' + (variant ? ` ${variant}` : '') },
     legend,
     ...elements
   );
@@ -227,59 +225,6 @@ function createAlignedCycleControl(configKey, displayMap) {
 const createVideoCodecControl = () =>
   createAlignedCycleControl('forceVideoCodec', videoCodecModes);
 
-function createColorControl(segmentKey) {
-  const colorKey = `${segmentKey}Color`;
-  const resetButton = createElement('button', {
-    text: 'R',
-    class: 'reset-color-btn',
-    tabIndex: -1,
-    events: {
-      click: (evt) => {
-        evt.preventDefault();
-        evt.stopPropagation();
-        configWrite(colorKey, configGetDefault(colorKey));
-      }
-    }
-  });
-  const colorInput = createElement('input', {
-    type: 'color',
-    value: configRead(colorKey),
-    tabIndex: -1,
-    events: {
-      click: (evt) => evt.stopPropagation(),
-      input: (evt) => {
-        configWrite(colorKey, evt.target.value);
-        window.sponsorblock?.drawOverlay();
-      }
-    }
-  });
-
-  configAddChangeListener(colorKey, (evt) => {
-    colorInput.value = evt.detail.newValue;
-    window.sponsorblock?.drawOverlay();
-  });
-
-  return createElement(
-    'div',
-    { class: 'shortcut-control-row', tabIndex: 0 },
-    createElement('span', {
-      text: segmentTypes[segmentKey].name,
-      class: 'shortcut-label',
-      style: { fontSize: '1.85vh' }
-    }),
-    createElement(
-      'div',
-      { class: 'shortcut-value-container' },
-      createElement(
-        'div',
-        { style: { display: 'flex', marginLeft: '10px' } },
-        resetButton,
-        colorInput
-      )
-    )
-  );
-}
-
 function createOpacityControl(key) {
   const step = 5;
   const min = 0;
@@ -334,7 +279,7 @@ const SPONSOR_CATEGORIES = [
 
 function createOptionsPanel() {
   const elmContainer = createElement('div', {
-    class: 'ytaf-ui-container',
+    class: 'ytx-ui-container',
     style: { display: 'none' },
     tabIndex: 0,
     events: {
@@ -351,14 +296,14 @@ function createOptionsPanel() {
   let pageMain, pageSponsor, pageUITweaks;
 
   const tabMenu = createElement('div', {
-    class: 'ytaf-tab-menu',
+    class: 'ytx-tab-menu',
     events: {
       mouseleave: () => {
         const activeTabBtn = tabBtns[activePage];
         if (
           activeTabBtn &&
           document.activeElement &&
-          document.activeElement.classList.contains('ytaf-tab-btn')
+          document.activeElement.classList.contains('ytx-tab-btn')
         ) {
           activeTabBtn.focus();
         }
@@ -368,7 +313,7 @@ function createOptionsPanel() {
   const tabs = ['Main', 'SponsorBlock', 'UI Tweaks'];
   const tabBtns = tabs.map((name, index) =>
     createElement('button', {
-      class: index === 0 ? 'ytaf-tab-btn active' : 'ytaf-tab-btn',
+      class: index === 0 ? 'ytx-tab-btn active' : 'ytx-tab-btn',
       text: name,
       tabIndex: 0,
       events: {
@@ -400,8 +345,7 @@ function createOptionsPanel() {
     tabBtns[activePage].classList.add('active');
 
     const activeEl = document.activeElement;
-    const isTabFocused =
-      activeEl && activeEl.classList.contains('ytaf-tab-btn');
+    const isTabFocused = activeEl && activeEl.classList.contains('ytx-tab-btn');
 
     if (!isTabFocused) {
       const focusTarget = pagesArray[activePage].querySelector(
@@ -422,7 +366,7 @@ function createOptionsPanel() {
   elmContainer.appendChild(elmHeading);
 
   const elmClose = createElement('button', {
-    class: 'ytaf-close-btn',
+    class: 'ytx-close-btn',
     text: '✕',
     tabIndex: 0,
     'aria-label': 'Close settings',
@@ -435,8 +379,8 @@ function createOptionsPanel() {
 
   // --- Page 1: Main ---
   pageMain = createElement('div', {
-    class: 'ytaf-settings-page',
-    id: 'ytaf-page-main'
+    class: 'ytx-settings-page',
+    id: 'ytx-page-main'
   });
 
   pageMain.appendChild(
@@ -449,21 +393,15 @@ function createOptionsPanel() {
         createConfigCheckbox('hideLogo'),
         createConfigCheckbox('upgradeThumbnails')
       ],
-      'ytaf-section-2col'
+      'ytx-section-2col'
     )
   );
   pageMain.appendChild(
     createSection('Video Player', [
       createConfigCheckbox('forceHighResVideo'),
       createVideoCodecControl(),
-      createConfigCheckbox('removeEndscreen')
-    ])
-  );
-  pageMain.appendChild(
-    createSection('Interface', [
-      createConfigCheckbox('showYtafButton'),
-      createConfigCheckbox('autoAccountSelect'),
-      createAlignedCycleControl('panelCareMode', panelCareModes)
+      createConfigCheckbox('removeEndscreen'),
+      createConfigCheckbox('keepPlaying')
     ])
   );
   elmContainer.appendChild(pageMain);
@@ -476,8 +414,8 @@ function createOptionsPanel() {
     null,
     function buildSponsorPage() {
       pageSponsor = createElement('div', {
-        class: 'ytaf-settings-page',
-        id: 'ytaf-page-sponsor',
+        class: 'ytx-settings-page',
+        id: 'ytx-page-sponsor',
         style: { display: 'none' }
       });
       pageSponsor.appendChild(createConfigCheckbox('enableSponsorBlock'));
@@ -489,12 +427,6 @@ function createOptionsPanel() {
         createConfigCheckbox('skipSegmentsOnce')
       );
       pageSponsor.appendChild(elmBlock);
-      pageSponsor.appendChild(
-        createSection(
-          'Segment Colors',
-          Object.keys(segmentTypes).map((k) => createColorControl(k))
-        )
-      );
       pageSponsor.appendChild(
         createElement(
           'div',
@@ -508,8 +440,8 @@ function createOptionsPanel() {
     },
     function buildUITweaksPage() {
       pageUITweaks = createElement('div', {
-        class: 'ytaf-settings-page',
-        id: 'ytaf-page-ui-tweaks',
+        class: 'ytx-settings-page',
+        id: 'ytx-page-ui-tweaks',
         style: { display: 'none' }
       });
 
@@ -520,7 +452,10 @@ function createOptionsPanel() {
             text: 'Adjusts opacity of the background underneath videos (Requires a Panel Care Mode)',
             style: { color: '#aaa', fontSize: '18px', padding: '4px 12px 12px' }
           }),
-          createConfigCheckbox('fixMultilineTitles')
+          createConfigCheckbox('fixMultilineTitles'),
+          createConfigCheckbox('showYtxButton'),
+          createConfigCheckbox('autoAccountSelect'),
+          createAlignedCycleControl('panelCareMode', panelCareModes)
         ])
       );
 
@@ -558,15 +493,17 @@ function createOptionsPanel() {
     const page = pages[activePage];
     if (!page || page.style.display === 'none') return;
     elmContainer.classList.toggle(
-      'ytaf-panel-compact',
+      'ytx-panel-compact',
       page.scrollHeight > page.clientHeight + 1
     );
   };
   elmContainer.recalcDensity = recalcDensity;
 
   const version = createElement('div');
-  version.className = 'ytaf-ui-version';
-  version.textContent = `v${__YTAF_VERSION__}${__YTAF_GITSHA__ ? ` · ${__YTAF_GITSHA__}` : ''}`;
+  version.className = 'ytx-ui-version';
+  version.textContent = [`v${__YTX_VERSION__}`, __YTX_OWNER__, __YTX_GITSHA__]
+    .filter(Boolean)
+    .join(' · ');
   elmContainer.appendChild(version);
 
   return elmContainer;
@@ -682,7 +619,7 @@ function showOptionsPanel(visible) {
     if (optionsPanel.recalcDensity) optionsPanel.recalcDensity();
     syncSponsorBlockPopup(optionsPanel.activePage === 1 && isWatchPage());
 
-    const activeTabBtn = optionsPanel.querySelector('.ytaf-tab-btn.active');
+    const activeTabBtn = optionsPanel.querySelector('.ytx-tab-btn.active');
     if (activeTabBtn) {
       activeTabBtn.focus();
       lastSafeFocus = activeTabBtn;
@@ -700,7 +637,7 @@ function showOptionsPanel(visible) {
     lastSafeFocus = null;
   }
 
-  configBadge.classList.toggle('ytaf-ui-badge-hidden', optionsPanelVisible);
+  configBadge.classList.toggle('ytx-ui-badge-hidden', optionsPanelVisible);
 }
 
 // Trap focus inside options panel when visible
@@ -719,7 +656,7 @@ document.addEventListener(
       if (lastSafeFocus && lastSafeFocus.isConnected) lastSafeFocus.focus();
       else {
         const firstVisibleInput = optionsPanel.querySelector(
-          '.ytaf-tab-btn.active, .ytaf-settings-page[style*="block"] input:not([disabled])'
+          '.ytx-tab-btn.active, .ytx-settings-page[style*="block"] input:not([disabled])'
         );
         if (firstVisibleInput) firstVisibleInput.focus();
         else optionsPanel.focus();
@@ -736,8 +673,8 @@ document.addEventListener(
  */
 const configBadge = document.createElement('button');
 configBadge.type = 'button';
-configBadge.className = 'ytaf-ui-badge';
-configBadge.textContent = 'YTAF';
+configBadge.className = 'ytx-ui-badge';
+configBadge.textContent = 'YT-X';
 configBadge.setAttribute('tabindex', -1);
 configBadge.addEventListener(
   'click',
@@ -751,11 +688,11 @@ document.body.appendChild(configBadge);
 
 const syncBadgeVisibility = () =>
   configBadge.classList.toggle(
-    'ytaf-badge-disabled',
-    !configRead('showYtafButton')
+    'ytx-badge-disabled',
+    !configRead('showYtxButton')
   );
 syncBadgeVisibility();
-configAddChangeListener('showYtafButton', syncBadgeVisibility);
+configAddChangeListener('showYtxButton', syncBadgeVisibility);
 
 function initGlobalStyles() {
   // Static stylesheet - written once, never rebuilt. Toggling a class on the
@@ -768,10 +705,10 @@ function initGlobalStyles() {
   // <body>, so a .app-quality-root gate would silently disable every rule.
   const style = createElement('style');
   style.textContent = `
-    :root { --ytaf-panel-opacity: 1; }
+    :root { --ytx-panel-opacity: 1; }
 
-    html.ytaf-hide-logo ytlr-redux-connect-ytlr-logo-entity,
-    html.ytaf-hide-logo ytlr-logo-entity { visibility: hidden !important; }
+    html.ytx-hide-logo ytlr-redux-connect-ytlr-logo-entity,
+    html.ytx-hide-logo ytlr-logo-entity { visibility: hidden !important; }
 
     html.oled-theme-active #container,
     html.oled-theme-active .ytLrGuideResponseMask,
@@ -786,7 +723,7 @@ function initGlobalStyles() {
     html.oled-theme-active .k82tDb { background-color: #000 !important; }
     html.oled-theme-active .ytLrGuideResponseGradient { display: none; }
     html.oled-theme-active .iha0pc { color: #000 !important; }
-    html.oled-theme-active .Jx9xPc { background-color: rgba(0, 0, 0, var(--ytaf-panel-opacity)) !important; }
+    html.oled-theme-active .Jx9xPc { background-color: rgba(0, 0, 0, var(--ytx-panel-opacity)) !important; }
     html.oled-theme-active .p0DeOc { background-color: #000 !important; background-image: none !important; }
     html.oled-theme-active ytlr-player-focus-ring { border: 0.375rem solid rgb(200, 200, 200) !important; }
     html.oled-theme-active ytlr-surface-page { background-image: none !important; background-color: #000 !important; }
@@ -804,15 +741,15 @@ function initGlobalStyles() {
     html.qned-theme-active .DnwJH,
     html.qned-theme-active .qRdzpd.stQChb .TYE3Ed,
     html.qned-theme-active .k82tDb { background-color: #141414 !important; }
-    html.qned-theme-active .Jx9xPc { background-color: rgba(20, 20, 20, var(--ytaf-panel-opacity)) !important; }
+    html.qned-theme-active .Jx9xPc { background-color: rgba(20, 20, 20, var(--ytx-panel-opacity)) !important; }
     html.qned-theme-active .p0DeOc { background-color: #141414 !important; }
     html.qned-theme-active ytlr-player-focus-ring { border: 0.375rem solid rgb(160, 160, 160) !important; }
     html.qned-theme-active ytlr-surface-page { background-color: #141414 !important; }
     html.qned-theme-active.qned-transparent-shelf .UGcxnc .dxLAmd,
     html.qned-theme-active.qned-transparent-shelf .UGcxnc .Dc2Zic .JkDfAc { background-color: rgba(20, 20, 20, 0) !important; }
 
-    html.ytaf-fix-titles .SK1srf .WVWtef,
-    html.ytaf-fix-titles .SK1srf .niS3yd {
+    html.ytx-fix-titles .SK1srf .WVWtef,
+    html.ytx-fix-titles .SK1srf .niS3yd {
         padding-bottom: 0.37vh !important;
         padding-top: 0.37vh !important;
     }
@@ -822,8 +759,8 @@ function initGlobalStyles() {
   const syncClass = (cls, key) =>
     document.documentElement.classList.toggle(cls, !!configRead(key));
   const CLASS_KEYS = {
-    'ytaf-hide-logo': 'hideLogo',
-    'ytaf-fix-titles': 'fixMultilineTitles'
+    'ytx-hide-logo': 'hideLogo',
+    'ytx-fix-titles': 'fixMultilineTitles'
   };
   for (const [cls, key] of Object.entries(CLASS_KEYS)) {
     syncClass(cls, key);
@@ -834,7 +771,7 @@ function initGlobalStyles() {
 function syncShelfOpacity() {
   const opacityVal = configRead('videoShelfOpacity');
   document.documentElement.style.setProperty(
-    '--ytaf-panel-opacity',
+    '--ytx-panel-opacity',
     String(opacityVal / 100)
   );
   const isOled = resolvedPanelCareMode === 'oled';
@@ -897,7 +834,7 @@ configAddChangeListener('videoShelfOpacity', () => {
 
 applyUIFixes();
 
-// --ytaf-ui-scale is written by tv-specs, which owns the density knob and
+// --ytx-ui-scale is written by tv-specs, which owns the density knob and
 // re-measures it whenever the specs change. Measuring it needs the site's
 // stylesheets, which are only present here rather than in the app shell, so the
 // call is repeated on entry and the panel's density-dependent relayout rides

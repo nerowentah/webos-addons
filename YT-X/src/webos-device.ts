@@ -90,7 +90,7 @@ function probeDeviceInfo(): Promise<WebOSDeviceInfo | null> {
     // Declared after finish() so the closure captures the binding, not a
     // snapshot: finish() clears it, and that has to be the same timer.
     const timer: Timer = setTimeout(() => {
-      if (window.__ytaf_debug__) {
+      if (window.__ytx_debug__) {
         console.warn(
           `[webos-device] deviceInfo did not answer within ${DEVICE_INFO_TIMEOUT_MS}ms`
         );

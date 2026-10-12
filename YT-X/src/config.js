@@ -1,19 +1,26 @@
-const CONFIG_KEY = 'ytaf-configuration';
+const CONFIG_KEY = 'ytx-configuration';
 
 // Official SponsorBlock API.
 export const sponsorblockAPI = 'https://sponsor.ajay.app/api';
 
-export const segmentTypes = {
-  sponsor: { color: '#00d400', name: 'sponsored' },
-  intro: { color: '#00ffff', name: 'intro' },
-  outro: { color: '#0202ed', name: 'outro' },
-  interaction: { color: '#cc00ff', name: 'interaction reminder' },
-  selfpromo: { color: '#ffff00', name: 'self-promotion' },
-  musicofftopic: { color: '#ff9900', name: 'non-music part' },
-  preview: { color: '#008fd6', name: 'recap or preview' },
-  poi_highlight: { color: '#ff1684', name: 'highlight' },
-  filler: { color: '#7300ff', name: 'tangents/jokes' },
-  hook: { color: '#395699', name: 'hook/greetings' }
+/**
+ * Standard SponsorBlock segment colors.
+ *
+ * Fixed palette keyed by the SponsorBlock API category (note the API's
+ * 'music_offtopic'). Used by both the progress-bar overlay and the popup so
+ * the two surfaces always agree. Not user-configurable.
+ */
+export const segmentColors = {
+  sponsor: '#00d400',
+  intro: '#00ffff',
+  outro: '#0202ed',
+  interaction: '#cc00ff',
+  selfpromo: '#ffff00',
+  music_offtopic: '#ff9900',
+  preview: '#008fd6',
+  poi_highlight: '#ff1684',
+  filler: '#7300ff',
+  hook: '#395699'
 };
 
 /**
@@ -67,11 +74,8 @@ export const panelCareModes = {
 const configOptions = new Map([
   ['enableAdBlock', { default: true, desc: 'Enable ad blocking' }],
   ['upgradeThumbnails', { default: true, desc: 'Upgrade thumbnail quality' }],
-  [
-    'removeShorts',
-    { default: false, desc: 'Remove Shorts from subscriptions' }
-  ],
-  ['removeMembersOnly', { default: false, desc: 'Hide members-only videos' }],
+  ['removeShorts', { default: false, desc: 'Remove shorts' }],
+  ['removeMembersOnly', { default: true, desc: 'Hide members-only videos' }],
   ['enableSponsorBlock', { default: true, desc: 'Enable SponsorBlock' }],
   [
     'enableSponsorBlockSponsor',
@@ -115,10 +119,10 @@ const configOptions = new Map([
     }
   ],
   [
-    'showYtafButton',
+    'showYtxButton',
     {
       default: true,
-      desc: 'Show the YTAF settings button on screen'
+      desc: 'Show the YT-X settings button on screen'
     }
   ],
   [
@@ -133,6 +137,13 @@ const configOptions = new Map([
     {
       default: false,
       desc: 'Remove end screens from video'
+    }
+  ],
+  [
+    'keepPlaying',
+    {
+      default: true,
+      desc: 'Keep playing (prevent auto-pause)'
     }
   ],
   [
@@ -160,13 +171,6 @@ const configOptions = new Map([
     { default: false, desc: 'Skip to highlight segments' }
   ]
 ]);
-
-for (const [key, value] of Object.entries(segmentTypes)) {
-  configOptions.set(`${key}Color`, {
-    default: value.color,
-    desc: `Color for ${value.name}`
-  });
-}
 
 const defaultConfig = (() => {
   let ret = {};
@@ -235,6 +239,28 @@ function loadStoredConfig() {
       delete parsed.alwaysShowClock;
     }
 
+    // Drop the retired segment color keys along with the Segment Colors UI.
+    // Segment colors are now a fixed palette, so configRead() no longer knows
+    // these keys - a leftover value would sit in localConfig unknown to the
+    // panel and break it on the next load.
+    if (parsed) {
+      for (const key of [
+        'sponsorColor',
+        'introColor',
+        'outroColor',
+        'interactionColor',
+        'selfpromoColor',
+        'musicofftopicColor',
+        'previewColor',
+        'poi_highlightColor',
+        'fillerColor',
+        'hookColor',
+        'segmentColorScheme'
+      ]) {
+        delete parsed[key];
+      }
+    }
+
     return parsed;
   } catch (err) {
     console.warn('Error parsing stored config:', err);
@@ -255,14 +281,6 @@ export function configGetDesc(key) {
   }
 
   return configOptions.get(key).desc;
-}
-
-export function configGetDefault(key) {
-  if (!configExists(key)) {
-    throw new Error('tried to get default for unknown config key: ' + key);
-  }
-
-  return configOptions.get(key).default;
 }
 
 export function configRead(key) {
@@ -297,7 +315,7 @@ export function configWrite(key, value) {
   window.localStorage[CONFIG_KEY] = JSON.stringify(localConfig);
 
   configFrags[key].dispatchEvent(
-    new CustomEvent('ytafConfigChange', {
+    new CustomEvent('ytxConfigChange', {
       detail: { key, newValue: value, oldValue }
     })
   );
@@ -311,7 +329,7 @@ export function configWrite(key, value) {
 export function configAddChangeListener(key, callback) {
   const frag = configFrags[key];
 
-  frag.addEventListener('ytafConfigChange', callback);
+  frag.addEventListener('ytxConfigChange', callback);
 }
 
 /**
@@ -322,5 +340,5 @@ export function configAddChangeListener(key, callback) {
 export function configRemoveChangeListener(key, callback) {
   const frag = configFrags[key];
 
-  frag.removeEventListener('ytafConfigChange', callback);
+  frag.removeEventListener('ytxConfigChange', callback);
 }

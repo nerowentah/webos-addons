@@ -1,7 +1,7 @@
 // Inspired by TizenTube's resolveCommand hook:
 // https://github.com/reisxd/TizenTube/blob/522f83cc012d5b1c75181b651e084a3afa280323/mods/resolveCommand.js
 // The ResolveCommandRegistry wrapping (getInstance/setHook/dispatchCommand) is
-// original YTAF code.
+// original YT-X code.
 
 declare global {
   interface Window {
@@ -43,7 +43,7 @@ export class ResolveCommandRegistry {
       return this.#originalFn(command, extra);
     }
 
-    if (window.__ytaf_debug__) {
+    if (window.__ytx_debug__) {
       console.group(`[${this.constructor.name}] Resolving`);
       console.debug('Command:');
       console.debug(command);
@@ -198,10 +198,6 @@ export class ResolveCommandRegistry {
 
   setHook(command: string, fn: ResolveCommandHook) {
     this.#cmds.set(command, fn);
-  }
-
-  removeHook(command: string) {
-    this.#cmds.delete(command);
   }
 
   dispatchCommand(payload: ResolveCommandPayload, extra?: unknown) {
