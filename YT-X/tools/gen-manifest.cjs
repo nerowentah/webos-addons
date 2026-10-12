@@ -24,7 +24,7 @@ if (!repository) {
 }
 const { owner, repo } = repository;
 const repoUrl = `https://github.com/${owner}/${repo}`;
-const assetBase = `https://raw.githubusercontent.com/${owner}/${repo}/main/Cross-Platform/webOS/YT-X/assets`;
+const assetBase = `https://raw.githubusercontent.com/${owner}/${repo}/main/YT-X/assets`;
 
 fs.writeFileSync(
   outfile,

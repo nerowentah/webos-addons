@@ -9,8 +9,9 @@
 **YT-X** is an ad-free YouTube client for LG webOS TVs (app ID
 `youtube.leanback.v4`). It is a personal fork of
 [webosbrew/youtube-webos](https://github.com/webosbrew/youtube-webos) with
-extra playback and display controls, maintained as part of the
-[nerowentah/scripts](https://github.com/nerowentah/scripts) repository.
+extra playback and display controls, maintained in the
+[nerowentah/webos-addons](https://github.com/nerowentah/webos-addons)
+repository.
 
 ## Inspired by and forked from
 
@@ -101,13 +102,15 @@ changes what the build is allowed to emit.
 
 ## Installation
 
-This fork publishes **no prebuilt releases**; install by building from source.
+Prebuilt `.ipk` releases are published on
+[nerowentah/webos-addons](https://github.com/nerowentah/webos-addons/releases);
+to build from source instead, continue below.
 
 1. Clone the repository:
 
    ```sh
-   git clone https://github.com/nerowentah/scripts.git
-   cd scripts/Cross-Platform/webOS/YT-X
+   git clone https://github.com/nerowentah/webos-addons.git
+   cd webos-addons/YT-X
    ```
 
 2. Install dependencies:
@@ -244,8 +247,8 @@ list entirely.
 ### Setup
 
 ```sh
-git clone https://github.com/nerowentah/scripts.git
-cd scripts/Cross-Platform/webOS/YT-X
+git clone https://github.com/nerowentah/webos-addons.git
+cd webos-addons/YT-X
 npm install
 ```
 
