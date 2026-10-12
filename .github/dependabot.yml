@@ -1,0 +1,93 @@
+# No YAML anchors or aliases anywhere in this file. Dependabot uses its own
+# parser and rejects them outright ("YAML aliases are not supported"), which
+# fails the config-validation check on every Dependabot PR.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /YT-X
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 10
+    labels:
+      - dependencies
+      - security
+    assignees:
+      - nerowentah
+    rebase-strategy: auto
+    commit-message:
+      prefix: 'chore(deps):'
+      prefix-development: 'chore(dev-deps):'
+    groups:
+      webpack:
+        applies-to: version-updates
+        patterns:
+          - webpack
+          - webpack-*
+          - terser-webpack-plugin
+        update-types:
+          - minor
+          - patch
+      babel:
+        applies-to: version-updates
+        patterns:
+          - '@babel/*'
+        update-types:
+          - minor
+          - patch
+      typescript-eslint:
+        applies-to: version-updates
+        patterns:
+          - typescript-eslint
+          - '@typescript-eslint/*'
+        update-types:
+          - minor
+          - patch
+      types:
+        applies-to: version-updates
+        patterns:
+          - '@types/*'
+        update-types:
+          - minor
+          - patch
+      dev-dependencies:
+        applies-to: version-updates
+        dependency-type: development
+        update-types:
+          - minor
+          - patch
+      security:
+        applies-to: security-updates
+        patterns:
+          - '*'
+    cooldown:
+      default-days: 7
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: tuesday
+    labels:
+      - dependencies
+      - security
+    assignees:
+      - nerowentah
+    rebase-strategy: auto
+    commit-message:
+      prefix: 'chore(ci):'
+    open-pull-requests-limit: 10
+    groups:
+      actions:
+        applies-to: version-updates
+        patterns:
+          - '*'
+        update-types:
+          - minor
+          - patch
+      security:
+        applies-to: security-updates
+        patterns:
+          - '*'
+    cooldown:
+      default-days: 7

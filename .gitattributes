@@ -1,0 +1,39 @@
+# Auto-detect text vs binary. The prettier config pins endOfLine: lf for the
+# whole repository, so every checkout has to hand the formatter LF. Without
+# eol=lf here, core.autocrlf=true (the Windows default) rewrites text files as
+# CRLF and `npm run prettier-check` fails on files whose committed content is
+# already correct - the index stores LF, only the worktree disagrees.
+* text=auto eol=lf
+
+# The blanket rule above would mark these as text, which asks git to normalise
+# binary content and can corrupt it. Restore binary handling for the tracked
+# images.
+YT-X/src/icons/*.png binary
+YT-X/assets/*.png binary
+
+# Code and config - text with diff
+*.js text diff=javascript
+*.ts text diff=typescript
+*.mjs text diff=javascript
+*.mts text diff=typescript
+*.cjs text diff=javascript
+*.cts text diff=typescript
+*.jsx text diff=javascript
+*.tsx text diff=typescript
+*.css text diff=css
+*.html text diff=html
+*.json text diff=json
+*.jsonc text diff=json
+*.yml text diff=yaml
+*.yaml text diff=yaml
+*.md text diff=markdown
+
+# Lint config files
+.editorconfig text
+.nvmrc text
+.prettierrc.json text
+
+# Binary files
+*.png binary
+*.ico binary
+*.ipk binary

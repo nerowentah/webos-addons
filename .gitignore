@@ -1,0 +1,12 @@
+# Dependencies
+node_modules/
+
+# Build output
+YT-X/dist/
+
+# webOS packages
+*.ipk
+
+# Editor / OS
+.DS_Store
+Thumbs.db
