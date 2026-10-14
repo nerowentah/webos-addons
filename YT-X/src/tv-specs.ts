@@ -29,7 +29,12 @@
  * @see https://webostv.developer.lge.com/develop/specifications/app-resolution
  */
 
-import { getDeviceInfo, getLibVersion, hasLunaBridge } from './webos-device';
+import {
+  getDeviceInfo,
+  getLibVersion,
+  hasLunaBridge,
+  hasWebOS
+} from './webos-device';
 import {
   CAPABILITIES,
   compareVersions,
@@ -541,7 +546,7 @@ function capabilityReport() {
   const fromPlatform = specs?.playbackSource === 'deviceInfo';
 
   const verdicts: Record<string, string> = {
-    deviceInfo: window.webOS !== undefined ? 'available' : 'unavailable',
+    deviceInfo: hasWebOS() ? 'available' : 'unavailable',
     playbackResolution: fromPlatform
       ? 'available (deviceInfo)'
       : `fallback (${specs?.playbackSource ?? 'unknown'})`,

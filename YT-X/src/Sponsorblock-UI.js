@@ -1,6 +1,8 @@
 import './sponsorblock-ui.css';
 import sponsorBlockIcon from './icons/sponsorblock-icon.png';
 import { segmentColors } from './config.js';
+import { SPONSOR_POPUP } from './ui-text.js';
+import { formatTime } from './format.js';
 
 class SponsorBlockUI {
   constructor() {
@@ -9,32 +11,14 @@ class SponsorBlockUI {
     this.hasSegments = false;
   }
 
-  formatTime(seconds) {
-    const date = new Date(0);
-    date.setSeconds(seconds);
-    const timeStr = date.toISOString().substr(11, 8);
-    return timeStr.startsWith('00:') ? timeStr.slice(3) : timeStr;
-  }
-
   getSegmentColor(category) {
     return segmentColors[category] || '#777';
   }
 
   getCategoryName(category) {
-    const names = {
-      sponsor: 'Sponsor',
-      intro: 'Intermission/Intro',
-      outro: 'Endcards/Credits',
-      interaction: 'Interaction',
-      selfpromo: 'Unpaid/Self Promotion',
-      music_offtopic: 'Non-Music Section',
-      preview: 'Preview/Recap',
-      poi_highlight: 'Highlight',
-      filler: 'Filler/Tangents',
-      hook: 'Hook/Greetings'
-    };
     return (
-      names[category] || category.charAt(0).toUpperCase() + category.slice(1)
+      SPONSOR_POPUP.categories[category] ||
+      category.charAt(0).toUpperCase() + category.slice(1)
     );
   }
 
@@ -58,14 +42,14 @@ class SponsorBlockUI {
 
     const titleText = document.createElement('span');
     titleText.className = 'sb-header-text';
-    titleText.textContent = 'SponsorBlock';
+    titleText.textContent = SPONSOR_POPUP.title;
 
     titleRow.appendChild(icon);
     titleRow.appendChild(titleText);
 
     const subtitle = document.createElement('div');
     subtitle.className = 'sb-header-subtitle';
-    subtitle.textContent = 'This video has segments in the database!';
+    subtitle.textContent = SPONSOR_POPUP.subtitle;
 
     header.appendChild(titleRow);
     header.appendChild(subtitle);
@@ -102,8 +86,8 @@ class SponsorBlockUI {
       row.setAttribute('tabindex', '-1');
 
       const color = this.getSegmentColor(segment.category);
-      const startTime = this.formatTime(segment.segment[0]);
-      const endTime = this.formatTime(segment.segment[1]);
+      const startTime = formatTime(segment.segment[0]);
+      const endTime = formatTime(segment.segment[1]);
       const categoryName = this.getCategoryName(segment.category);
 
       let timeLabel;

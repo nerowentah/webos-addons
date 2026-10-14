@@ -1,7 +1,15 @@
+import { UI_LABELS } from './ui-text.js';
+
 const CONFIG_KEY = 'ytx-configuration';
 
-// Official SponsorBlock API.
+// Official SponsorBlock API, with the community mirror asked only when the
+// official server fails.
 export const sponsorblockAPI = 'https://sponsor.ajay.app/api';
+export const sponsorblockFallbackAPI = 'https://sponsorblock.inf.re/api';
+
+// One deadline per server, covering the headers and the body: a server that
+// stalls mid-answer must not block the fallback server or the next refresh.
+export const sponsorblockTimeoutMs = 5000;
 
 /**
  * Standard SponsorBlock segment colors.
@@ -72,103 +80,102 @@ export const panelCareModes = {
 };
 
 const configOptions = new Map([
-  ['enableAdBlock', { default: true, desc: 'Enable ad blocking' }],
-  ['upgradeThumbnails', { default: true, desc: 'Upgrade thumbnail quality' }],
-  ['removeShorts', { default: false, desc: 'Remove shorts' }],
-  ['removeMembersOnly', { default: true, desc: 'Hide members-only videos' }],
-  ['enableSponsorBlock', { default: true, desc: 'Enable SponsorBlock' }],
+  ['enableAdBlock', { default: true, desc: UI_LABELS.enableAdBlock }],
+  [
+    'keepPlaybackTracking',
+    { default: true, desc: UI_LABELS.keepPlaybackTracking }
+  ],
+  ['removeShorts', { default: false, desc: UI_LABELS.removeShorts }],
+  ['removeMembersOnly', { default: true, desc: UI_LABELS.removeMembersOnly }],
+  ['removeLiveVideos', { default: false, desc: UI_LABELS.removeLiveVideos }],
+  [
+    'removeUpcomingVideos',
+    { default: false, desc: UI_LABELS.removeUpcomingVideos }
+  ],
+  [
+    'removeTopLiveGames',
+    { default: false, desc: UI_LABELS.removeTopLiveGames }
+  ],
+  [
+    'removeMostRelevant',
+    { default: false, desc: UI_LABELS.removeMostRelevant }
+  ],
+  [
+    'enableTrackingBlock',
+    { default: false, desc: UI_LABELS.enableTrackingBlock }
+  ],
+  [
+    'disableAutoCaptions',
+    { default: false, desc: UI_LABELS.disableAutoCaptions }
+  ],
+  ['loadRowsAhead', { default: false, desc: UI_LABELS.loadRowsAhead }],
+  ['keyboardSearch', { default: false, desc: UI_LABELS.keyboardSearch }],
+  ['enableScrollSeek', { default: false, desc: UI_LABELS.enableScrollSeek }],
+  ['enableSponsorBlock', { default: true, desc: UI_LABELS.enableSponsorBlock }],
+  [
+    'enableMutedSegments',
+    { default: false, desc: UI_LABELS.enableMutedSegments }
+  ],
+  ['sbPeriodicRefresh', { default: true, desc: UI_LABELS.sbPeriodicRefresh }],
   [
     'enableSponsorBlockSponsor',
-    { default: true, desc: 'Skip sponsor segments' }
+    { default: true, desc: UI_LABELS.enableSponsorBlockSponsor }
   ],
-  ['enableSponsorBlockIntro', { default: true, desc: 'Skip intro segments' }],
-  ['enableSponsorBlockOutro', { default: true, desc: 'Skip outro segments' }],
+  [
+    'enableSponsorBlockIntro',
+    { default: true, desc: UI_LABELS.enableSponsorBlockIntro }
+  ],
+  [
+    'enableSponsorBlockOutro',
+    { default: true, desc: UI_LABELS.enableSponsorBlockOutro }
+  ],
   [
     'enableSponsorBlockInteraction',
-    {
-      default: true,
-      desc: 'Skip interaction reminder segments'
-    }
+    { default: true, desc: UI_LABELS.enableSponsorBlockInteraction }
   ],
   [
     'enableSponsorBlockSelfPromo',
-    {
-      default: true,
-      desc: 'Skip self promotion segments'
-    }
+    { default: true, desc: UI_LABELS.enableSponsorBlockSelfPromo }
   ],
   [
     'enableSponsorBlockMusicOfftopic',
-    {
-      default: true,
-      desc: 'Skip non-music segments in music videos'
-    }
+    { default: true, desc: UI_LABELS.enableSponsorBlockMusicOfftopic }
   ],
   [
     'enableSponsorBlockPreview',
-    {
-      default: false,
-      desc: 'Skip recaps and previews'
-    }
+    { default: false, desc: UI_LABELS.enableSponsorBlockPreview }
   ],
+  ['hideLogo', { default: false, desc: UI_LABELS.hideLogo }],
   [
-    'hideLogo',
-    {
-      default: false,
-      desc: 'Hide YouTube logo'
-    }
+    'pointerSettingsButton',
+    { default: false, desc: UI_LABELS.pointerSettingsButton }
   ],
+  ['forceHighResVideo', { default: false, desc: UI_LABELS.forceHighResVideo }],
   [
-    'showYtxButton',
-    {
-      default: true,
-      desc: 'Show the YT-X settings button on screen'
-    }
+    'showQualityOnStart',
+    { default: false, desc: UI_LABELS.showQualityOnStart }
   ],
-  [
-    'forceHighResVideo',
-    {
-      default: false,
-      desc: 'Force max resolution video playback'
-    }
-  ],
-  [
-    'removeEndscreen',
-    {
-      default: false,
-      desc: 'Remove end screens from video'
-    }
-  ],
-  [
-    'keepPlaying',
-    {
-      default: true,
-      desc: 'Keep playing (prevent auto-pause)'
-    }
-  ],
-  [
-    'autoAccountSelect',
-    {
-      default: false,
-      desc: 'Bypass initial account selection on startup'
-    }
-  ],
-  ['panelCareMode', { default: 'auto', desc: 'Panel Care Mode' }],
-  ['videoShelfOpacity', { default: 100, desc: 'Video shelf opacity' }],
-  ['fixMultilineTitles', { default: true, desc: 'Fix Multiline Titles' }],
-  ['forceVideoCodec', { default: 'auto', desc: 'Force Video Codec' }],
-  ['skipSegmentsOnce', { default: false, desc: 'Skip Segments Once' }],
+  ['showTimeRemaining', { default: false, desc: UI_LABELS.showTimeRemaining }],
+  ['blockWebosCast', { default: true, desc: UI_LABELS.blockWebosCast }],
+  ['removeEndscreen', { default: false, desc: UI_LABELS.removeEndscreen }],
+  ['keepPlaying', { default: true, desc: UI_LABELS.keepPlaying }],
+  ['autoAccountSelect', { default: false, desc: UI_LABELS.autoAccountSelect }],
+  ['panelCareMode', { default: 'auto', desc: UI_LABELS.panelCareMode }],
+  ['disableAnimations', { default: false, desc: UI_LABELS.disableAnimations }],
+  ['fixMultilineTitles', { default: true, desc: UI_LABELS.fixMultilineTitles }],
+  ['forceVideoCodec', { default: 'auto', desc: UI_LABELS.forceVideoCodec }],
+  ['skipSegmentsOnce', { default: false, desc: UI_LABELS.skipSegmentsOnce }],
   [
     'enableSponsorBlockFiller',
-    { default: false, desc: 'Skip tangents/jokes segments' }
+    { default: false, desc: UI_LABELS.enableSponsorBlockFiller }
   ],
   [
     'enableSponsorBlockHook',
-    { default: false, desc: 'Skip hook/greetings segments' }
+    { default: false, desc: UI_LABELS.enableSponsorBlockHook }
   ],
   [
     'enableSponsorBlockHighlight',
-    { default: false, desc: 'Skip to highlight segments' }
+    { default: false, desc: UI_LABELS.enableSponsorBlockHighlight }
   ]
 ]);
 
@@ -237,6 +244,39 @@ function loadStoredConfig() {
     if (parsed) {
       delete parsed.showWatch;
       delete parsed.alwaysShowClock;
+    }
+
+    // The on-screen YT-X badge is always shown now, so the toggle is gone. A
+    // leftover value would sit in localConfig unknown to configRead() (which
+    // throws on an unknown key) and break the panel on the next load.
+    if (parsed) {
+      delete parsed.showYtxButton;
+    }
+
+    // Thumbnail upgrading is now unconditional, so the toggle is gone. A
+    // leftover value would sit in localConfig unknown to configRead() (which
+    // throws on an unknown key) and break the panel on the next load.
+    if (parsed) {
+      delete parsed.upgradeThumbnails;
+    }
+
+    // Drop the retired auto-translated subtitle options along with the module
+    // that drove them. configRead() no longer knows either key, so a leftover
+    // value would sit in localConfig unknown to the panel.
+    if (parsed) {
+      delete parsed.subtitleTranslateLang;
+      delete parsed.subtitleAutoEnable;
+    }
+
+    // Drop the retired remote-key shortcut bindings. The Shortcuts tab and its
+    // `shortcut_key_*` options are gone, so configRead() no longer knows these
+    // keys; a leftover value would sit in localConfig unknown to the panel.
+    if (parsed) {
+      for (const key of Object.keys(parsed)) {
+        if (key.startsWith('shortcut_key_')) {
+          delete parsed[key];
+        }
+      }
     }
 
     // Drop the retired segment color keys along with the Segment Colors UI.

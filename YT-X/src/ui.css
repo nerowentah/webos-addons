@@ -13,14 +13,22 @@
    invent its own weight or opacity per surface: switching modes then changes
    only a hue and a plate, never the presence, width or strength of an edge. */
 
+/* Sizing: the panel is centred and capped at 35% of the screen each side of
+   centre, so 70vw/70vh leaves a 15% edge margin all round. Width is a fixed
+   70vw rather than shrink-to-fit: each row must be wider than its text plus
+   its toggle for `justify-content: space-between` to pin the toggle to the
+   right edge, and a content-sized panel leaves the widest row with no slack.
+   Height is fixed at 70vh so the panel does not grow or shrink with the active
+   tab (the pages scroll inside it). */
 .ytx-ui-container {
   position: fixed;
-  top: 5vh;
-  left: 30%;
-  transform: translateX(-50%);
-  width: 95vw;
-  max-width: 41.6vw;
-  max-height: 95vh;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 70vw;
+  max-width: 70vw;
+  height: 70vh;
+  max-height: 70vh;
   color: #ffffff;
   font-family:
     -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -45,13 +53,13 @@
    so the slide-up scale reads as an entrance, not a drift. */
 .ytx-ui-container.collapse-start {
   opacity: 0;
-  transform: translateX(-50%) translateY(1.5vh) scale(0.985);
+  transform: translate(-50%, calc(-50% + 1.5vh)) scale(0.985);
   pointer-events: none;
 }
 
 .ytx-ui-container.collapse-end {
   opacity: 1;
-  transform: translateX(-50%);
+  transform: translate(-50%, -50%);
 }
 
 .ytx-ui-container::before {
@@ -134,7 +142,12 @@
 }
 
 .ytx-ui-container > div.ytx-settings-page {
-  padding: 0 3vh 2.2vh;
+  /* The bottom padding reserves room for the version/owner/hash footer, which
+     is positioned absolute over the bottom of the panel (see .ytx-ui-version).
+     At 2.2vh the last row of a full page - the UI Tweaks cycle value - sat
+     inside the footer's band and overlapped it. The footer needs
+     0.5rem + ~1.48vh, so 4.5vh clears it with a gap to spare. */
+  padding: 0 3vh 4.5vh;
   overflow-y: auto;
   overflow-x: hidden;
   flex: 1;
@@ -230,10 +243,20 @@
     box-shadow 150ms ease;
 }
 
+/* Checkbox rows: the option text is the left flex item and the toggle is pinned
+   to the right edge. space-between spreads the text and the input across the
+   full row; the input's base 1.1vh right margin is dropped below so the toggle
+   sits flush against the row edge instead of inset. The text is the first child
+   in createConfigCheckbox() so it read first, matching this layout. */
 .ytx-ui-container label .label-content {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   flex: 1;
+}
+
+.ytx-ui-container .label-content input[type='checkbox'] {
+  margin-right: 0;
 }
 
 .ytx-ui-container .shortcut-control-row:focus,
@@ -242,30 +265,6 @@
   border-radius: 0.75vh;
   box-shadow: 0 0 0 0.19vh rgba(255, 0, 0, 0.5);
   outline: none;
-}
-
-.ytx-ui-container blockquote {
-  margin: 1.5vh 0 1.5vh 2.2vh;
-  padding-left: 2.2vh;
-  border-left: 0.28vh solid #ff0000;
-  background: rgba(255, 0, 0, 0.05);
-  border-radius: 0 0.75vh 0.75vh 0;
-}
-
-.ytx-ui-container blockquote label {
-  font-size: 1.85vh;
-  color: #e0e0e0;
-  padding: 0.75vh 0;
-}
-
-.ytx-ui-container small {
-  display: block;
-  text-align: center;
-  color: #888888;
-  font-size: 1.48vh;
-  margin-top: 1.85vh;
-  padding-top: 1.5vh;
-  border-top: 0.09vh solid #3f3f3f;
 }
 
 .ytx-notification-container {
@@ -285,9 +284,6 @@
    the flat fills the options panel is built from. That is safe here because the
    toast is transient: a 0.55 scrim clears a bright video frame long enough to
    read, without needing the solid plate the panel uses.
-
-   It does not carry --ytx-panel-opacity: the shelf slider has never reached
-   it, and wiring that up is a separate change.
 
    The border colour lives here rather than in JS. showNotification() only sets
    an inline border-color when the caller passes an explicit colour, and no
@@ -400,10 +396,6 @@
   color: #8a8a8a;
 }
 
-.ytx-ui-container.qned-care small {
-  color: #a0a0a0;
-}
-
 .ytx-ui-container.qned-care .ytx-ui-version {
   color: #a0a0a0;
 }
@@ -508,37 +500,47 @@
   white-space: nowrap;
 }
 
-/* --- Page 1 density ------------------------------------------------------- */
-.ytx-ui-container.ytx-panel-compact #ytx-page-main label {
+/* --- Compact density --------------------------------------------------------
+
+   Applied panel-wide, not per-page: recalcDensity() measures whichever tab is
+   active and flags the container when its content overflows, so the same trim
+   has to reach every tab's rows - not just the Main page's. Each page is
+   measured on its own activation, and the class is recomputed there, so a tab
+   that fits is never densified by another tab's overflow. */
+.ytx-ui-container.ytx-panel-compact label {
   padding-top: 0.75vh;
   padding-bottom: 0.75vh;
   margin-bottom: 0.1vh;
 }
 
-.ytx-ui-container.ytx-panel-compact #ytx-page-main .ytx-settings-section {
+.ytx-ui-container.ytx-panel-compact .ytx-settings-section {
   margin-bottom: 0.6vh;
 }
 
-.ytx-ui-container.ytx-panel-compact
-  #ytx-page-main
-  .ytx-settings-section
-  > .section-title {
+.ytx-ui-container.ytx-panel-compact .ytx-settings-section > .section-title {
   margin-top: 0.9vh;
   margin-bottom: 0.35vh;
 }
 
 /* ---------------------------------------------------------------------------
-   Main settings page layout
+   Settings section layout
 
    Section chrome lives here rather than in inline styles on createSection(), so
-   the whole panel retunes from one place. The two-column variant and the larger
-   type are a pair: halving the height of Cosmetic Filtering is what buys the
-   room to grow the text without pushing the page into a scroll.
+   the whole panel retunes from one place.
 
-   Flexbox, not grid. Grid has been available since Chrome 57 and the webOS 6
-   floor is Chrome 79, so this is now a choice rather than a constraint: the
-   flexbox version predates the grid floor and is known-good, so there is no
-   reason to churn the layout for it.
+   The multi-column layout is the `.ytx-grid` primitive with a `ytx-grid-2` or
+   `ytx-grid-3` track count, an explicit per-section opt-in passed by
+   createSection()'s `grid` argument: Video Player, Player UI Tweaks, Cosmetic
+   Filtering and the SponsorBlock list lay their rows out in columns, which is
+   what buys the room to read them without scrolling the page. The count is
+   chosen from the row total (three once a section is long enough to need the
+   extra column). Single-control and mixed controllers stay one column.
+
+   Grid, not flexbox. The Chrome 79 webOS 6 floor predates flex-container `gap`
+   (Chrome 84) but not grid (Chrome 57), so grid is the only way to express the
+   tracks and the full-width spans without the percentage-flex-basis workaround
+   the flexbox version needed. grid-column spans also replace the old flex
+   `width: 100%` overrides.
    --------------------------------------------------------------------------- */
 
 .ytx-settings-section {
@@ -557,38 +559,106 @@
   margin: 0.6vh 0 0.5vh;
 }
 
-/* Two-column sections.
+/* Optional attribution beside a section title (e.g. the SponsorBlock source on
+   the Adblock tab). Resets the title's uppercase/bold/colour so it reads as a
+   quiet caption rather than part of the heading. */
+.ytx-settings-section > .section-title .section-title-note {
+  margin-left: 1vh;
+  color: #888888;
+  font-size: 1.48vh;
+  font-weight: normal;
+  text-transform: none;
+  letter-spacing: normal;
+}
 
-   `flex: none` with an explicit width rather than `flex: 0 0 50%`: Chrome
-   miscomputes a percentage flex-basis against a border-box child, and these
-   rows carry horizontal padding. That was fixed in Chrome 84, so this still
-   applies at the Chrome 79 floor and can only be simplified once the floor
-   passes 84. Width plus border-box is the boring, stable way to say the same
-   thing.
+/* Settings grid.
+
+   Sections opt in via `ytx-grid` plus a `ytx-grid-2`/`ytx-grid-3` track count;
+   createSection() picks the count from the row total (see layout.js). The
+   `minmax(0, 1fr)` tracks rather than a bare `1fr`: a bare track has an
+   automatic minimum of `min-content`, so a long label would widen its cell and
+   break the pairing. Zeroing the minimum lets the cells shrink and the label
+   wrap, which is what keeps the columns even.
 
    The negative side margins the single-column rows use to bleed their focus
-   highlight past the section padding are removed here - at half width they
-   would push the second column out of the row and force a wrap. */
-#ytx-page-main .ytx-section-2col {
-  display: flex;
-  flex-wrap: wrap;
+   highlight past the section padding are removed inside a section further down
+   (`.ytx-settings-section label`), so they cannot push a cell out of the grid
+   here. */
+.ytx-ui-container .ytx-grid {
+  display: grid;
   align-items: stretch;
 }
 
-#ytx-page-main .ytx-section-2col > .section-title {
-  flex: none;
-  width: 100%;
+.ytx-ui-container .ytx-grid-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-#ytx-page-main .ytx-section-2col > label {
-  flex: none;
-  width: 50%;
+.ytx-ui-container .ytx-grid-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-/* An odd number of rows (guest mode adds a seventh) leaves the last one alone
-   on its row - let it keep half width so the column edge stays straight. */
-#ytx-page-main .ytx-section-2col > label:last-child {
-  margin-bottom: 0.25vh;
+/* Full-width children: the section title and any cycle-control row span every
+   track. A cycle row carries a variable-width value column, so a single cell
+   would crowd its arrows; spanning keeps it legible and leaves the checkbox
+   cells to pair around it. */
+.ytx-ui-container .ytx-grid > .section-title,
+.ytx-ui-container .ytx-grid > .shortcut-control-row {
+  grid-column: 1 / -1;
+}
+
+.ytx-ui-container .ytx-grid > label {
+  min-width: 0;
+}
+
+/* Grid cells: the leftmost column reverses its row so the toggle sits on the
+   outer (left) edge with its label beside it; every other column already reads
+   label-then-toggle (label at the inner edge, toggle outer).
+
+   The class is set in createSection() rather than by `:nth-of-type(odd)`,
+   because a full-width cycle row restarts grid auto-placement at column 1 while
+   label parity keeps counting - so parity drifts out of step with the actual
+   column after a span. Tagging at build time tracks the real column.
+
+   The checkbox's global margin-right: 0 (which pins it flush in the normal
+   right-aligned rows) is restored here so the toggle and its label keep the
+   panel's 1.1vh rhythm. */
+.ytx-ui-container .ytx-grid > label.ytx-cell-left .label-content {
+  flex-direction: row-reverse;
+  justify-content: flex-end;
+}
+
+.ytx-ui-container
+  .ytx-grid
+  > label.ytx-cell-left
+  .label-content
+  input[type='checkbox'] {
+  margin-right: 1.1vh;
+}
+
+/* Narrow-screen fallback. recalcDensity() flags the container when a page's
+   grid content overflows the panel width: three columns drop to two, then
+   everything collapses to one track. Collapsing keeps the rows on screen, and
+   the rules below undo the mirror so a stacked list reads label-then-toggle
+   like every single-column row. */
+.ytx-ui-container.ytx-grid-col-2 .ytx-grid-3 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.ytx-ui-container.ytx-grid-stack .ytx-grid {
+  grid-template-columns: 1fr;
+}
+
+.ytx-ui-container.ytx-grid-stack .ytx-grid > label .label-content {
+  flex-direction: row;
+  justify-content: space-between;
+}
+
+.ytx-ui-container.ytx-grid-stack
+  .ytx-grid
+  > label
+  .label-content
+  input[type='checkbox'] {
+  margin-right: 0;
 }
 
 /* ---------------------------------------------------------------------------
@@ -615,9 +685,8 @@
   margin: 0 -0.75vh 0.2vh;
   line-height: 1.1;
   /* One line of 2.5vh text at 1.1 leading. Pins the row against children that
-     bring their own box - the cycle arrows and the hidden alignment checkbox
-     both do - so a row cannot grow just because of what happens to sit inside
-     it. */
+     bring their own box - the cycle arrows and the value column both do - so a
+     row cannot grow just because of what happens to sit inside it. */
   min-height: 2.75vh;
 }
 
@@ -658,9 +727,21 @@
   outline: 3px solid rgba(255, 255, 255, 0.6);
 }
 
-.ytx-ui-badge-hidden,
-.ytx-ui-badge.ytx-badge-disabled {
+.ytx-ui-badge-hidden {
   display: none;
+}
+
+/* Pointer-only mode (pointerSettingsButton): the badge fades in on pointer
+   movement and out a few seconds later. The panel-open rule above still wins,
+   since display:none beats opacity. */
+.ytx-ui-badge.ytx-badge-pointer-mode {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.ytx-ui-badge.ytx-badge-pointer-mode.ytx-badge-visible {
+  opacity: 0.6;
+  pointer-events: auto;
 }
 
 .ytx-sponsorblock-segment-container {

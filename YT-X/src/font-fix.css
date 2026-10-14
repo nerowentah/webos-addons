@@ -4,14 +4,17 @@
    The latin subset Google appends is deliberately dropped: grabbing it would
    have every element that falls back to Arial (the SponsorBlock popup, YouTube
    text that names Arial explicitly) rendered with a math typeface. The range
-   below covers only the math glyphs the TV font lacks. */
+   below covers only the math glyphs the TV font lacks.
+   The woff2 is vendored locally so the app makes no runtime request to
+   fonts.gstatic.com; the comment above keeps the upstream source URL. */
 @font-face {
   font-family: Arial; /* LG TVs don't have the Arial font so replacing is safe. */
   font-style: normal;
   font-weight: 400;
   font-display: swap;
-  src: url(https://fonts.gstatic.com/s/notosansmath/v15/7Aump_cpkSecTWaHRlH2hyV5UEl981w.woff2)
-    format('woff2');
+  src:
+    local('Noto Sans Math'),
+    url('notosansmath.woff2') format('woff2');
   unicode-range:
     U+0302-0303, U+0305, U+0307-0308, U+0310, U+0312, U+0315, U+031A,
     U+0326-0327, U+032C, U+032F-0330, U+0332-0333, U+0338, U+033A, U+0346,

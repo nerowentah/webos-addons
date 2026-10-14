@@ -2,6 +2,7 @@ import { configRead } from './config';
 import { getPlayerManager, PlayerMode } from './player_api';
 import type { EventMapOf, PlayerManager } from './player_api';
 import { showNotification } from './ui';
+import { NOTIFICATIONS } from './ui-text';
 
 const playerManager = await getPlayerManager();
 
@@ -23,7 +24,7 @@ function notifyPlaybackQuality(this: PlayerManager) {
   const selected = player.getPlaybackQualityLabel();
   const max = getMaxQualityLabel(player);
 
-  showNotification(`${selected} selected (Max ${max})`, 3000);
+  showNotification(NOTIFICATIONS.selectedMax(selected, max), 3000);
 
   this.removeEventListener('playbackStart', notifyPlaybackQuality);
 }
@@ -66,4 +67,52 @@ function handleNewVideo(this: PlayerManager, _: EventMap['newVideo']) {
   this.addEventListener('playbackStart', setPlaybackQuality);
 }
 
+/**
+ * Show Video Quality on Start.
+ *
+ * A few seconds after a video starts, a toast names the quality it settled on
+ * (for example "Playing in 1080p60"). The delay lets the adaptive stream - and
+ * Force Max Quality, when it is on - finish their negotiation first, so the
+ * number shown is the one playback actually runs at rather than the opening
+ * guess.
+ */
+const QUALITY_TOAST_DELAY_MS = 4000;
+
+let qualityToastVideoID: string | null = null;
+let qualityToastTimer: number | undefined;
+
+function clearQualityToastTimer() {
+  if (qualityToastTimer !== undefined) {
+    window.clearTimeout(qualityToastTimer);
+    qualityToastTimer = undefined;
+  }
+}
+
+function showQualityOnStart(this: PlayerManager) {
+  if (!configRead('showQualityOnStart')) return;
+  if (this.playerMode === PlayerMode.PREVIEW) return;
+
+  const videoID = this.currentVideoID;
+  if (!videoID || videoID === qualityToastVideoID) return;
+
+  // Claim the video before the delay, so a pause/resume burst inside the
+  // window does not queue several toasts for the same video.
+  qualityToastVideoID = videoID;
+  clearQualityToastTimer();
+
+  qualityToastTimer = window.setTimeout(() => {
+    qualityToastTimer = undefined;
+    if (this.currentVideoID !== videoID) return;
+    if (!this.player.getPlayerStateObject().isPlaying) {
+      // Paused or buffering again: release the claim so the next playbackStart
+      // on this video makes a fresh attempt.
+      qualityToastVideoID = null;
+      return;
+    }
+    const label = this.player.getPlaybackQualityLabel();
+    if (label) showNotification(NOTIFICATIONS.playingIn(label), 3000);
+  }, QUALITY_TOAST_DELAY_MS);
+}
+
 playerManager.addEventListener('newVideo', handleNewVideo);
+playerManager.addEventListener('playbackStart', showQualityOnStart);
