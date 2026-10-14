@@ -45,7 +45,9 @@ export class FetchRegistry extends CustomEventTarget<EventMap> {
 
     try {
       const blob = await resource.clone().blob();
-      if (!blob.size) return null;
+      // Debug-only dumps: cap the size so a pathological body can't flood the
+      // console with base64.
+      if (!blob.size || blob.size > 262144) return null;
 
       const fr = new FileReader();
 
@@ -72,22 +74,38 @@ export class FetchRegistry extends CustomEventTarget<EventMap> {
     }
   }
 
-  #customFetch = async (resource: FetchTarget, init?: RequestInit) => {
-    if (window.__ytx_debug__) {
-      console.debug(`Request ${this.#fetchCount}:`, resource);
-      if (init) console.debug(`Options  ${this.#fetchCount}:`, init);
+  // Debug dumps must not expose credentials, so requests whose URL carries
+  // auth material (path or credentials) are never echoed to the console.
+  static #isSensitive(url: URL) {
+    return (
+      url.username !== '' ||
+      url.password !== '' ||
+      /oauth|token|nonce|account|sapisid|upload/.test(url.pathname)
+    );
+  }
 
-      if (resource instanceof Request) {
+  #customFetch = async (resource: FetchTarget, init?: RequestInit) => {
+    const url = new URL(
+      resource instanceof Request ? resource.url : resource.toString(),
+      document.location.href
+    );
+
+    if (window.__ytx_debug__) {
+      console.debug(`Request ${this.#fetchCount}:`, url);
+      if (init && !FetchRegistry.#isSensitive(url)) {
+        // init can carry credentials; never log raw header values.
+        console.debug(`Options  ${this.#fetchCount}:`, {
+          ...init,
+          headers: '[redacted]'
+        });
+      }
+
+      if (resource instanceof Request && !FetchRegistry.#isSensitive(url)) {
         const reqBody = await FetchRegistry.#dumpBody(resource);
         if (reqBody)
           console.debug(`Request Body ${this.#fetchCount}:`, reqBody);
       }
     }
-
-    const url = new URL(
-      resource instanceof Request ? resource.url : resource.toString(),
-      document.location.href
-    );
     const reqAllowed = this.dispatchEvent(
       new TypedCustomEvent('request', {
         detail: { url, resource, init },
@@ -106,7 +124,7 @@ export class FetchRegistry extends CustomEventTarget<EventMap> {
     // @ts-expect-error FetchTarget (StringConvertible) is wider than fetch's input signature.
     const res = await this.#originalFetch(resource, init);
 
-    if (window.__ytx_debug__) {
+    if (window.__ytx_debug__ && !FetchRegistry.#isSensitive(url)) {
       console.debug(`Response ${this.#fetchCount}:`, res);
 
       const resBody = await FetchRegistry.#dumpBody(res);

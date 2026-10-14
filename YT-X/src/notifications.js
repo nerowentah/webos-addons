@@ -1,5 +1,6 @@
 import { configRead } from './config.js';
 import { resolvePanelCareMode } from './tv-specs';
+import { MAX_UI_TEXT } from './ui-text.js';
 
 // Notification container is created lazily on first showNotification() call.
 // The care-mode setter is a no-op until then; ui.js wires it on config changes.
@@ -12,6 +13,21 @@ function makeEl(tag, className, text) {
   if (className) el.className = className;
   if (text != null) el.textContent = text;
   return el;
+}
+
+/**
+ * Hard cap on a toast's length. Most strings come from the ui-text registry and
+ * are already within MAX_UI_TEXT, but a few interpolate values the app does not
+ * control (YouTube quality labels, SponsorBlock category names), so the cap is
+ * enforced here as well. A tripwire in CI (tools/check-ui-text.cjs) covers the
+ * registry; this covers everything that reaches the screen.
+ */
+function clampText(text) {
+  if (typeof text !== 'string' || text.length <= MAX_UI_TEXT) return text;
+  console.warn(
+    `[notifications] message trimmed to ${MAX_UI_TEXT} chars: ${text}`
+  );
+  return text.slice(0, MAX_UI_TEXT - 1).trimEnd() + '…';
 }
 
 function ensureContainer() {
@@ -35,6 +51,7 @@ const liveMessages = new Map();
 // active theme and care mode.
 export function showNotification(text, time = 3000) {
   const container = ensureContainer();
+  text = clampText(text);
 
   // Reuse an existing visible message with the same text instead of stacking
   // duplicates — just extend its timer.
@@ -73,6 +90,7 @@ export function showNotification(text, time = 3000) {
   if (time > 0) elmInner._removeTimer = setTimeout(remove, time);
 
   const update = (newText, newTime = 3000) => {
+    newText = clampText(newText);
     if (elmInner.textContent === newText) {
       if (newTime > 0) {
         if (elmInner._removeTimer) clearTimeout(elmInner._removeTimer);

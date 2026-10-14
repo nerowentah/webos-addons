@@ -1,9 +1,13 @@
 const CONTENT_INTENT_REGEX = /^.+(?=Content)/g;
 
 export function extractLaunchParams() {
-  if (window.launchParams) {
+  if (!window.launchParams) return {};
+
+  try {
     return JSON.parse(window.launchParams);
-  } else {
+  } catch {
+    // Platform-launched params are not guaranteed to be valid JSON.
+    console.warn('ignoring malformed launchParams');
     return {};
   }
 }
@@ -26,6 +30,17 @@ function concatSearchParams(a, b) {
   return new URLSearchParams([...a.entries(), ...b.entries()]);
 }
 
+/**
+ * The launch params' content target: YouTube's `contentTarget`, falling back to
+ * the app's custom `target` (see handleLaunch for why both exist).
+ * @param {unknown} params
+ * @returns {string | undefined}
+ */
+export function contentTargetOf(params) {
+  const { target, contentTarget = target } = params ?? {};
+  return contentTarget;
+}
+
 export function handleLaunch(params) {
   console.info('handleLaunch', params);
   let ytURL = getYTURL();
@@ -34,7 +49,7 @@ export function handleLaunch(params) {
   // parameter do not respect "handlesRelaunch" appinfo option. We still
   // fallback to "contentTarget" if our custom param is not specified.
   //
-  let { target, contentTarget = target } = params;
+  let contentTarget = contentTargetOf(params);
 
   /** TODO: Handle google assistant
    * Sample: {contentTarget: "v=v=<ID>", storeCaller: "voice", subReason: "voiceAgent", voiceEngine: "googleAssistant"}
@@ -42,9 +57,23 @@ export function handleLaunch(params) {
 
   switch (typeof contentTarget) {
     case 'string': {
-      if (contentTarget.indexOf(ytURL.origin) === 0) {
+      if (contentTarget.length > 2048) {
+        console.warn('Overlong contentTarget ignored');
+        break;
+      }
+      let direct;
+      try {
+        direct = new URL(contentTarget);
+      } catch {
+        direct = null;
+      }
+      if (
+        direct &&
+        direct.protocol === 'https:' &&
+        direct.origin === ytURL.origin
+      ) {
         console.info('Launching from direct contentTarget');
-        ytURL = contentTarget;
+        ytURL = direct;
       } else {
         // Out of app dial launch with second screen on home: { contentTarget: 'pairingCode=<UUID>&theme=cl&dialLaunch=watch' }
         console.info('Launching from partial contentTarget');
@@ -59,9 +88,14 @@ export function handleLaunch(params) {
       break;
     }
     case 'object': {
+      if (contentTarget === null) break;
       console.info('Voice launch');
 
       const { intent, intentParam } = contentTarget;
+      if (typeof intent !== 'string' || typeof intentParam !== 'string') {
+        console.warn('Invalid voice launch params');
+        break;
+      }
       // Ctrl+F tvhtml5LaunchUrlComponentChanged & REQUEST_ORIGIN_GOOGLE_ASSISTANT in base.js for info
       const search = ytURL.searchParams;
       // contentTarget.intent's seen so far: PlayContent, SearchContent
@@ -77,7 +111,7 @@ export function handleLaunch(params) {
       search.append('launch', 'voice');
       voiceContentIntent === 'search' && search.append('launch', 'search');
 
-      search.set('vq', intentParam);
+      search.set('vq', intentParam.slice(0, 512));
       break;
     }
     default: {
@@ -148,15 +182,125 @@ export async function waitForChildAdd(
   });
 }
 
-const SELECTORS = {
+export const SELECTORS = {
   PLAYER_ID: 'ytlr-player__player-container-player',
   PLAYER_CONTAINER: 'ytlr-player__player-container',
   WATCH_PAGE_CLASS: 'WEB_PAGE_TYPE_WATCH',
-  SHORTS_PAGE_CLASS: 'WEB_PAGE_TYPE_SHORTS'
+  SHORTS_PAGE_CLASS: 'WEB_PAGE_TYPE_SHORTS',
+  ACCOUNT_SELECTOR: 'WEB_PAGE_TYPE_ACCOUNT_SELECTOR',
+  SEARCH_PAGE_CLASS: 'WEB_PAGE_TYPE_SEARCH'
 };
+
+export const REMOTE_KEYS = {
+  ENTER: { code: 13, key: 'Enter' },
+  BACK: { code: 461, key: 'Back' },
+  LEFT: { code: 37, key: 'ArrowLeft' },
+  UP: { code: 38, key: 'ArrowUp' },
+  RIGHT: { code: 39, key: 'ArrowRight' },
+  DOWN: { code: 40, key: 'ArrowDown' },
+  RED: { code: 403, key: 'Red', alt: [166] },
+  GREEN: { code: 404, key: 'Green', alt: [172] },
+  YELLOW: { code: 405, key: 'Yellow', alt: [170] },
+  BLUE: { code: 406, key: 'Blue', alt: [167, 191] }
+};
+
+// Numeric keys 0-9 are mechanical: keyCode 48 + n.
+for (let i = 0; i <= 9; i++) REMOTE_KEYS[i] = { code: 48 + i, key: String(i) };
+
+// Single source of truth for colour-key codes, including the alternate codes
+// emitted by some webOS remotes. Consumed by keyboard-search and the shortcut
+// handlers instead of maintaining a parallel table.
+export const COLOR_CODE_MAP = new Map();
+for (const name of ['RED', 'GREEN', 'YELLOW', 'BLUE']) {
+  const def = REMOTE_KEYS[name];
+  const lower = name.toLowerCase();
+  COLOR_CODE_MAP.set(def.code, lower);
+  if (def.alt) {
+    def.alt.forEach((code) => {
+      COLOR_CODE_MAP.set(code, lower);
+    });
+  }
+}
+
+// Stamped onto every KeyboardEvent this app synthesises. Listeners that must
+// only react to a real remote press cannot rely on `evt.isTrusted === false`
+// alone: on Chromium 38 events built via document.createEvent can report
+// isTrusted as undefined, and `undefined === false` is false.
+export const SYNTHETIC_KEY_FLAG = '__ytxSynthetic';
+
+// Define Property Descriptor factory to reduce object allocation.
+const createDescriptor = (val) => ({ get: () => val });
+
+// Feature-detect once: the KeyboardEvent constructor, else the legacy
+// document.createEvent path.
+let createEventStrategy;
+try {
+  new KeyboardEvent('keydown');
+  createEventStrategy = (type, opts) => new KeyboardEvent(type, opts);
+} catch {
+  createEventStrategy = (type, opts) => {
+    const evt = document.createEvent('KeyboardEvent');
+    if (evt.initKeyboardEvent) {
+      evt.initKeyboardEvent(type, true, false, window, opts.key, 0, '', false);
+    } else {
+      evt.initEvent(type, true, true);
+    }
+    return evt;
+  };
+}
+
+/**
+ * Dispatches a synthetic keydown+keyup pair for `keyDef`. The events carry
+ * SYNTHETIC_KEY_FLAG so this app's own listeners can tell them from a real
+ * remote press. `keyCode`/`which`/`charCode` are redefined because the
+ * KeyboardEvent constructor ignores them.
+ */
+export function sendKey(keyDef, target = document.body) {
+  if (!keyDef || !keyDef.code) {
+    console.warn('[Utils] Invalid key definition');
+    return;
+  }
+
+  const eventOpts = {
+    bubbles: true,
+    cancelable: false,
+    composed: true,
+    view: window,
+    key: keyDef.key,
+    code: keyDef.key,
+    keyCode: keyDef.code,
+    which: keyDef.code,
+    charCode: keyDef.charCode || 0
+  };
+
+  const keyDownEvt = createEventStrategy('keydown', eventOpts);
+  const keyUpEvt = createEventStrategy('keyup', eventOpts);
+
+  keyDownEvt[SYNTHETIC_KEY_FLAG] = true;
+  keyUpEvt[SYNTHETIC_KEY_FLAG] = true;
+
+  const codeDesc = createDescriptor(keyDef.code);
+  const charDesc = createDescriptor(keyDef.charCode || 0);
+
+  Object.defineProperties(keyDownEvt, {
+    keyCode: codeDesc,
+    which: codeDesc,
+    charCode: charDesc
+  });
+  Object.defineProperties(keyUpEvt, {
+    keyCode: codeDesc,
+    which: codeDesc,
+    charCode: charDesc
+  });
+
+  target.dispatchEvent(keyDownEvt);
+  target.dispatchEvent(keyUpEvt);
+}
 
 let _isWatchPage = false;
 let _isShortsPage = false;
+let _isAccountSelectorPage = false;
+let _isSearchPage = false;
 
 // Cache document.body to avoid DOM lookup overhead if used frequently
 let _body = typeof document !== 'undefined' ? document.body : null;
@@ -170,19 +314,30 @@ function updatePageState() {
   const cl = _body.classList;
   const newWatch = cl.contains(SELECTORS.WATCH_PAGE_CLASS);
   const newShorts = cl.contains(SELECTORS.SHORTS_PAGE_CLASS);
+  const newAccountSelector = cl.contains(SELECTORS.ACCOUNT_SELECTOR);
+  const newSearch = cl.contains(SELECTORS.SEARCH_PAGE_CLASS);
 
-  if (newWatch === _isWatchPage && newShorts === _isShortsPage) {
+  if (
+    newWatch === _isWatchPage &&
+    newShorts === _isShortsPage &&
+    newAccountSelector === _isAccountSelectorPage &&
+    newSearch === _isSearchPage
+  ) {
     return;
   }
 
   _isWatchPage = newWatch;
   _isShortsPage = newShorts;
+  _isAccountSelectorPage = newAccountSelector;
+  _isSearchPage = newSearch;
 
   window.dispatchEvent(
     new CustomEvent('ytx-page-update', {
       detail: {
         isWatch: _isWatchPage,
-        isShorts: _isShortsPage
+        isShorts: _isShortsPage,
+        isAccountSelector: _isAccountSelectorPage,
+        isSearch: _isSearchPage
       }
     })
   );
@@ -225,6 +380,7 @@ if (typeof document !== 'undefined') {
 
 export const isWatchPage = () => _isWatchPage;
 export const isShortsPage = () => _isShortsPage;
+export const isSearchPage = () => _isSearchPage;
 
 // Cached <video> lookup. Re-querying document.querySelector('video') per
 // access is wasteful; cache it for the lifetime of a watch/shorts session

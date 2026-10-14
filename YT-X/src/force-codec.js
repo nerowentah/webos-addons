@@ -1,7 +1,8 @@
 import { configRead, configAddChangeListener } from './config.js';
 import { showNotification } from './notifications.js';
+import { NOTIFICATIONS } from './ui-text.js';
 import { addTVSpecsChangeListener, getTVSpecs } from './tv-specs';
-import { canDecodeAt, codecRefusalReason } from './webos-caps';
+import { canDecodeAt, codecRefusalReason, VIDEO_CODECS } from './webos-caps';
 
 /**
  * Force Video Codec.
@@ -86,7 +87,7 @@ const CODEC_PROBES = {
 };
 
 /** Config values that pin to one codec, as opposed to 'auto' / 'no_av1'. */
-const PINNED_MODES = ['av1', 'vp9', 'avc', 'hevc'];
+const PINNED_MODES = [...VIDEO_CODECS];
 
 let mode = 'auto';
 
@@ -344,7 +345,7 @@ function pinnedCodecBlocked(codec) {
     return codecRefusalReason(codec, playbackHeight());
   }
   if (!platformSupports(codec)) {
-    return `${codec.toUpperCase()} is not available through MSE on this TV`;
+    return 'Codec unavailable on this TV';
   }
   return null;
 }
@@ -357,12 +358,17 @@ function pinnedCodecBlocked(codec) {
  *   "reload to apply" message is worth showing.
  */
 function applyMode(interactive) {
-  const wanted = configRead('forceVideoCodec');
+  let wanted = configRead('forceVideoCodec');
+  // A stored value this build does not know - written by an older or newer
+  // build's option set - matches no codec below, and installing the hooks for
+  // it would refuse every video format. Fall back to Auto instead.
+  if (wanted !== 'no_av1' && PINNED_MODES.indexOf(wanted) === -1)
+    wanted = 'auto';
 
   if (wanted === 'auto') {
     mode = 'auto';
     unsatisfiable = false;
-    if (interactive) showNotification('Video codec: Auto — reload to apply');
+    if (interactive) showNotification(NOTIFICATIONS.codecReload('Auto'));
     return;
   }
 
@@ -371,8 +377,7 @@ function applyMode(interactive) {
     // avoiding AV1 is satisfiable by every codec the platform can decode.
     mode = 'no_av1';
     unsatisfiable = false;
-    if (interactive)
-      showNotification('Video codec: Avoid AV1 — reload to apply');
+    if (interactive) showNotification(NOTIFICATIONS.codecReload('Avoid AV1'));
     return;
   }
 
@@ -386,7 +391,7 @@ function applyMode(interactive) {
       mode = 'auto';
       console.warn(`[ForceCodec] ${refusal}; leaving codec selection alone.`);
       if (interactive) {
-        showNotification(`${refusal} — leaving codec on Auto`);
+        showNotification(NOTIFICATIONS.codecUnavailable);
       }
       return;
     }
@@ -396,7 +401,7 @@ function applyMode(interactive) {
   unsatisfiable = false;
 
   if (interactive) {
-    showNotification(`Video codec: ${mode.toUpperCase()} — reload to apply`);
+    showNotification(NOTIFICATIONS.codecReload(mode.toUpperCase()));
   }
 }
 

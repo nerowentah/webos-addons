@@ -134,7 +134,7 @@ export interface NormalizedVersion {
  * Coerce a version from the app UA into the internal scheme.
  *
  * The UA is built by `vendorExtension.userAgent` in appinfo.json, which
- * interpolates `$platformVersion$`. PENDING: it has not been confirmed on a
+ * interpolates `$platformVersion$`. It has not been confirmed on a
  * device which numbering that substitution produces - this exists because
  * `hasCastCoreConflict()` gates on `>= 10` for the webOS 2025 firmware, and that
  * is only correct under the internal scheme. Under the TV scheme an unhandled
@@ -145,8 +145,7 @@ export interface NormalizedVersion {
  * returns to single digits, so anything at or above 22 is unambiguously TV.
  * Values below that are identical under both schemes up to internal 10, and are
  * reported as 'internal' because that is the scheme the rest of the app uses.
- * Run the Phase 8 debug dump on a device to settle it; the answer lands in the
- * `versionScheme` field.
+ * A device dump of the `versionScheme` field settles it.
  */
 export function normalizeInternalVersion(
   raw: string | undefined
@@ -290,7 +289,10 @@ export const CAPABILITIES: readonly Capability[] = [
 
 /* --------------------------------------------------------- codec matrix --- */
 
-export type VideoCodec = 'av1' | 'vp9' | 'avc' | 'hevc';
+/** Every video codec token the app knows about, newest codec last. */
+export const VIDEO_CODECS = ['av1', 'vp9', 'avc', 'hevc'] as const;
+
+export type VideoCodec = (typeof VIDEO_CODECS)[number];
 
 /**
  * Which codecs the platform can decode, by video plane height.

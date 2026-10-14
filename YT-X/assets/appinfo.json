@@ -4,7 +4,7 @@
   "type": "web",
   "main": "index.html",
   "resolution": "1920x1080",
-  "title": "YouTube Ad-Free",
+  "title": "YouTube-X for webOS",
   "icon": "extraLargeIcon.png",
   "largeIcon": "extraLargeIcon.png",
   "mediumLargeIcon": "extraLargeIcon.png",
@@ -16,6 +16,7 @@
   "bgImage": "bgImage.png",
   "support360Content": true,
   "checkUpdateOnLaunch": false,
+  "requiredACG": [],
   "accessibility": {
     "supportsAudioGuidance": true
   },

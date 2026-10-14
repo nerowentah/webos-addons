@@ -121,6 +121,12 @@ export function getDeviceInfo(): Promise<WebOSDeviceInfo | null> {
   return cached;
 }
 
+/** Whether the platform injected its `webOS` API object. */
+export function hasWebOS(): boolean {
+  const api = window.webOS;
+  return typeof api === 'object' && api !== null;
+}
+
 /** Whether the Luna bridge is reachable, for the debug matrix only. */
 export function hasLunaBridge(): boolean {
   return typeof window.webOS?.service?.request === 'function';
