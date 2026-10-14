@@ -5,6 +5,7 @@ import type { ESLint, Linter } from 'eslint';
 import { defineConfig } from 'eslint/config';
 import stylistic from '@stylistic/eslint-plugin';
 import prettierConfig from 'eslint-config-prettier/flat';
+import noUnsanitized from 'eslint-plugin-no-unsanitized';
 import regexpPlugin from 'eslint-plugin-regexp';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
@@ -30,7 +31,8 @@ const configs = [
   {
     plugins: {
       // Cast needed due to type mismatch even though this is the recommended way to use the plugin.
-      '@stylistic': stylistic as ESLint.Plugin
+      '@stylistic': stylistic as ESLint.Plugin,
+      'no-unsanitized': noUnsanitized
     },
 
     linterOptions: {
@@ -40,7 +42,10 @@ const configs = [
 
     languageOptions: {
       sourceType: defaultSourceType,
-      parserOptions: { ecmaFeatures: { impliedStrict: true } },
+      parserOptions: {
+        ecmaVersion: 2025,
+        ecmaFeatures: { impliedStrict: true }
+      },
       globals: { ...globals.nodeBuiltin }
     },
 
@@ -69,17 +74,24 @@ const configs = [
       'no-unassigned-vars': 'error',
       'preserve-caught-error': 'error',
 
+      // Code-execution sinks. The app patches a live YouTube DOM, so
+      // unwrapping these lands untrusted script.
+      'no-eval': 'error',
+      'no-implied-eval': 'error',
+      'no-new-func': 'error',
+      'no-script-url': 'error',
+
       // @stylistic rules - needed as prettier doesn't handle these
       '@stylistic/quotes': ['error', 'single', { avoidEscape: true }],
 
-      /* eslint-plugin-regexp */
+      /* eslint-plugin-regexp - the following are 'warn' in the recommended config */
       'regexp/prefer-character-class': ['error', { minAlternatives: 2 }],
-      'regexp/no-empty-alternative': 'error', // Set to warn in recommended config
-      'regexp/no-lazy-ends': 'error', // Set to warn in recommended config
-      'regexp/no-potentially-useless-backreference': 'error', // Set to warn in recommended config
-      'regexp/confusing-quantifier': 'error', // Set to warn in recommended config
-      'regexp/no-useless-flag': 'error', // Set to warn in recommended config
-      'regexp/optimal-lookaround-quantifier': 'error' // Set to warn in recommended config
+      'regexp/no-empty-alternative': 'error',
+      'regexp/no-lazy-ends': 'error',
+      'regexp/no-potentially-useless-backreference': 'error',
+      'regexp/confusing-quantifier': 'error',
+      'regexp/no-useless-flag': 'error',
+      'regexp/optimal-lookaround-quantifier': 'error'
     }
   },
 
@@ -101,12 +113,27 @@ const configs = [
     }
   },
 
-  { files: ['src/**/*'], languageOptions: { globals: { ...globals.browser } } },
+  {
+    files: ['src/**/*'],
+    languageOptions: { globals: { ...globals.browser } },
+
+    // DOM-injection sinks, scoped to the browser code. `method` flags dynamic
+    // script/import sinks, so it would misfire on the Node tools' runtime
+    // `import()` of built modules.
+    rules: {
+      'no-unsanitized/method': 'error',
+      'no-unsanitized/property': 'error'
+    }
+  },
 
   {
     // Why doesn't ESLint do this by default is beyond me.
     files: ['**/*.c[jt]s'],
-    languageOptions: { sourceType: 'commonjs' }
+    languageOptions: {
+      sourceType: 'commonjs',
+      // nodeBuiltin omits the CommonJS-only bindings (__dirname, __filename).
+      globals: { ...globals.node }
+    }
   },
 
   {

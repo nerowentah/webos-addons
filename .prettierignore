@@ -1,3 +1,6 @@
 # Vendored build artifacts & lockfile
 YT-X/dist/
 YT-X/package-lock.json
+
+# Local working notes (not part of the repo)
+YT-X/PORT-PLAN.md

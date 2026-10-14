@@ -3,7 +3,7 @@
   "compilerOptions": {
     "allowJs": true,
 
-    "lib": ["ESNext", "DOM", "DOM.Iterable"]
+    "lib": ["ES2025", "DOM", "DOM.Iterable"]
   },
   "include": ["./src"],
   "references": [{ "path": "./tsconfig.tooling.json" }]

@@ -1,9 +1,9 @@
 {
   "compilerOptions": {
     // Language
-    "target": "ESNext",
+    "target": "ES2025",
     "module": "ESNext",
-    "lib": ["ESNext"],
+    "lib": ["ES2025"],
     // Module handling
     "composite": true,
     "moduleResolution": "bundler",
@@ -20,8 +20,8 @@
     "noImplicitOverride": true,
     "noUncheckedSideEffectImports": false, // TODO: enable
     "moduleDetection": "force",
-    // Third-party .d.ts files (e.g. transform-async-modules-webpack-plugin)
-    // reference @babel/core types that don't exist on Babel 8.
+    // Third-party .d.ts files reference untyped modules; without this tsc
+    // fails TS7016 inside their own declarations.
     "skipLibCheck": true,
 
     // Emit

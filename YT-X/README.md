@@ -1,4 +1,4 @@
-# YouTube Ad-Free
+# YouTube Extended for webOS
 
 <p align="center">
   <img src="https://img.shields.io/badge/LG-webOS-000000?logo=webos&logoColor=white&style=flat-square" alt="webOS">
@@ -6,7 +6,7 @@
   <img src="https://img.shields.io/badge/Minimum-webOS%206-4e4a48?style=flat-square" alt="Minimum webOS 6">
 </p>
 
-**YT-X** is an ad-free YouTube client for LG webOS TVs (app ID
+**YT-X** is an extended YouTube client for LG webOS TVs (app ID
 `youtube.leanback.v4`). It is a personal fork of
 [webosbrew/youtube-webos](https://github.com/webosbrew/youtube-webos) with
 extra playback and display controls, maintained in the
@@ -55,7 +55,7 @@ Both upstream projects are licensed GPL-3.0, which this project matches (see
 ### Interface
 
 - Panel Care Mode with per-panel profiles: OLED-Care (true black UI) and
-  QNED MiniLED-Care (dark comfort UI), with video shelf opacity control
+  QNED MiniLED-Care (dark comfort UI)
 - Panel Care Mode defaults to Auto, which reads the panel type from the app's
   user agent and applies the matching profile; unclassified panels fall back to
   Off, and the manual setting always overrides detection
@@ -92,8 +92,9 @@ version, which determines the browser engine:
 | 7 – 25 | Chrome 87+       | Supported                     |
 
 Support for webOS 5 and older was removed because those engines lack features
-the app now relies on directly. Dropping them lets the build ship ES2019
-instead of ES5 and removes the fetch, `DOMRect`, and generator polyfills.
+the app now relies on directly. Dropping them lets the source and tooling target
+ES2025 while Babel downlevels the shipped artifact to the Chrome 79 floor, and
+removes the fetch, `DOMRect`, and generator polyfills.
 
 `.browserslistrc` is the support matrix of record — changing the floor there
 changes what the build is allowed to emit.
@@ -289,6 +290,24 @@ to cut graphics memory, or on 720p sets where it is a pixel-for-pixel match.
 npm run lint:all # audit, eslint, type-check, prettier
 npm run verify   # production build plus ES compatibility check
 ```
+
+### Dependency notes
+
+Two advisories in the development dependency tree have no upstream fix and are
+accepted, gated by `tools/audit.cjs`. Neither ships in the packaged `.ipk`:
+
+| Package      | Advisory                                                                   | Why accepted                                                                       |
+| ------------ | -------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `braces`     | [`GHSA-vfj7-8cjw-p6xm`](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm) | 3.0.3 is the latest release; reached only via `es-check`/`shelljs` → `fast-glob`   |
+| `sprintf-js` | [`GHSA-hp3w-g68c-fv3c`](https://github.com/advisories/GHSA-hp3w-g68c-fv3c) | 1.1.3 is the latest release; reached only via the `@webos-tools/cli` devDependency |
+
+The `@webos-tools/cli` devDependency (the official LG webOS CLI, at its latest
+release) also pulls a set of npm-deprecated packages — `npmlog`,
+`are-we-there-yet`, `gauge`, `fstream`, `inflight`, and nested `glob@7`/`rimraf@2`.
+They are development-only and inherited transitively from that CLI; no
+non-deprecated release exists at the pinned versions, and forcing newer versions
+through `overrides` breaks the CLI's callback-based file handling, so they are
+left as-is.
 
 ### Debugging
 

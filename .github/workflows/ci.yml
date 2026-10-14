@@ -32,7 +32,16 @@ jobs:
       - name: Harden Runner
         uses: step-security/harden-runner@351661ca32ac09a36dc5ee2d536e3128f2a3c8ed # v2.22.0
         with:
-          egress-policy: audit
+          egress-policy: block
+          allowed-endpoints: >
+            registry.npmjs.org:443
+            github.com:443
+            api.github.com:443
+            codeload.github.com:443
+            objects.githubusercontent.com:443
+            nodejs.org:443
+            *.actions.githubusercontent.com:443
+            *.blob.core.windows.net:443
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -46,11 +55,19 @@ jobs:
           cache-dependency-path: YT-X/package-lock.json
 
       - name: Install dependencies
-        run: npm ci
+        # Skip lifecycle scripts: this job only builds and tests, so running
+        # install hooks would add attack surface with no benefit.
+        run: npm ci --ignore-scripts
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Check UI text lengths
+        run: npm run check:text
 
       # verify = production webpack build + es-check against the webOS TV
       # engine target, which is the pair that actually proves the artifact
-      # will load on a device.
+      # will load on a device. It also re-runs the UI-text length check.
       - name: Build and verify
         run: npm run verify
 
@@ -59,6 +76,9 @@ jobs:
 
       - name: Type-check
         run: npm run type-check
+
+      - name: Audit
+        run: npm run audit
 
       - name: Format check
         run: npm run prettier-check

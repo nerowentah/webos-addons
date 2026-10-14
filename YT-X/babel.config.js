@@ -15,9 +15,9 @@ const { version: corejspureVersion } = require('core-js-pure/package.json');
 /** @type {(api: ConfigAPI) => BabelConfig} */
 function makeConfig(api) {
   const cfg = {
-    // Fixes "TypeError: __webpack_require__(...) is not a function"
-    // https://github.com/webpack/webpack/issues/9379#issuecomment-509628205
-    // https://babel.dev/docs/options#sourcetype
+    // Webpack emits both CJS and ESM; auto-detect avoids
+    // "__webpack_require__(...) is not a function". See
+    // https://github.com/webpack/webpack/issues/9379
     sourceType: 'unambiguous',
     plugins: [
       [
@@ -27,18 +27,13 @@ function makeConfig(api) {
         }
       ],
       [
-        // Still required at the webOS 6 / Chrome 79 floor: structuredClone,
-        // used by src/hooks/json-stringify.ts, did not ship until Chrome 98.
+        // structuredClone (src/hooks/json-stringify.ts) predates the Chrome 79 floor.
         'polyfill-corejs3',
         {
           method: 'usage-pure',
           version: corejspureVersion,
-          /**
-           * Core-js pure polyfills would replace direct JSON.parse/stringify
-           * calls with imports, bypassing the hooks we install in
-           * src/hooks and src/adblock.js.
-           * See https://github.com/babel/babel-polyfills/blob/a5db9c31c5b5474b4018e6178bc40882fc3eb5bf/packages/babel-plugin-polyfill-corejs3/README.md#version
-           */
+          // Pure polyfills would rewrite JSON.parse/stringify into imports,
+          // bypassing the hooks in src/hooks and src/adblock.js.
           exclude: ['es.json.parse', 'esnext.json.parse']
         }
       ]

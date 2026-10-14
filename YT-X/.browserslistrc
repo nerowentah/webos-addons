@@ -1,11 +1,5 @@
-# Minimum supported webOS TV version is webOS 6 (Chrome 79).
-#
-# webOS 1-5 are no longer supported. They were Safari 7/8 (webOS 1-2, via WAM)
-# and Chrome 38-68 (webOS 3-5). Dropping them is what allows the build to emit
-# ES2019, native fetch, and CSS custom properties without manual fallbacks.
-#
-# This file is the support matrix of record: the webview engine version is
-# determined by the TV's webOS version, not by anything the app can detect.
+# Support matrix of record: the webview engine version is tied to the TV's
+# webOS version. Minimum is webOS 6 (Chrome 79); webOS 1-5 are dropped.
 chrome 79 # webOS 6
 chrome 87 # webOS 7 (22)
 chrome 94 # webOS 8 (23)

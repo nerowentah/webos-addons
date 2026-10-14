@@ -10,6 +10,7 @@
   },
   "include": [
     "./tools",
+    "./types",
     "./assets/appinfo.json",
     "./package.json",
     "./webpack.config.js",
