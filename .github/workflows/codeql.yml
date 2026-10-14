@@ -8,9 +8,6 @@ on:
       - '.github/workflows/codeql.yml'
   pull_request:
     branches: [main]
-    paths:
-      - 'YT-X/**'
-      - '.github/workflows/codeql.yml'
   schedule:
     - cron: '17 6 * * 1'
   workflow_dispatch:
