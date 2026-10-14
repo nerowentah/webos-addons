@@ -6,25 +6,12 @@ import { getVersion } from './version.cjs';
 const require = createRequire(import.meta.url);
 const appinfo = require('../assets/appinfo.json');
 
-/**
- * Build, package, install and launch in one go.
- *
- * The order matters and so does the resolution: webOS accepts only 1920x1080
- * and 1280x720 for a web app's graphics canvas, and 1080p is the default here.
- * The 720p canvas exists to cut graphics memory or to pixel-match a 720p set,
- * so it is opt-in - `--resolution 1280x720` or YTX_RESOLUTION - rather than
- * something the tool guesses at.
- */
+/** Build, package, install and launch in one go. webOS canvas: 1920x1080 (default) or 1280x720 (opt-in). */
 const APP_RESOLUTIONS = ['1920x1080', '1280x720'];
 const DEFAULT_RESOLUTION = '1920x1080';
 
-/**
- * Read `--resolution <value>` / `--resolution=<value>`, so the flag works the
- * same through npm (`npm run deploy -- --resolution ...`) and directly.
- *
- * @param {readonly string[]} argv
- * @returns {string | undefined}
- */
+/** Parse `--resolution <value>` or `--resolution=<value>`. */
+/** @param {string[]} argv */
 function parseResolution(argv) {
   for (const [i, arg] of argv.entries()) {
     if (arg === '--resolution') return argv[i + 1];
@@ -46,22 +33,28 @@ if (!APP_RESOLUTIONS.includes(resolution)) {
   process.exit(1);
 }
 
-// Development inlines source maps into the bundle, which is what makes the TV
-// debuggable; production is the shipped artifact. Production is the default.
+// Mode: development inlines source maps for TV debugging; production is default.
 const mode = argv.includes('--dev') ? 'development' : 'production';
 
-/** Resolve an npm-installed CLI shim (adds .cmd on Windows via the shell).
- * @param {string} name */
-const bin = (name) => normalize(`./node_modules/.bin/${name}`);
+/** Map CLI tools to node entrypoints (skip .cmd shims on Windows). */
+const TOOL_ENTRIES = {
+  webpack: './node_modules/webpack/bin/webpack.js',
+  'ares-package': './node_modules/@webos-tools/cli/bin/ares-package.js',
+  'ares-install': './node_modules/@webos-tools/cli/bin/ares-install.js',
+  'ares-launch': './node_modules/@webos-tools/cli/bin/ares-launch.js'
+};
 
-/**
- * @param {string} step
- * @param {string} command
- * @param {readonly string[]} args
- */
-function run(step, command, args) {
+/** Run a CLI step via node entrypoint. */
+/** @param {string} step @param {keyof typeof TOOL_ENTRIES} tool @param {string[]} args */
+function run(step, tool, args) {
+  const entry = TOOL_ENTRIES[tool];
+  if (!entry) {
+    throw new Error(`deploy: no entrypoint mapped for "${tool}"`);
+  }
   console.log(`\n[deploy] ${step}`);
-  const result = spawnSync(command, args, { stdio: 'inherit', shell: true });
+  const result = spawnSync(process.execPath, [normalize(entry), ...args], {
+    stdio: 'inherit'
+  });
 
   if (result.error) {
     console.error(`[deploy] ${step} failed: ${result.error.message}`);
@@ -75,11 +68,11 @@ function run(step, command, args) {
 
 const ipk = `./${appinfo.id}_${getVersion()}_all.ipk`;
 
-run('build', bin('webpack'), [
+run('build', 'webpack', [
   `--mode=${mode}`,
   '--env',
   `resolution=${resolution}`
 ]);
-run('package', bin('ares-package'), ['-n', 'dist']);
-run('install', bin('ares-install'), [normalize(ipk)]);
-run('launch', bin('ares-launch'), [appinfo.id]);
+run('package', 'ares-package', ['-n', 'dist']);
+run('install', 'ares-install', [normalize(ipk)]);
+run('launch', 'ares-launch', [appinfo.id]);

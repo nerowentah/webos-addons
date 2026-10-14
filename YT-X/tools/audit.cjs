@@ -5,43 +5,49 @@ const { spawnSync } = require('node:child_process');
 delete process.env.npm_config_allow_scripts;
 delete process.env.NPM_CONFIG_ALLOW_SCRIPTS;
 
-// Advisories with no upstream fix, accepted until a patched release lands.
-// Keyed on GHSA id rather than package name so an entry keeps working as the
-// affected packages get version bumps.
+// Accepted advisories (no upstream fix; dev-only). Keyed on GHSA id so an
+// entry keeps working as the affected packages get version bumps. Each has a
+// REVIEW_BY date: once the clock passes it, the gate warns on every run until
+// the entry is re-evaluated or dropped.
+const REVIEW_BY = new Map([
+  ['GHSA-vfj7-8cjw-p6xm', '2026-12-01'],
+  ['GHSA-hp3w-g68c-fv3c', '2027-03-01']
+]);
+
 const ACCEPTED = new Set([
-  // braces <=3.0.3 stack-exhaustion DoS via deeply nested patterns. 3.0.3 is
-  // the latest release, so there is nothing to upgrade to. Reached only
-  // through devDependencies (es-check and @webos-tools/cli, via
-  // shelljs -> fast-glob -> micromatch -> braces); none of it ships in the
-  // packaged app.
-  'GHSA-vfj7-8cjw-p6xm'
+  'GHSA-vfj7-8cjw-p6xm', // braces: devDeps only, latest fixed missing.
+  'GHSA-hp3w-g68c-fv3c' // sprintf-js: devDep only, no fix.
 ]);
 
 const args = ['audit', '--json', ...process.argv.slice(2)];
 
-// Node refuses to spawn a `.cmd` shim directly, so on Windows the npm shim is
-// reached through cmd.exe. `/s` is deliberately omitted: it strips the outer
-// quotes off the command line and mangles forwarded args. stdout is captured
-// so the report can be filtered; stderr stays attached for warnings.
+// Prefer npm's own CLI JS under node: npm_execpath is set when this runs via
+// `npm run audit`, so argv is never re-parsed by a shell on Windows. The
+// cmd.exe path remains only for direct invocation without npm.
 const isWindows = process.platform === 'win32';
-const result = isWindows
-  ? spawnSync(
-      process.env.ComSpec ?? 'cmd.exe',
-      ['/d', '/c', 'npm.cmd', ...args],
-      { stdio: ['ignore', 'pipe', 'inherit'], encoding: 'utf8' }
-    )
-  : spawnSync('npm', args, {
+const npmCliPath = process.env.npm_execpath;
+const result = npmCliPath
+  ? spawnSync(process.execPath, [npmCliPath, ...args], {
       stdio: ['ignore', 'pipe', 'inherit'],
       encoding: 'utf8'
-    });
+    })
+  : isWindows
+    ? spawnSync(
+        process.env.ComSpec ?? 'cmd.exe',
+        ['/d', '/c', 'npm.cmd', ...args],
+        { stdio: ['ignore', 'pipe', 'inherit'], encoding: 'utf8' }
+      )
+    : spawnSync('npm', args, {
+        stdio: ['ignore', 'pipe', 'inherit'],
+        encoding: 'utf8'
+      });
 
 if (result.error) {
   console.error(`audit: unable to run npm audit: ${result.error.message}`);
   process.exit(1);
 }
 
-// A null status means the child never reported one, which is a failure to
-// audit rather than a clean bill of health.
+// Null status means the child never reported exit status.
 if (result.status === null) {
   console.error('audit: npm audit exited without reporting a status');
   process.exit(1);
@@ -56,8 +62,7 @@ try {
   process.exit(1);
 }
 
-// `npm audit --json` reports its own failures as a JSON error object on
-// stdout, which would otherwise parse cleanly and look like an empty report.
+// npm audit --json returns error object on stdout.
 if (report.error) {
   const { code, summary, detail } = report.error;
   console.error(`audit: npm audit failed${code ? ` (${code})` : ''}`);
@@ -70,9 +75,7 @@ if (report.error) {
   process.exit(1);
 }
 
-// `via` holds advisory objects for direct findings and plain package-name
-// strings for dependency links. Only the former carry a real advisory, so the
-// gate reports those and ignores the chains that merely lead to them.
+// Only direct advisory objects (not chain strings) are reported.
 const advisories = new Map();
 for (const [name, vuln] of Object.entries(report.vulnerabilities ?? {})) {
   for (const via of vuln.via ?? []) {
@@ -107,6 +110,23 @@ if (unaccepted.length > 0) {
 }
 
 const accepted = advisories.size;
+
+const expired = [...REVIEW_BY.entries()].filter(
+  ([ghsa, until]) => ACCEPTED.has(ghsa) && Date.now() > Date.parse(until)
+);
+if (expired.length > 0) {
+  console.error(
+    `audit: ${
+      expired.length === 1
+        ? 'an accepted advisory is'
+        : 'accepted advisories are'
+    } past its review date - re-evaluate or bump REVIEW_BY:`
+  );
+  for (const [ghsa, until] of expired) {
+    console.error(`  ${ghsa} (due ${until})`);
+  }
+}
+
 if (accepted > 0) {
   console.log(
     `audit: ok - ${accepted} accepted ${

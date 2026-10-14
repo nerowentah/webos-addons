@@ -4,14 +4,10 @@ const { spawnSync } = require('node:child_process');
 const path = require('node:path');
 const pkgJson = require('../package.json');
 
-// Resolved from this module's own location rather than the process cwd, which
-// varies by caller (webpack, deploy, and the manifest each start differently).
+// Resolve from this module (cwd varies by caller).
 const APP_DIR = path.dirname(require.resolve('../package.json'));
 
-// Resolved once per process: these shell out to git, and callers read them more
-// than once (the manifest reads the version twice). Caching also guarantees a
-// single build cannot observe two different answers if HEAD moves mid-run.
-// `undefined` means "not computed yet", distinct from a cached `null` result.
+// Cache git results per process (manifest reads version twice; HEAD stable).
 /** @type {number | null | undefined} */
 let cachedBuild;
 /** @type {string | null | undefined} */
@@ -19,16 +15,8 @@ let cachedSha;
 /** @type {string | undefined} */
 let cachedVersion;
 
-/**
- * Run a git command with the working directory pinned to this app. Git walks up
- * to the enclosing repository (this app is not its own git repo in this
- * checkout), so the cwd must be pinned rather than inherited: a pathspec is
- * resolved relative to the cwd, and an inherited cwd would make the same call
- * return different results depending on where the process was started.
- *
- * @param {readonly string[]} args
- * @returns {string | null}
- */
+/** Run git with cwd pinned to APP_DIR (repo may be parent). */
+/** @param {string[]} args */
 function runGit(args) {
   const result = spawnSync('git', args, {
     cwd: APP_DIR,
@@ -38,24 +26,14 @@ function runGit(args) {
   return result.stdout.trim();
 }
 
-/**
- * @returns {string | null} Short SHA of HEAD (e.g. "e4fd19f").
- */
+/** @returns {string | null} Short SHA of HEAD. */
 function getGitShortSha() {
   if (cachedSha !== undefined) return cachedSha;
   cachedSha = runGit(['rev-parse', '--short', 'HEAD']);
   return cachedSha;
 }
 
-/**
- * Repo-root-relative path of this app, as a git pathspec. The `:(top)` magic
- * anchors the pathspec to the repository root, so the result is the same no
- * matter which directory git is invoked from. Resolved at runtime rather than
- * hardcoded so the app keeps working if it moves within the enclosing repo.
- *
- * @returns {string | null} The pathspec, `''` when this app is the repository
- *   root, or `null` when git is unavailable.
- */
+/** Get repo-root-relative git pathspec for this app (`''` if app is root). */
 function getAppPathspec() {
   const prefix = runGit(['rev-parse', '--show-prefix']);
   if (prefix === null) return null;
@@ -63,13 +41,7 @@ function getAppPathspec() {
   return `:(top)${prefix.replace(/\\/g, '/')}`;
 }
 
-/**
- * Commits that actually touched this app. Counting the whole enclosing repo
- * would bump the version for unrelated changes anywhere in the monorepo, so
- * the count is restricted to this app's paths.
- *
- * @returns {number | null}
- */
+/** Commits that touched this app (not whole repo). */
 function getBuildNumber() {
   if (cachedBuild !== undefined) return cachedBuild;
   cachedBuild = null;
@@ -84,33 +56,14 @@ function getBuildNumber() {
   return cachedBuild;
 }
 
-/**
- * Parse one numeric version component, tolerating malformed package.json
- * versions rather than emitting "NaN" or silently dropping a component.
- *
- * @param {string | undefined} value
- * @returns {number}
- */
+/** Parse numeric version component (default 0 if malformed). */
+/** @param {string | undefined} value */
 function toVersionPart(value) {
   const parsed = Number.parseInt(value ?? '', 10);
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-/**
- * Version used everywhere (appinfo.json, IPK filename, Homebrew manifest,
- * UI badge). ares-package and webOS require exactly three numeric parts
- * (major.minor.patch), so the package.json base contributes the major and
- * minor while the app's commit count fills the patch. This keeps every build
- * distinct and increasing. Falls back to the package.json version when git is
- * unavailable.
- *
- * The patch never drops below package.json's own patch. A rebase or history
- * squash can lower the commit count, and webOS compares versions, so shipping
- * a lower number would look like a downgrade. Raising the package.json patch
- * pins a floor for a release that must not be undercut.
- *
- * @returns {string}
- */
+/** Version: major.minor.patch (patch = max(build count, pkg patch). 3-part for webOS). */
 function getVersion() {
   if (cachedVersion !== undefined) return cachedVersion;
   const build = getBuildNumber();
@@ -124,13 +77,8 @@ function getVersion() {
   return cachedVersion;
 }
 
-/**
- * Extract a clone URL from package.json's `repository`, which npm allows to be
- * either a shorthand string ("github:user/repo") or an object with a `url`.
- *
- * @param {unknown} repository
- * @returns {string | undefined}
- */
+/** Extract repo URL from package.json repository (string or {url}). */
+/** @param {unknown} repository */
 function repositoryUrl(repository) {
   if (typeof repository === 'string') return repository;
   if (
@@ -144,18 +92,7 @@ function repositoryUrl(repository) {
   return undefined;
 }
 
-/**
- * The GitHub owner/repo pair this app is published under, parsed from
- * package.json's `repository`.
- *
- * package.json is the single source of truth: there is no owner field of its
- * own, and hardcoding the name in the UI badge and the Homebrew manifest meant
- * two extra places to edit if the fork moves. Both spellings npm allows are
- * handled - the shorthand "github:user/repo" and a full URL, with or without a
- * git+ prefix or .git suffix.
- *
- * @returns {{ owner: string, repo: string } | null}
- */
+/** Parse owner/repo from package.json repository (shorthand or URL). */
 function getRepository() {
   const value = repositoryUrl(pkgJson.repository);
   if (value === undefined || value === '') return null;
@@ -170,19 +107,12 @@ function getRepository() {
   return { owner, repo };
 }
 
-/**
- * The publishing owner, for the UI version badge and the Homebrew manifest.
- * `undefined` when package.json does not name a parseable repository.
- *
- * @returns {string | undefined}
- */
+/** Get publishing owner (undefined if repo not parseable). */
 function getOwner() {
   return getRepository()?.owner;
 }
 
-/**
- * @returns {{ version: string, gitSha: string | null, owner: string | undefined }}
- */
+/** @returns {{ version: string, gitSha: string | null, owner: string | undefined }} */
 function getVersionInfo() {
   return { version: getVersion(), gitSha: getGitShortSha(), owner: getOwner() };
 }
