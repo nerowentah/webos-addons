@@ -8,9 +8,6 @@ on:
       - '.github/workflows/ci.yml'
   pull_request:
     branches: [main]
-    paths:
-      - 'YT-X/**'
-      - '.github/workflows/ci.yml'
   workflow_dispatch:
 
 permissions:
