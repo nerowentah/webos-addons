@@ -20,19 +20,12 @@ function getYTURL() {
   return ytURL;
 }
 
-/**
- * Creates a new URLSearchPrams with the contents of `a` and `b`
- * @param {URLSearchParams} a
- * @param {URLSearchParams} b
- * @returns {URLSearchParams}
- */
 function concatSearchParams(a, b) {
   return new URLSearchParams([...a.entries(), ...b.entries()]);
 }
 
 /**
- * The launch params' content target: YouTube's `contentTarget`, falling back to
- * the app's custom `target` (see handleLaunch for why both exist).
+ * The launch params' `contentTarget`, falling back to the custom `target` (see handleLaunch).
  * @param {unknown} params
  * @returns {string | undefined}
  */
@@ -45,15 +38,11 @@ export function handleLaunch(params) {
   console.info('handleLaunch', params);
   let ytURL = getYTURL();
 
-  // We use our custom "target" param, since launches with "contentTarget"
-  // parameter do not respect "handlesRelaunch" appinfo option. We still
-  // fallback to "contentTarget" if our custom param is not specified.
-  //
+  // Custom "target" param because launches with "contentTarget" do not respect
+  // the "handlesRelaunch" appinfo option; falls back to "contentTarget".
   let contentTarget = contentTargetOf(params);
 
-  /** TODO: Handle google assistant
-   * Sample: {contentTarget: "v=v=<ID>", storeCaller: "voice", subReason: "voiceAgent", voiceEngine: "googleAssistant"}
-   */
+  /** TODO: Handle google assistant voice launches. */
 
   switch (typeof contentTarget) {
     case 'string': {
@@ -123,11 +112,8 @@ export function handleLaunch(params) {
 }
 
 /**
- * Wait for a child element to be added for which a predicate is true.
- *
- * When `observeAttributes` is false, the predicate is checked only when a node
- * is first added. If you want the predicate to run every time an attribute is
- * modified, set `observeAttributes` to true.
+ * Wait for a child element to be added for which a predicate is true; with
+ * `observeAttributes` the predicate also runs on attribute changes.
  * @template {Node} T
  * @param {Element} parent Root of tree to watch
  * @param {(node: Node) => node is T} predicate Function that checks whether its argument is the desired element
@@ -207,9 +193,7 @@ export const REMOTE_KEYS = {
 // Numeric keys 0-9 are mechanical: keyCode 48 + n.
 for (let i = 0; i <= 9; i++) REMOTE_KEYS[i] = { code: 48 + i, key: String(i) };
 
-// Single source of truth for colour-key codes, including the alternate codes
-// emitted by some webOS remotes. Consumed by keyboard-search and the shortcut
-// handlers instead of maintaining a parallel table.
+// Single source of truth for colour-key codes, including the alternate codes emitted by some webOS remotes; consumed by keyboard-search.js.
 export const COLOR_CODE_MAP = new Map();
 for (const name of ['RED', 'GREEN', 'YELLOW', 'BLUE']) {
   const def = REMOTE_KEYS[name];
@@ -222,38 +206,16 @@ for (const name of ['RED', 'GREEN', 'YELLOW', 'BLUE']) {
   }
 }
 
-// Stamped onto every KeyboardEvent this app synthesises. Listeners that must
-// only react to a real remote press cannot rely on `evt.isTrusted === false`
-// alone: on Chromium 38 events built via document.createEvent can report
-// isTrusted as undefined, and `undefined === false` is false.
+// Stamped onto every synthesised KeyboardEvent so our listeners can tell them
+// from a real press; `isTrusted` is not set reliably on all engines.
 export const SYNTHETIC_KEY_FLAG = '__ytxSynthetic';
 
-// Define Property Descriptor factory to reduce object allocation.
 const createDescriptor = (val) => ({ get: () => val });
 
-// Feature-detect once: the KeyboardEvent constructor, else the legacy
-// document.createEvent path.
-let createEventStrategy;
-try {
-  new KeyboardEvent('keydown');
-  createEventStrategy = (type, opts) => new KeyboardEvent(type, opts);
-} catch {
-  createEventStrategy = (type, opts) => {
-    const evt = document.createEvent('KeyboardEvent');
-    if (evt.initKeyboardEvent) {
-      evt.initKeyboardEvent(type, true, false, window, opts.key, 0, '', false);
-    } else {
-      evt.initEvent(type, true, true);
-    }
-    return evt;
-  };
-}
+const createEventStrategy = (type, opts) => new KeyboardEvent(type, opts);
 
 /**
- * Dispatches a synthetic keydown+keyup pair for `keyDef`. The events carry
- * SYNTHETIC_KEY_FLAG so this app's own listeners can tell them from a real
- * remote press. `keyCode`/`which`/`charCode` are redefined because the
- * KeyboardEvent constructor ignores them.
+ * Dispatches a synthetic keydown+keyup for `keyDef`, stamped with SYNTHETIC_KEY_FLAG; `keyCode`/`which`/`charCode` are redefined because the KeyboardEvent constructor ignores them.
  */
 export function sendKey(keyDef, target = document.body) {
   if (!keyDef || !keyDef.code) {
@@ -302,7 +264,6 @@ let _isShortsPage = false;
 let _isAccountSelectorPage = false;
 let _isSearchPage = false;
 
-// Cache document.body to avoid DOM lookup overhead if used frequently
 let _body = typeof document !== 'undefined' ? document.body : null;
 
 function updatePageState() {
@@ -348,8 +309,7 @@ if (typeof document !== 'undefined') {
     _body = document.body;
     const pageObserver = new MutationObserver((mutations) => {
       for (const m of mutations) {
-        // Cheap pre-filter: only care if a WEB_PAGE_TYPE_ class actually
-        // changed. Body classes flip constantly for focus/animation state.
+        // Cheap pre-filter: body classes flip constantly for focus/animation state, so only a WEB_PAGE_TYPE_ change matters.
         const oldV = m.oldValue || '';
         const newV = m.target.className || '';
         if (newV === oldV) continue;
@@ -382,9 +342,7 @@ export const isWatchPage = () => _isWatchPage;
 export const isShortsPage = () => _isShortsPage;
 export const isSearchPage = () => _isSearchPage;
 
-// Cached <video> lookup. Re-querying document.querySelector('video') per
-// access is wasteful; cache it for the lifetime of a watch/shorts session
-// and invalidate when the page state changes.
+// Cached <video> lookup, invalidated when the page state changes.
 let _cachedVideo = null;
 export function getVideo() {
   if (_cachedVideo && _cachedVideo.isConnected) return _cachedVideo;
@@ -393,8 +351,7 @@ export function getVideo() {
 }
 if (typeof window !== 'undefined') {
   window.addEventListener('ytx-page-update', (e) => {
-    // Drop the cache whenever we leave a video page; the next getVideo() call
-    // will re-query on demand.
+    // Drop the cache when leaving a video page; the next getVideo() re-queries.
     if (!e.detail.isWatch && !e.detail.isShorts) _cachedVideo = null;
   });
 }

@@ -28,9 +28,8 @@ import { PANEL, NOTIFICATIONS } from './ui-text.js';
 
 export const showNotification = notificationsShowNotification;
 
-// Only these keys may be written as element properties. A fallthrough like
-// el['innerHTML'] = ... (or src/href/on*) could inject markup or navigate, so
-// anything else must be a benign attribute name or it is dropped.
+// Allowlist: a fallthrough like el['innerHTML'] = ... (or src/href/on*) could
+// inject markup or navigate, so unknown keys are dropped.
 const ELEMENT_PROP_KEYS = new Set([
   'id',
   'type',
@@ -114,19 +113,7 @@ function createConfigCheckbox(key) {
   return elmLabel;
 }
 
-// `grid` opts a section into the multi-column layout; createSection then picks
-// two or three columns from the row count (see layout.js). Sizing and spacing
-// moved to ui.css so the whole panel can be retuned in one place instead of
-// through inline styles on every section.
-/**
- * Order controls in a settings section A-Z by their label.
- *
- * Every control tags itself with `dataset.sortKey` (see createConfigCheckbox and
- * createGenericControlRow). An element without a key belongs to the control it
- * follows - the note paragraphs under the opacity sliders - so each keyed
- * control is grouped with the untagged nodes after it and the groups are
- * sorted, keeping notes attached to the row they describe.
- */
+/** Order controls A-Z by `dataset.sortKey`; unkeyed elements group with the keyed control they follow. */
 function orderByLabel(elements) {
   const groups = [];
   for (const el of elements) {
@@ -136,10 +123,8 @@ function orderByLabel(elements) {
     } else {
       groups.push({
         key: key === undefined ? '' : key.toLowerCase(),
-        // A cycle-control row is pinned to the bottom of its section: its value
-        // column reads as a summary of the section, and an A-Z sort would bury
-        // it in the middle of the checkbox list.
-        last: !!(el.classList && el.classList.contains('shortcut-control-row')),
+        // Pinned to the section bottom; A-Z would bury this summary row among the checkboxes.
+        last: !!(el.classList && el.classList.contains('ytx-cycle-row')),
         els: [el]
       });
     }
@@ -157,28 +142,6 @@ function orderByLabel(elements) {
 }
 
 /**
- * Tag the checkbox rows of a grid section as left- or right-column cells, so
- * ui.css can mirror the leftmost cell's toggle to the outer edge.
- *
- * Grid auto-placement restarts at column 1 after a full-width item, so the
- * column a row lands in is not simply its position among the labels; a
- * cycle-control row (which spans every track) resets the pairing. Walking the
- * ordered rows and advancing the column only for labels tracks the real column,
- * which `:nth-of-type(odd)` cannot. Only called for opt-in (`grid`) sections.
- */
-function tagGridCells(elements, cols) {
-  let col = 1;
-  for (const el of elements) {
-    if (el.classList && el.classList.contains('shortcut-control-row')) {
-      col = 1;
-    } else if (el.tagName === 'LABEL') {
-      el.classList.add(col === 1 ? 'ytx-cell-left' : 'ytx-cell-right');
-      col = (col % cols) + 1;
-    }
-  }
-}
-
-/**
  * @param {string} title Section heading.
  * @param {Element[]} elements Control rows.
  * @param {boolean} grid Opt the section into the multi-column layout. The
@@ -193,7 +156,6 @@ function createSection(title, elements, grid = false, note = '') {
     const labelCount = ordered.filter((el) => el.tagName === 'LABEL').length;
     const cols = gridColumns(labelCount);
     cls = `ytx-grid ytx-grid-${cols}`;
-    tagGridCells(ordered, cols);
   }
   const legend = createElement('div', { text: title, class: 'section-title' });
   if (note) {
@@ -214,8 +176,7 @@ function createGenericControlRow(
   displayValueGetter,
   onLeft,
   onRight,
-  onClick,
-  extraElements = null
+  onClick
 ) {
   const valueText = createElement('span', { class: 'current-value' });
   const updateDisplay = () => {
@@ -225,7 +186,7 @@ function createGenericControlRow(
   const container = createElement(
     'div',
     {
-      class: 'shortcut-control-row',
+      class: 'ytx-cycle-row',
       tabIndex: 0,
       events: {
         click: () => onClick()
@@ -233,12 +194,12 @@ function createGenericControlRow(
     },
     createElement('span', {
       text: labelText,
-      class: 'shortcut-label',
+      class: 'ytx-cycle-label',
       style: { fontSize: '2.1vh' }
     }),
     createElement(
       'div',
-      { class: 'shortcut-value-container' },
+      { class: 'ytx-cycle-value' },
       createElement('span', {
         text: '<',
         class: 'arrow-btn',
@@ -265,12 +226,6 @@ function createGenericControlRow(
 
   container.dataset.sortKey = labelText;
 
-  if (extraElements) {
-    container
-      .querySelector('.shortcut-value-container')
-      .appendChild(extraElements);
-  }
-
   return { container, updateDisplay };
 }
 
@@ -278,8 +233,7 @@ function createCycleControl(
   configKey,
   labelText,
   modesArray,
-  displayMap = null,
-  extraElements = null
+  displayMap = null
 ) {
   const displayValueGetter = () =>
     displayMap
@@ -301,8 +255,7 @@ function createCycleControl(
     displayValueGetter,
     () => cycle('prev'),
     () => cycle('next'),
-    () => cycle('next'),
-    extraElements
+    () => cycle('next')
   );
 
   configAddChangeListener(configKey, updateDisplay);
@@ -310,13 +263,7 @@ function createCycleControl(
   return container;
 }
 
-/**
- * A cycle control that lines up with the checkbox rows around it.
- *
- * A checkbox row and a cycle row both start their label at the row's left edge
- * (createConfigCheckbox puts the option text first), so a cycle row needs no
- * placeholder to align - it only has to build the same value/label row.
- */
+/** A cycle control that lines up with the checkbox rows around it (both start their label at the row's left edge, so no placeholder is needed). */
 function createAlignedCycleControl(configKey, displayMap) {
   return createCycleControl(
     configKey,
@@ -334,8 +281,7 @@ let optionsPanelVisible = false;
 let panelInitBlock = false;
 let lastSafeFocus = null;
 
-// Popup toggle is wired up by Sponsorblock-UI.js via setSponsorBlockPopupSync.
-// Until then the popup never exists, so this is a no-op.
+// Wired by Sponsorblock-UI.js via setSponsorBlockPopupSync; no-op until then.
 let syncSponsorBlockPopup = () => {};
 export function setSponsorBlockPopupSync(fn) {
   syncSponsorBlockPopup = fn;
@@ -415,10 +361,10 @@ function createOptionsPanel() {
     ];
     const focusSelectors = [
       'input',
-      '.shortcut-control-row, input',
-      '.shortcut-control-row, input',
+      '.ytx-cycle-row, input',
+      '.ytx-cycle-row, input',
       'input',
-      '.shortcut-control-row, input'
+      '.ytx-cycle-row, input'
     ];
     const hasPopups = [false, false, false, false, true];
 
@@ -462,7 +408,6 @@ function createOptionsPanel() {
   elmContainer.appendChild(elmClose);
   elmContainer.appendChild(tabMenu);
 
-  // --- Page 1: Main ---
   pageMain = createElement('div', {
     class: 'ytx-settings-page',
     id: 'ytx-page-main'
@@ -484,10 +429,7 @@ function createOptionsPanel() {
   );
   elmContainer.appendChild(pageMain);
 
-  // --- Remaining pages: built off the critical path. Only the Main page is
-  // built now; the rest are built one per animation frame once the panel is on
-  // screen, and setActivePage() forces a build synchronously if the user gets
-  // to a tab before the idle chain does.
+  // Remaining pages build off the critical path, one per animation frame; setActivePage() forces a synchronous build if reached first.
   const pageBuilders = [
     null,
     function buildUITweaksPage() {
@@ -613,10 +555,7 @@ function createOptionsPanel() {
     requestAnimationFrame(step);
   };
 
-  // The panel scales in vh, but whether a page fits 95vh depends on how many
-  // rows it has, which changes with the config surface. Measure the visible
-  // page and trim density only when it actually overflows, so the panel stays
-  // correct at any screen resolution and if rows are ever added.
+  // Row count varies with the config surface, so density is trimmed only when the visible page actually overflows.
   const recalcDensity = () => {
     if (elmContainer.style.display === 'none') return;
     const pages = [
@@ -632,11 +571,7 @@ function createOptionsPanel() {
       'ytx-panel-compact',
       page.scrollHeight > page.clientHeight + 1
     );
-    // Grid sections wider than the panel cap spill past it (the page clips
-    // horizontally). Step them down until they fit: three columns to two, then
-    // two to one. Reading scrollWidth forces the layout, so each class takes
-    // effect before the next measurement. Measured per active tab, exactly as
-    // the compact trim is.
+    // Overflowing grids step down 3 -> 2 -> 1 columns; each scrollWidth read forces layout, so the previous class is measured before the next.
     elmContainer.classList.remove('ytx-grid-col-2', 'ytx-grid-stack');
     if (page.scrollWidth > page.clientWidth + 1) {
       elmContainer.classList.add('ytx-grid-col-2');
@@ -661,8 +596,7 @@ function applyUIFixes() {
   try {
     const bodyClasses = document.body.classList;
 
-    // Strip eagerly in case the class was already present before this script
-    // ran; the observer below only reacts to later changes.
+    // Strip eagerly: the observer below only reacts to later changes.
     bodyClasses.remove('app-quality-root');
 
     const observer = new MutationObserver(function bodyClassCallback(
@@ -704,10 +638,8 @@ function cancelPanelAnimation() {
   }
 }
 
-// One-time entrance: pose the panel in its hidden state, force a reflow so the
-// pose is committed, then flip to the visible pose on the next frame. Without
-// the intermediate commit the opacity/transform transition has no "from" value
-// and the panel just pops in.
+// Pose hidden, force a reflow, then flip on the next frame; without the
+// intermediate commit the transition has no "from" value and pops in.
 function animatePanelIn() {
   cancelPanelAnimation();
   optionsPanel.classList.remove('collapse-start', 'collapse-end');
@@ -720,10 +652,8 @@ function animatePanelIn() {
   });
 }
 
-// One-time exit: swap to the hidden pose (the transition animates it), then
-// paint display:none once it has finished so the invisible panel never traps
-// focus or clicks. transitionend is unreliable when the tab is backgrounded,
-// so a fixed fallback does the same job.
+// Fixed timer, not transitionend (unreliable when backgrounded); the
+// display:none that follows stops the hidden panel trapping focus/clicks.
 function animatePanelOut() {
   if (panelEntranceRaf) {
     cancelAnimationFrame(panelEntranceRaf);
@@ -814,28 +744,14 @@ document.addEventListener(
   true
 );
 
-// ---------------------------------------------------------------------------
-// Magic Remote navigation for the options panel.
-// ---------------------------------------------------------------------------
-//
-// The panel is our own overlay on <body>, so the host's spatial focus engine
-// does not reach it: without this, D-pad Up/Down cannot move between rows and
-// the Left/Right arrows on a value control can only be clicked with a pointer.
-// This handler runs in the capture phase and registers before YouTube's app
-// code, so stopImmediatePropagation() keeps the host from acting on the same
-// press. It is inert whenever the panel is closed.
-//
-//   Up / Down        move focus to the nearest row above / below
-//   Left / Right     on a value row, step that value; otherwise move focus
-//   OK (Enter)       activate the focused control (toggle / advance / open tab)
+// Magic Remote navigation: the panel overlay is invisible to the host's spatial
+// focus engine, so this capture-phase handler (registered before YouTube's) drives D-pad focus itself; inert when the panel is closed.
 
 const PANEL_FOCUSABLE_SELECTOR =
-  '.ytx-tab-btn, .ytx-close-btn, .shortcut-control-row, ' +
+  '.ytx-tab-btn, .ytx-close-btn, .ytx-cycle-row, ' +
   'input[type="checkbox"]:not([disabled])';
 
-// The visible, focusable controls of the open panel, in DOM order. Hidden
-// pages (display:none) and anything with a negative tabindex fall out via the
-// two guards, so no page-aware query is needed.
+// Visible focusable controls in DOM order; the two guards drop hidden pages and negative tabindex, so no page-aware query is needed.
 function panelFocusables() {
   if (!optionsPanel) return [];
   return Array.from(
@@ -843,15 +759,7 @@ function panelFocusables() {
   ).filter((el) => el.tabIndex >= 0 && el.offsetParent !== null);
 }
 
-/**
- * Nearest focusable from `list` in `direction`, measured by geometry.
- *
- * A candidate only counts if its centre lies in the travel direction, and the
- * score is the distance along that axis plus twice the perpendicular offset -
- * the standard TV spatial-navigation heuristic. The 2x weight keeps Up/Down in
- * the same 2-column grid column instead of drifting sideways, and keeps
- * Left/Right preferring a same-row neighbour.
- */
+/** Nearest focusable from `list` in `direction`, measured by geometry; the score is the travel distance plus 2x the perpendicular offset, so moves stay in their column. */
 function findSpatialNeighbor(current, list, direction) {
   const cur = current.getBoundingClientRect();
   const curX = cur.left + cur.width / 2;
@@ -913,8 +821,7 @@ const consume = (evt) => {
 
 function handlePanelNavKey(evt) {
   if (!optionsPanelVisible || !optionsPanel) return;
-  // Synthetic events (sendKey) are not remote presses; the panel is driven by
-  // real input only, matching keyboard-search.js and thumbnail-quality.js.
+  // Synthetic events (sendKey) are not remote presses; real input only, same contract as keyboard-search.js.
   if (evt.isTrusted === false || evt[SYNTHETIC_KEY_FLAG]) return;
 
   const focused = document.activeElement;
@@ -926,7 +833,7 @@ function handlePanelNavKey(evt) {
     if (
       inPanel &&
       isHorizontal(direction) &&
-      focused.classList.contains('shortcut-control-row')
+      focused.classList.contains('ytx-cycle-row')
     ) {
       const arrows = focused.querySelectorAll('.arrow-btn');
       const target =
@@ -941,7 +848,6 @@ function handlePanelNavKey(evt) {
     const list = panelFocusables();
     if (list.length === 0) return;
 
-    // A stray focus (or the container itself) is pulled back to the first row.
     if (!inPanel || focused === optionsPanel) {
       consume(evt);
       list[0].focus();
@@ -954,9 +860,7 @@ function handlePanelNavKey(evt) {
     return;
   }
 
-  // OK / Enter activates the focused control. An <input type=checkbox> does not
-  // toggle on Enter natively, so the click is issued here for every control and
-  // the default is suppressed to avoid a second activation.
+  // Checkboxes do not toggle on Enter natively, so the click is issued here and the default suppressed to avoid a second activation.
   if (evt.keyCode === REMOTE_KEYS.ENTER.code && inPanel) {
     if (focused.matches(PANEL_FOCUSABLE_SELECTOR)) {
       consume(evt);
@@ -967,11 +871,7 @@ function handlePanelNavKey(evt) {
 
 window.addEventListener('keydown', handlePanelNavKey, true);
 
-/**
- * On-screen entry point for the options panel. Pointer-only: tabindex = -1
- * keeps it out of the app's focus order so it can never steal a tile's
- * focus (breaking its hover preview). Opens and closes on click.
- */
+/** On-screen entry point for the options panel; tabindex = -1 keeps it out of the focus order so it can never steal a tile's hover focus. */
 const configBadge = document.createElement('button');
 configBadge.type = 'button';
 configBadge.className = 'ytx-ui-badge';
@@ -987,10 +887,8 @@ configBadge.addEventListener(
 );
 document.body.appendChild(configBadge);
 
-// Two visibility modes. The badge is always shown; with pointerSettingsButton
-// on it also appears only during pointer activity: a real move shows it, it
-// fades a few seconds after the last one, and a D-pad press, a hidden pointer
-// or picking a video dismisses it at once.
+// With pointerSettingsButton on, the badge tracks pointer activity: shown on a
+// real move, fading seconds later, dismissed by D-pad/pointer-hide/navigation.
 const POINTER_BADGE_HIDE_MS = 4000;
 let pointerBadgeTimer = null;
 let lastPointerX = -1;
@@ -1021,8 +919,7 @@ const syncBadgeVisibility = () => {
 syncBadgeVisibility();
 configAddChangeListener('pointerSettingsButton', syncBadgeVisibility);
 
-// A resting pointer emits a synthetic mousemove with unchanged coordinates as
-// the page scrolls underneath it; only a real move counts.
+// A resting pointer emits synthetic mousemoves with unchanged coordinates as the page scrolls; only a real move counts.
 document.addEventListener(
   'mousemove',
   (evt) => {
@@ -1033,8 +930,7 @@ document.addEventListener(
   },
   true
 );
-// webOS reports the pointer appearing/disappearing (it hides on a D-pad press
-// or after a few idle seconds).
+// webOS reports the pointer appearing/disappearing (it hides on D-pad presses).
 document.addEventListener('cursorStateChange', (evt) => {
   if (evt.detail && evt.detail.visibility === false) hidePointerBadge();
 });
@@ -1056,8 +952,7 @@ window.addEventListener('ytx-page-update', (evt) => {
   if (evt.detail.isWatch || evt.detail.isShorts) hidePointerBadge();
 });
 
-// --- Burst seek: rapid presses accumulate and are applied in one operation
-// after a short buffer, so holding a seek key does not thrash the player. ---
+// Burst seek: rapid presses accumulate and apply in one operation after a short buffer, so holding a seek key does not thrash the player.
 let seekAccumulator = 0;
 let pendingSeekOffset = 0;
 let seekResetTimer = null;
@@ -1100,8 +995,7 @@ function performBurstSeek(seconds, video) {
   }, 1200);
 }
 
-// --- Magic Remote scroll-wheel seeking, only while the progress bar has
-// focus (so the wheel does not scroll shelves). ---
+// Scroll-wheel seeking, only while the progress bar has focus (so the wheel does not scroll shelves).
 const SCROLL_SEEK_STEP_S = 10;
 const isProgressBarFocused = () =>
   !!document.querySelector(
@@ -1126,14 +1020,8 @@ window.addEventListener('wheel', handleScrollSeek, {
 });
 
 function initGlobalStyles() {
-  // Static stylesheet - written once, never rebuilt. Toggling a class on the
-  // <html> element activates/deactivates each section. We use documentElement
-  // rather than body because YouTube's leanback app rewrites body.className
-  // on tab navigation (Home -> Gaming, etc.) and would wipe our toggles.
-  //
-  // Note: these rules are intentionally not scoped under .app-quality-root
-  // (the fork scopes them there). applyUIFixes() strips that class from
-  // <body>, so a .app-quality-root gate would silently disable every rule.
+  // Toggles live on <html> because YouTube rewrites body.className on tab
+  // navigation; not gated on .app-quality-root, which applyUIFixes() strips.
   const style = createElement('style');
   style.textContent = `
     /* Disable Animations. Scoped to YouTube's own app root, so the settings
@@ -1211,10 +1099,8 @@ function initGlobalStyles() {
 }
 
 /**
- * The care mode to actually apply, with 'auto' already resolved against the
- * detected panel. Everything downstream (the panel, notifications) reads this
- * rather than configRead('panelCareMode'), so they cannot disagree about which
- * mode is active.
+ * The care mode to apply, with 'auto' already resolved; everything downstream
+ * reads this rather than configRead('panelCareMode'), so the surfaces cannot disagree.
  */
 let resolvedPanelCareMode = resolvePanelCareMode(configRead('panelCareMode'));
 
@@ -1233,7 +1119,6 @@ function applyPanelCareMode(mode) {
   document.documentElement.classList.toggle('qned-theme-active', isQned);
 }
 
-// --- Start-up ---
 initGlobalStyles();
 
 applyPanelCareMode(configRead('panelCareMode'));
@@ -1241,18 +1126,14 @@ configAddChangeListener('panelCareMode', (evt) =>
   applyPanelCareMode(evt.detail.newValue)
 );
 
-// 'auto' resolves against the model in the UA, which tv-specs computes at
-// startup - so the resolved mode can change once tv-specs finishes, e.g. after
-// a window resize triggers its update().
+// 'auto' resolves against the UA model that tv-specs computes at startup, so
+// re-resolve whenever tv-specs updates.
 addTVSpecsChangeListener(() => applyPanelCareMode(configRead('panelCareMode')));
 
 applyUIFixes();
 
-// --ytx-ui-scale is written by tv-specs, which owns the density knob and
-// re-measures it whenever the specs change. Measuring it needs the site's
-// stylesheets, which are only present here rather than in the app shell, so the
-// call is repeated on entry and the panel's density-dependent relayout rides
-// along on the same notification.
+// --ytx-ui-scale is owned by tv-specs but measured here (the site's stylesheets
+// are only present in-page), so it re-runs on every specs change and the panel's density relayout rides along.
 addTVSpecsChangeListener(() => {
   refreshUIScale();
   optionsPanel?.recalcDensity?.();

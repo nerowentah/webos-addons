@@ -57,11 +57,7 @@ export interface YTPlayer extends HTMLElement {
 
   getPlaybackQualityLabel(): string; // empty if not available
 
-  /**
-   * Not available until first `isPlaying` state of playback.
-   *
-   * Empty if not available.
-   */
+  /** Not available until the first `isPlaying` state; empty if not available. */
   getAvailableQualityData(): VideoQualityData[];
 
   setPlaybackQualityRange(min: string, max: string, formatId?: string): void;
@@ -70,9 +66,6 @@ export interface YTPlayer extends HTMLElement {
 
   getPlayerStateObject(): PlayerStateObject;
 
-  /**
-   * `true` if playing a preview. Otherwise `false`.
-   */
   isInline(): boolean;
 
   getVideoStats(): VideoStats;

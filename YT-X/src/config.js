@@ -2,8 +2,7 @@ import { UI_LABELS } from './ui-text.js';
 
 const CONFIG_KEY = 'ytx-configuration';
 
-// Official SponsorBlock API, with the community mirror asked only when the
-// official server fails.
+// Official SponsorBlock API; the community mirror is asked only when the official server fails.
 export const sponsorblockAPI = 'https://sponsor.ajay.app/api';
 export const sponsorblockFallbackAPI = 'https://sponsorblock.inf.re/api';
 
@@ -11,13 +10,7 @@ export const sponsorblockFallbackAPI = 'https://sponsorblock.inf.re/api';
 // stalls mid-answer must not block the fallback server or the next refresh.
 export const sponsorblockTimeoutMs = 5000;
 
-/**
- * Standard SponsorBlock segment colors.
- *
- * Fixed palette keyed by the SponsorBlock API category (note the API's
- * 'music_offtopic'). Used by both the progress-bar overlay and the popup so
- * the two surfaces always agree. Not user-configurable.
- */
+/** Fixed SponsorBlock category colors, shared by the progress-bar overlay and the popup so the two surfaces agree; not user-configurable. */
 export const segmentColors = {
   sponsor: '#00d400',
   intro: '#00ffff',
@@ -31,14 +24,7 @@ export const segmentColors = {
   hook: '#395699'
 };
 
-/**
- * Force Video Codec.
- *
- * 'auto' leaves the player and the server to negotiate, which is what the app
- * has always done. Everything else narrows what the player will accept - see
- * force-codec.js. 'no_av1' is kept separate from 'vp9' because opting out of
- * AV1 should not also cost a set its AVC fallback.
- */
+/** Force Video Codec modes. 'auto' leaves negotiation to the player and server; everything else narrows what the player accepts (see force-codec.js). 'no_av1' stays separate from 'vp9' so avoiding AV1 does not also exclude other codecs. */
 export const videoCodecModes = {
   auto: 'Auto',
   av1: 'AV1',
@@ -49,28 +35,8 @@ export const videoCodecModes = {
 };
 
 /**
- * Panel Care Mode.
- *
- * 'off' leaves the UI untouched. 'auto' asks tv-specs to read the model out of
- * the app UA and picks 'oled' or 'qned' from it, so a QNED that has never
- * opened the panel still gets the right treatment; see resolvePanelCareMode().
- * 'oled' applies the true-black treatment that reduces OLED burn-in risk (and
- * is what the app has always done). 'qned' targets QNED / MiniLED (LCD) panels,
- * which have no permanent burn-in but benefit from a dark-grey, low-contrast UI
- * and semi-transparent scrims that keep MiniLED local-dimming zones from
- * blooming/haloing around bright text.
- *
- * auto resolves to 'off' when the model is unknown or unrecognised, so 'auto' is
- * never brighter than the user would have got by leaving it off.
- *
- * The labels are deliberately bare - just the panel type, no "Care" suffix or
- * "True Black UI" hint. They render in the cycle control's value column, which
- * holds one line at a fixed width, so a descriptive label overflows into the
- * arrows instead of wrapping. videoCodecModes, the other cycle control in this
- * panel, keeps its labels to the same discipline ('AVC (H.264)', 'Avoid AV1');
- * the row's own name already says "Panel Care Mode", so repeating it per value
- * only competes with the value. The reasoning for each mode lives in the doc
- * comment above, which is where someone changing a label will look.
+ * Panel Care Mode: 'auto' resolves via tv-specs' UA model read (see resolvePanelCareMode); 'oled' is the true-black burn-in treatment, 'qned' a dark-grey, low-contrast UI that limits MiniLED blooming; unknown models resolve to 'off'.
+ * Labels must stay this short - they render in the cycle control's one-line, fixed-width value column, where text overflows into the arrows.
  */
 export const panelCareModes = {
   auto: 'Auto',
@@ -218,59 +184,40 @@ function loadStoredConfig() {
       delete parsed.enableOledCareMode;
     }
 
-    // Drop the retired UI theme key. Classic Red is now the only theme, so
-    // there is nothing for a stored 'blue-force-field' or 'classic-red' to
-    // select. This has to happen here rather than being left to sit unused:
-    // configRead() throws on an unknown key, and the stored value is read back
-    // straight into localConfig, so a leftover key would break the panel.
+    // Drop the retired UI theme key (Classic Red is now the only theme);
+    // unknown-key configRead() throws, so a stored value would break the panel.
     if (parsed && Object.keys(parsed).includes('uiTheme')) {
       delete parsed.uiTheme;
     }
 
-    // Drop the retired Liquid Glass toggle along with its stylesheet. The
-    // selectors it drove were legacy ytd-* names that this build's ytlr-* React
-    // markup no longer renders, so the option could only ever restyle nothing.
-    // Deleted rather than left inert because configRead() throws on an unknown
-    // key: keeping the option as a hidden no-op would preserve a checkbox the
-    // feature no longer backs.
+    // Drop the retired Liquid Glass toggle; deleting it (rather than a hidden no-op checkbox) also keeps unknown-key configRead() from throwing.
     if (parsed && Object.keys(parsed).includes('removeBlackBorders')) {
       delete parsed.removeBlackBorders;
     }
 
-    // Drop the retired clock toggles along with the widget they drove. The
-    // on-screen clock is gone, so both keys are now unknown to configRead(),
-    // which throws on an unknown key - a stored value left in place would
-    // break the panel on the next load for anyone who had enabled the clock.
+    // Drop the retired clock toggles (the on-screen clock is gone); leftover values would break configRead(), which throws on unknown keys.
     if (parsed) {
       delete parsed.showWatch;
       delete parsed.alwaysShowClock;
     }
 
-    // The on-screen YT-X badge is always shown now, so the toggle is gone. A
-    // leftover value would sit in localConfig unknown to configRead() (which
-    // throws on an unknown key) and break the panel on the next load.
+    // Drop the retired badge toggle (the on-screen badge is always shown now).
     if (parsed) {
       delete parsed.showYtxButton;
     }
 
-    // Thumbnail upgrading is now unconditional, so the toggle is gone. A
-    // leftover value would sit in localConfig unknown to configRead() (which
-    // throws on an unknown key) and break the panel on the next load.
+    // Drop the retired thumbnail toggle (upgrading is unconditional now).
     if (parsed) {
       delete parsed.upgradeThumbnails;
     }
 
-    // Drop the retired auto-translated subtitle options along with the module
-    // that drove them. configRead() no longer knows either key, so a leftover
-    // value would sit in localConfig unknown to the panel.
+    // Drop the retired auto-translated subtitle options and their module.
     if (parsed) {
       delete parsed.subtitleTranslateLang;
       delete parsed.subtitleAutoEnable;
     }
 
-    // Drop the retired remote-key shortcut bindings. The Shortcuts tab and its
-    // `shortcut_key_*` options are gone, so configRead() no longer knows these
-    // keys; a leftover value would sit in localConfig unknown to the panel.
+    // Drop the retired remote-key shortcut bindings (Shortcuts tab is gone).
     if (parsed) {
       for (const key of Object.keys(parsed)) {
         if (key.startsWith('shortcut_key_')) {
@@ -279,10 +226,7 @@ function loadStoredConfig() {
       }
     }
 
-    // Drop the retired segment color keys along with the Segment Colors UI.
-    // Segment colors are now a fixed palette, so configRead() no longer knows
-    // these keys - a leftover value would sit in localConfig unknown to the
-    // panel and break it on the next load.
+    // Drop the retired segment color keys (colors are now a fixed palette).
     if (parsed) {
       for (const key of [
         'sponsorColor',

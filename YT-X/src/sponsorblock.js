@@ -13,7 +13,6 @@ import { NOTIFICATIONS } from './ui-text.js';
 import sponsorBlockUI from './Sponsorblock-UI.js';
 import { fetchJsonWithTimeout } from './hooks/fetch-timeout.js';
 
-// Category display names for the skip and mute toasts.
 const barTypes = {
   sponsor: { name: 'sponsored segment' },
   intro: { name: 'intro' },
@@ -27,9 +26,8 @@ const barTypes = {
   hook: { name: 'hook/greetings' }
 };
 
-// The API's category spelling (note 'music_offtopic', which YT-X also uses
-// internally, so no mapping back is needed). Only the categories the settings
-// expose are requested.
+// The API's category spelling ('music_offtopic' is used internally too, so no
+// mapping back is needed); only categories the settings expose are requested.
 const FETCH_CATEGORIES = encodeURIComponent(
   JSON.stringify([
     'sponsor',
@@ -48,20 +46,10 @@ const FETCH_CATEGORIES = encodeURIComponent(
 // Both action types, so a `mute` segment can be muted rather than skipped.
 const FETCH_ACTION_TYPES = encodeURIComponent(JSON.stringify(['skip', 'mute']));
 
-// Waits before asking again when both servers failed. An empty answer is an
-// answer and is never retried.
+// Waits before re-asking when both servers failed; an empty answer ends the retries.
 const RETRY_DELAYS = [2000, 4000];
 
-const HAS_ABORT_CONTROLLER = typeof AbortController !== 'undefined';
-
-/**
- * Periodic re-check while a video plays ("Periodically check for new
- * segments"). Segments are often submitted hours after upload, so a video that
- * had none - or only some - when it opened is asked about again: every 15
- * minutes while it has segments, and with a 5/10/20/30 minute back-off while it
- * has none or the servers fail. The timer only fetches while the video plays;
- * one that comes due during a pause fetches on resume.
- */
+/** Periodic re-check while a video plays: 15-minute interval with segments, 5/10/20/30-minute back-off while empty or failing; a pause-time check runs on resume. */
 const MINUTE_MS = 60 * 1000;
 const REFRESH_POPULATED_MS = 15 * MINUTE_MS;
 const REFRESH_BACKOFF_MS = [5, 10, 20, 30].map((m) => m * MINUTE_MS);
@@ -79,16 +67,12 @@ const SEGMENT_CATEGORY_KEYS = [
   'enableSponsorBlockHook'
 ];
 
-// Segment colors are a fixed standard palette shared with the popup
-// (Sponsorblock-UI.js), so the progress-bar overlay and the popup agree.
+// Fixed palette shared with the popup (Sponsorblock-UI.js) so the overlay and popup agree.
 function getSegmentColor(category) {
   return segmentColors[category] || '#0072ff';
 }
 
-/**
- * Order-independent identity of a segment list, to tell a real change from a
- * re-send.
- */
+/** Order-independent identity of a segment list, to tell a real change from a re-send. */
 function segmentsSignature(segments) {
   return segments
     .map(
@@ -165,8 +149,7 @@ class SponsorBlockHandler {
     this.skippedSegmentStarts = new Set();
   }
 
-  // destroy() clears `active`; async work that resumes later checks this so it
-  // does not touch a torn-down handler (or a new one for another video).
+  // destroy() clears `active`; async work that resumes later checks this so it does not touch a torn-down handler.
   get isDestroyed() {
     return !this.active;
   }
@@ -179,9 +162,7 @@ class SponsorBlockHandler {
     const hashPrefix = videoHash.substring(0, 4);
 
     this.scheduleSkipHandler = () => this.scheduleSkip();
-    // A duration is often not known yet at init and is reported short first, so
-    // re-run the whole overlay build: it creates the overlay and starts the
-    // slider watch once a duration is there, then redraws the marks with it.
+    // A duration is often unknown or short at init, so re-run the whole overlay build on durationchange.
     this.durationChangeHandler = () => this.buildOverlay();
     this.playingHandler = () => {
       if (this.refreshPending) this.refreshSegments();
@@ -217,8 +198,7 @@ class SponsorBlockHandler {
     if (this.segments.length === 0) {
       sponsorBlockUI.updateSegments([]);
       if (configRead('sbPeriodicRefresh')) {
-        // Stay alive with nothing to skip: segments submitted while this
-        // video plays are picked up by the refresh.
+        // Stay alive with nothing to skip: later submissions are picked up by the refresh.
         console.info(this.videoID, 'No segments yet, will check again');
         if (data !== null) this.consecutiveEmptyChecks++;
         this.scheduleRefresh();
@@ -232,33 +212,26 @@ class SponsorBlockHandler {
     this.scheduleRefresh();
   }
 
-  /**
-   * Fetches the segment list: the official server first, the community mirror
-   * only when it fails. Returns the parsed array (possibly empty for a 404, an
-   * answer and not a failure), or null when both servers failed.
-   */
+  /** Fetches the segment list: official server first, community mirror only when it fails; null when both failed (an empty list is a valid answer). */
   async fetchSegments(hashPrefix) {
     if (this.isDestroyed) return null;
 
     if (this.abortController) this.abortController.abort();
     // One controller for this call (both servers); destroy() aborts it.
-    const controller = HAS_ABORT_CONTROLLER ? new AbortController() : null;
+    const controller = new AbortController();
     this.abortController = controller;
 
     const tryFetch = async (base) => {
-      if (this.isDestroyed || (controller && controller.signal.aborted)) {
+      if (this.isDestroyed || controller.signal.aborted) {
         return null;
       }
       try {
         const url = `${base}/skipSegments/${hashPrefix}?categories=${FETCH_CATEGORIES}&actionTypes=${FETCH_ACTION_TYPES}`;
-        const res = await fetchJsonWithTimeout(
-          url,
-          sponsorblockTimeoutMs,
-          controller ? { signal: controller.signal } : undefined
-        );
+        const res = await fetchJsonWithTimeout(url, sponsorblockTimeoutMs, {
+          signal: controller.signal
+        });
         if (res.ok) return res.data;
-        // 404 is the API saying it has nothing for this prefix - an answer,
-        // not a failure worth retrying.
+        // 404 is an answer, not a failure worth retrying.
         return res.status === 404 ? [] : null;
       } catch (err) {
         if (!this.isDestroyed && err.name !== 'AbortError') {
@@ -274,11 +247,7 @@ class SponsorBlockHandler {
     return res;
   }
 
-  /**
-   * The first load, retried a couple of times when both servers failed (null).
-   * Written as a recursion rather than a loop so each await is a plain
-   * sequential step. An empty list is an answer and ends the retry.
-   */
+  /** The first load, retried when both servers failed (null); an empty list is an answer and ends the retry. */
   async fetchInitial(hashPrefix, initVideoID, attempt = 0) {
     const data = await this.fetchSegments(hashPrefix);
     if (data !== null) return data;
@@ -309,11 +278,7 @@ class SponsorBlockHandler {
     return categories;
   }
 
-  /**
-   * Rebuilds the per-category skip and mute lists from the loaded segments and
-   * the current settings. `skipSegments` are the non-mute segments whose
-   * category is enabled; `muteSegments` are the `mute` ones.
-   */
+  /** Rebuilds the per-category skip and mute lists from segments and settings. */
   rebuildSegments() {
     this.skippableCategories = this.getSkippableCategories();
     this.skippableSegments = (this.segments || []).filter(
@@ -324,12 +289,7 @@ class SponsorBlockHandler {
     this.rebuildMuteSegments();
   }
 
-  /**
-   * Segments the API marks `mute` are muted rather than skipped, when "Allow
-   * segments that mute audio" is on and their category is enabled. The
-   * viewer's own mute state comes back on the way out, on a seek away and on
-   * destroy.
-   */
+  /** Segments the API marks `mute` are muted rather than skipped, when enabled; the viewer's own mute state comes back on the way out, on a seek away and on destroy. */
   rebuildMuteSegments() {
     const list = [];
     if (configRead('enableMutedSegments')) {
@@ -385,9 +345,7 @@ class SponsorBlockHandler {
     if (this.video) this.video.muted = this.mutedBefore;
   }
 
-  // Category toggles in the options panel only affect the in-memory lists once
-  // loaded; re-evaluate them (and re-arm any pending skip) whenever one of them
-  // changes so toggles apply without a remount.
+  // Category toggles only affect the in-memory lists; re-evaluate them (and re-arm any pending skip) on change so toggles apply without a remount.
   watchConfig() {
     const skipCallback = () => {
       this.rebuildSegments();
@@ -455,11 +413,7 @@ class SponsorBlockHandler {
     if (!this.sliderObserver) this.startSliderWatch();
   }
 
-  /**
-   * Redraws the overlay marks from the current segments and duration. Called
-   * again on every durationchange, so a duration reported short early is undone
-   * once the real one arrives.
-   */
+  /** Redraws the overlay marks; called again on durationchange so a duration reported short early is undone once the real one arrives. */
   drawSegments() {
     if (!this.sliderSegmentsOverlay) return;
     this.sliderSegmentsOverlay.textContent = '';
@@ -540,13 +494,7 @@ class SponsorBlockHandler {
     watchForSlider();
   }
 
-  /**
-   * The segment the playhead is in (the earliest start wins on overlap), or the
-   * next one to start, among the enabled, not-yet-skipped segments. Returns
-   * null when there is nothing ahead, so a segment already behind the playhead
-   * is never re-skipped - which used to send the skip backwards and repeat the
-   * toast while nothing moved.
-   */
+  /** The enabled, not-yet-skipped segment the playhead is in or next to reach; null when nothing is ahead, so a segment behind is never re-skipped. */
   pickSegment(currentTime) {
     const once = configRead('skipSegmentsOnce');
     const list = this.skippableSegments;
@@ -586,8 +534,7 @@ class SponsorBlockHandler {
     }
 
     const [start, end] = segment.segment;
-    // May be negative when the playhead is already inside the segment (a seek
-    // landed in one): the timeout then fires immediately.
+    // May be negative when the playhead is already inside the segment (a seek landed in one); the timeout then fires immediately.
     const skipDelay = (start - currentTime) * 1000;
 
     // timeupdate fires frequently; skip re-arming the timer when the same
@@ -620,7 +567,6 @@ class SponsorBlockHandler {
         return;
       }
 
-      // Nothing left to do if the playhead already reached the end.
       if (this.video.currentTime >= end - 0.05) {
         this.scheduleSkip();
         return;
@@ -809,13 +755,8 @@ class SponsorBlockHandler {
   }
 }
 
-// Declared as an explicit window property rather than a module-scope `let`.
-// Originally it was a `let`, and two consecutive hashchange events meant the
-// second handler never saw the first one's value change, causing multiple
-// SponsorBlockHandler initialisations. That was observed on Chromium 38, and
-// the cause was never identified, so the workaround is kept rather than
-// reverted: the webOS 6 floor (Chrome 79) postdates the report, but we have no
-// evidence the underlying engine behaviour is actually fixed.
+// Explicit window property rather than module-scope `let`: on Chromium 38 a
+// second hashchange never saw the first one's value change (cause unknown), so the workaround is kept.
 window.sponsorblock = null;
 
 // The options panel toggles the SponsorBlock popup through the ui.js seam.
@@ -837,9 +778,7 @@ window.addEventListener(
   'hashchange',
   () => {
     const newURL = new URL(location.hash.substring(1), location.href);
-    // uninitialize sponsorblock when not on `/watch` path, to prevent
-    // it from attaching to playback preview video element loaded on
-    // home page
+    // Detach on non-/watch paths so SponsorBlock does not attach to the home page's playback preview video.
     if (newURL.pathname !== '/watch' && window.sponsorblock) {
       console.info('uninitializing sponsorblock on a non-video page');
       uninitializeSponsorblock();

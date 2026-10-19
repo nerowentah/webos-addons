@@ -42,7 +42,6 @@ fs.writeFileSync(
     version: getVersion(),
     type: appinfo.type,
     title: appinfo.title,
-    // appDescription: appinfo.appDescription,
     iconUri: `${assetBase}/extraLargeIcon.png`,
     sourceUrl: repoUrl,
     rootRequired: false,

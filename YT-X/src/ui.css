@@ -1,25 +1,12 @@
-/* Classic Red accent tiers
+/* Classic Red is the only theme, so these are base values, not an override:
+   #ff0000 pure - borders/focus; #ff4444 soft - heading/label text; #cc0000
+   dark - filled controls (checkbox, scrollbar thumb). A care-mode border is
+   this pure red at 0.35 on every surface, so a mode switch changes only a hue
+   and a plate, never the presence, width or strength of an edge. */
 
-   Classic Red is the only theme, so these are the base values for every
-   element rather than an override layered on a cyan default. There is no
-   theme class to toggle any more.
-
-   #ff0000 pure  - borders, focus rings
-   #ff4444 soft  - heading and label text
-   #cc0000 dark  - filled controls (checkbox, scrollbar thumb)
-
-   A care-mode border is the pure red at one alpha, 0.35, on every surface that
-   carries one - panel, toast and clock alike. Care mode is not allowed to
-   invent its own weight or opacity per surface: switching modes then changes
-   only a hue and a plate, never the presence, width or strength of an edge. */
-
-/* Sizing: the panel is centred and capped at 35% of the screen each side of
-   centre, so 70vw/70vh leaves a 15% edge margin all round. Width is a fixed
-   70vw rather than shrink-to-fit: each row must be wider than its text plus
-   its toggle for `justify-content: space-between` to pin the toggle to the
-   right edge, and a content-sized panel leaves the widest row with no slack.
-   Height is fixed at 70vh so the panel does not grow or shrink with the active
-   tab (the pages scroll inside it). */
+/* Fixed 70vw, not shrink-to-fit: each row must be wider than its text plus its
+   toggle for space-between to pin the toggle to the right edge. Fixed 70vh so
+   the panel does not resize between tabs - the pages scroll inside it. */
 .ytx-ui-container {
   position: fixed;
   top: 50%;
@@ -38,7 +25,7 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background-color: #1a1a1a;
+  background-color: rgba(26, 26, 26, 0.85);
   background-image: none;
   border: 0.09vh solid #3f3f3f;
   border-radius: 1.5vh;
@@ -49,8 +36,8 @@
     transform 150ms ease;
 }
 
-/* Show/hide poses. The container keeps its centering transform in every pose
-   so the slide-up scale reads as an entrance, not a drift. */
+/* Keeps the centering transform in every pose so the slide-up scale reads as
+   an entrance, not a drift. */
 .ytx-ui-container.collapse-start {
   opacity: 0;
   transform: translate(-50%, calc(-50% + 1.5vh)) scale(0.985);
@@ -110,25 +97,21 @@
     border-color 150ms ease,
     color 150ms ease,
     transform 150ms ease;
-  /* The panel owns its type, so the glyph is a text node in a <button> and
-     would otherwise resolve against the host document's font. */
+  /* Without inherit the glyph resolves against the host document's font. */
   font-family: inherit;
 }
 
-/* Pointer feedback for a connected mouse. A remote drives :focus only, so this
-   pair is dormant on a TV and the rule below is the one that has to speak.
-
-   Only border-color moves: the button is a fixed 3.4vh border-box, so a width
-   change here would eat the content box and push the glyph off centre. */
+/* Pointer feedback; a remote uses :focus only. Only border-color moves - the
+   button is a fixed 3.4vh border-box, so a width change would push the glyph
+   off centre. */
 .ytx-close-btn:hover {
   background: rgba(255, 0, 0, 0.15);
   border-color: #ff0000;
   color: #ffffff;
 }
 
-/* Declared after :hover so the equal-specificity pressed state wins. #cc0000 is
-   the filled-control tier from the top of this file, the same one a checked
-   checkbox uses. */
+/* After :hover so the equal-specificity pressed state wins; #cc0000 is the
+   filled-control tier. */
 .ytx-close-btn:active {
   background: #cc0000;
   color: #ffffff;
@@ -142,18 +125,15 @@
 }
 
 .ytx-ui-container > div.ytx-settings-page {
-  /* The bottom padding reserves room for the version/owner/hash footer, which
-     is positioned absolute over the bottom of the panel (see .ytx-ui-version).
-     At 2.2vh the last row of a full page - the UI Tweaks cycle value - sat
-     inside the footer's band and overlapped it. The footer needs
-     0.5rem + ~1.48vh, so 4.5vh clears it with a gap to spare. */
+  /* Reserves room for the absolute .ytx-ui-version footer; 2.2vh let the last
+     row overlap it, so 4.5vh clears it with a gap to spare. */
   padding: 0 3vh 4.5vh;
   overflow-y: auto;
   overflow-x: hidden;
   flex: 1;
   min-height: 0;
-  /* Pages swap display:none <-> block on tab change; the animation restarts on
-     every flip, so tab switches fade in with no JS. */
+  /* Pages swap display:none <-> block on tab change, so this restarts on every
+     flip - the tab-switch fade needs no JS. */
   animation: ytx-page-in 150ms ease;
 }
 
@@ -182,12 +162,8 @@
 }
 
 .ytx-ui-container input[type='checkbox'] {
-  /* Owned here, not inherited. The panel lives in YouTube's document, so the
-     host's global normalize currently hands us box-sizing: border-box; under
-     that, the 1.85vh below is the border box. Should the host ever drop it, the
-     same rule would fall back to content-box and the 0.19vh border would add
-     0.38vh per axis - widening the checkbox column and pushing the cycle rows
-     out of line with it again. Declaring it makes the width mean one thing. */
+  /* Declared, not inherited: the panel lives in YouTube's document, and losing
+     border-box would widen the checkbox column 0.38vh and misalign the rows. */
   box-sizing: border-box;
   width: 1.85vh;
   height: 1.85vh;
@@ -243,11 +219,9 @@
     box-shadow 150ms ease;
 }
 
-/* Checkbox rows: the option text is the left flex item and the toggle is pinned
-   to the right edge. space-between spreads the text and the input across the
-   full row; the input's base 1.1vh right margin is dropped below so the toggle
-   sits flush against the row edge instead of inset. The text is the first child
-   in createConfigCheckbox() so it read first, matching this layout. */
+/* space-between pins the toggle to the right edge (its base 1.1vh margin is
+   dropped below); text must stay the first child, as createConfigCheckbox()
+   builds the row. */
 .ytx-ui-container label .label-content {
   display: flex;
   align-items: center;
@@ -259,7 +233,7 @@
   margin-right: 0;
 }
 
-.ytx-ui-container .shortcut-control-row:focus,
+.ytx-ui-container .ytx-cycle-row:focus,
 .ytx-ui-container label:focus-within {
   background: rgba(255, 0, 0, 0.1);
   border-radius: 0.75vh;
@@ -276,21 +250,10 @@
   max-width: 37vh;
 }
 
-/* The toast owns the top-right corner outright, and the panel's top-left corner
-   starts at 5vh below it, so nothing else competes for this space.
-
-   The plate is a translucent scrim over whatever is behind it - the same neutral
-   language the on-screen entry point (.ytx-ui-badge below) uses, rather than
-   the flat fills the options panel is built from. That is safe here because the
-   toast is transient: a 0.55 scrim clears a bright video frame long enough to
-   read, without needing the solid plate the panel uses.
-
-   The border colour lives here rather than in JS. showNotification() only sets
-   an inline border-color when the caller passes an explicit colour, and no
-   current caller does, so these rules are what actually paint the border: a red
-   hairline at 0.35, in every care mode as well as off. The 0.37vh left border is
-   the accent bar that distinguishes a toast from a plain plate, and it stays
-   opaque - the care rules restore it after setting the translucent hairline. */
+/* These rules paint the toast's border: showNotification() only sets an inline
+   border-color when a caller passes a colour, and none does. The 0.37vh left
+   border is the accent bar and must stay opaque - the care rules restore it
+   after setting the translucent hairline. */
 .ytx-notification-container .message {
   background: rgba(0, 0, 0, 0.55);
   border: 0.09vh solid rgba(255, 0, 0, 0.35);
@@ -316,19 +279,9 @@
   transform: translateX(1.85vh);
 }
 
-/* Panel Care Modes (OLED / QNED MiniLED)
-
-   The border width here must match the base .ytx-ui-container 0.09vh. It used
-   to be 0.19vh, which added 0.1vh to each edge, shrank the content box by
-   0.2vh and shifted every row - checkbox column included - out of line with
-   care mode off. That also contradicted the accent-tier note at the top of this
-   file. Care mode changes the plate and the neutral border; the red accent is
-   the theme, so the border keeps its red at the care mode's own alpha.
-
-   The hairline itself is shared, and only the plate differs between the two
-   modes - which is the whole of what distinguishes them for this panel. OLED
-   used to carry 0.4 here against QNED's 0.35, so toggling between them changed
-   the strength of the edge rather than only its hue. */
+/* Border width must match the base .ytx-ui-container 0.09vh: a wider one shifts
+   every row out of line with care mode off. Both modes share one 0.35 hairline
+   and differ only in plate; the red accent stays - it is the theme. */
 .ytx-ui-container.oled-care,
 .ytx-ui-container.qned-care {
   border: 0.09vh solid rgba(255, 0, 0, 0.35);
@@ -338,44 +291,29 @@
   background: #000000;
 }
 
-/* Each checkbox plate matches the panel plate behind it, so the control reads
-   as a hole in the panel rather than a chip sitting on it. QNED was #1e1e1e
-   against a #141414 panel. */
+/* Each checkbox plate matches its panel background, so the control reads as a
+   hole in the panel rather than a chip sitting on it. */
 .ytx-ui-container.oled-care input[type='checkbox'] {
   background: #000000;
   border-color: #555555;
 }
 
 .ytx-ui-container.qned-care input[type='checkbox'] {
-  background: #141414;
+  background: rgba(20, 20, 20, 0.85);
   border-color: #555555;
 }
 
-/* Care modes step the checked fill down to a neutral grey, dropping the red
-   #cc0000 entirely, and then restate the border so the box still has an edge:
-   with the fill at #555555 and the border left at #555555 the two vanish into
-   each other. #666666 keeps the base relationship of a darker fill against a
-   lighter border, and is already in this file's neutral ramp. */
+/* Fill and border must differ: left at #555555 both would vanish into each
+   other, so the border is restated lighter (#666666, the neutral ramp). */
 .ytx-ui-container.oled-care input[type='checkbox']:checked,
 .ytx-ui-container.qned-care input[type='checkbox']:checked {
   background: #555555;
   border-color: #666666;
 }
 
-/* Care-mode plates are lifted off the page colour for the same reason the
-   clock's are: over OLED's true black a matching scrim composites to nothing
-   and the message reads as bare text.
-
-   The two modes share one rule, exactly as the clock's do below. They flatten
-   the page to different colours - #000000 for OLED, #141414 for QNED - but both
-   lift the toast plate to the same #2a2a2a, so a second set of rules could only
-   have differed by accident. When OLED pinned its border to an opaque #ff0000
-   and QNED to the 0.35 hairline, and gave each a different text grey, none of it
-   tracked a real difference between the panels.
-
-   border-color is the shorthand and therefore sets all four sides; border-left-color
-   follows it to put the accent bar back to opaque. Reversing those two lines
-   would fade the bar along with the hairline. */
+/* The plate is lifted: over OLED's true black a matching scrim composites to
+   nothing. border-color sets all four sides, so border-left-color must follow
+   it to restore the opaque accent bar - reversing the two fades the bar. */
 .ytx-notification-container.oled-care .message,
 .ytx-notification-container.qned-care .message {
   background: rgba(42, 42, 42, 0.55);
@@ -386,12 +324,9 @@
 }
 
 .ytx-ui-container.qned-care {
-  background: #141414;
+  background: rgba(20, 20, 20, 0.85);
 }
 
-/* QNED dims the inactive tab ink toward the plate instead of the base #aaaaaa.
-   It used to pick a desaturated cyan here; with Classic Red as the only theme
-   that hue had no base to relate to, so it now just greys down. */
 .ytx-ui-container.qned-care .ytx-tab-btn {
   color: #8a8a8a;
 }
@@ -441,8 +376,8 @@
   color: #ffffff;
 }
 
-/* Shortcut Controls */
-.shortcut-control-row {
+/* Cycle Controls */
+.ytx-cycle-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -455,12 +390,12 @@
     box-shadow 150ms ease;
 }
 
-.shortcut-label {
+.ytx-cycle-label {
   color: #e0e0e0;
   font-weight: 400;
 }
 
-.shortcut-value-container {
+.ytx-cycle-value {
   display: flex;
   align-items: center;
   justify-content: flex-end;
@@ -469,29 +404,25 @@
   color: #ffffff;
 }
 
-.shortcut-value-container > * {
+.ytx-cycle-value > * {
   margin-left: 1.1vh;
 }
 
-.shortcut-value-container > *:first-child {
+.ytx-cycle-value > *:first-child {
   margin-left: 0;
 }
 
-.shortcut-value-container .arrow-btn {
+.ytx-cycle-value .arrow-btn {
   color: #ff4444;
   font-weight: bold;
   font-size: 2.22vh;
   user-select: none;
 }
 
-.shortcut-value-container .current-value {
+.ytx-cycle-value .current-value {
   min-width: 14vh;
-  /* One line, always. The row is nowrap, so without an upper bound a label too
-     long for the value column spills into the arrows instead of truncating -
-     silently, since the panel clips rather than scrolls. ellipsis makes the
-     overflow visible and caps the widest case, which is videoCodecModes'
-     'AVC (H.264)' and 'HEVC (H.265)' at 2.5vh; the panel-care labels are
-     shorter still. */
+  /* The row is nowrap and the panel clips rather than scrolls, so an unbounded
+     label would spill into the arrows; max-width + ellipsis caps it. */
   max-width: 22vh;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -500,13 +431,8 @@
   white-space: nowrap;
 }
 
-/* --- Compact density --------------------------------------------------------
-
-   Applied panel-wide, not per-page: recalcDensity() measures whichever tab is
-   active and flags the container when its content overflows, so the same trim
-   has to reach every tab's rows - not just the Main page's. Each page is
-   measured on its own activation, and the class is recomputed there, so a tab
-   that fits is never densified by another tab's overflow. */
+/* Applied panel-wide, not per-page: recalcDensity() flags the container from
+   whichever tab is active, and each page recomputes on its own activation. */
 .ytx-ui-container.ytx-panel-compact label {
   padding-top: 0.75vh;
   padding-bottom: 0.75vh;
@@ -522,26 +448,12 @@
   margin-bottom: 0.35vh;
 }
 
-/* ---------------------------------------------------------------------------
-   Settings section layout
+/* Settings section layout. Chrome lives here rather than in createSection()'s
+   inline styles, so the panel retunes from one place. Columns are a
+   per-section opt-in: `ytx-grid` plus a `ytx-grid-2`/`-3` count (layout.js).
 
-   Section chrome lives here rather than in inline styles on createSection(), so
-   the whole panel retunes from one place.
-
-   The multi-column layout is the `.ytx-grid` primitive with a `ytx-grid-2` or
-   `ytx-grid-3` track count, an explicit per-section opt-in passed by
-   createSection()'s `grid` argument: Video Player, Player UI Tweaks, Cosmetic
-   Filtering and the SponsorBlock list lay their rows out in columns, which is
-   what buys the room to read them without scrolling the page. The count is
-   chosen from the row total (three once a section is long enough to need the
-   extra column). Single-control and mixed controllers stay one column.
-
-   Grid, not flexbox. The Chrome 79 webOS 6 floor predates flex-container `gap`
-   (Chrome 84) but not grid (Chrome 57), so grid is the only way to express the
-   tracks and the full-width spans without the percentage-flex-basis workaround
-   the flexbox version needed. grid-column spans also replace the old flex
-   `width: 100%` overrides.
-   --------------------------------------------------------------------------- */
+   Grid, not flexbox: the webOS 6 / Chrome 79 floor predates flex `gap`
+   (Chrome 84) but not grid (Chrome 57), so tracks and spans must be grid. */
 
 .ytx-settings-section {
   margin: 1vh 0 0.5vh;
@@ -559,9 +471,8 @@
   margin: 0.6vh 0 0.5vh;
 }
 
-/* Optional attribution beside a section title (e.g. the SponsorBlock source on
-   the Adblock tab). Resets the title's uppercase/bold/colour so it reads as a
-   quiet caption rather than part of the heading. */
+/* Attribution beside a section title: resets the title's uppercase/bold/colour
+   so it reads as a quiet caption. */
 .ytx-settings-section > .section-title .section-title-note {
   margin-left: 1vh;
   color: #888888;
@@ -571,22 +482,16 @@
   letter-spacing: normal;
 }
 
-/* Settings grid.
-
-   Sections opt in via `ytx-grid` plus a `ytx-grid-2`/`ytx-grid-3` track count;
-   createSection() picks the count from the row total (see layout.js). The
-   `minmax(0, 1fr)` tracks rather than a bare `1fr`: a bare track has an
-   automatic minimum of `min-content`, so a long label would widen its cell and
-   break the pairing. Zeroing the minimum lets the cells shrink and the label
-   wrap, which is what keeps the columns even.
-
-   The negative side margins the single-column rows use to bleed their focus
-   highlight past the section padding are removed inside a section further down
-   (`.ytx-settings-section label`), so they cannot push a cell out of the grid
-   here. */
+/* `minmax(0, 1fr)`, not a bare `1fr`: a bare track's automatic min-content
+   minimum lets a long label widen its cell and break the pairing; zeroing it
+   lets cells shrink and labels wrap. The single-column rows' negative bleed
+   margins are cancelled inside a section below, so they cannot push a cell out. */
 .ytx-ui-container .ytx-grid {
   display: grid;
   align-items: stretch;
+  /* Column only - vertical rhythm comes from the row margin. The gap must clear
+     the toggle-to-label inset, or a box reads as belonging to the previous cell. */
+  column-gap: 2.5vh;
 }
 
 .ytx-ui-container .ytx-grid-2 {
@@ -597,12 +502,10 @@
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-/* Full-width children: the section title and any cycle-control row span every
-   track. A cycle row carries a variable-width value column, so a single cell
-   would crowd its arrows; spanning keeps it legible and leaves the checkbox
-   cells to pair around it. */
+/* Cycle rows span every track: their value column is variable-width, and a
+   single cell would crowd the arrows. */
 .ytx-ui-container .ytx-grid > .section-title,
-.ytx-ui-container .ytx-grid > .shortcut-control-row {
+.ytx-ui-container .ytx-grid > .ytx-cycle-row {
   grid-column: 1 / -1;
 }
 
@@ -610,36 +513,22 @@
   min-width: 0;
 }
 
-/* Grid cells: the leftmost column reverses its row so the toggle sits on the
-   outer (left) edge with its label beside it; every other column already reads
-   label-then-toggle (label at the inner edge, toggle outer).
-
-   The class is set in createSection() rather than by `:nth-of-type(odd)`,
-   because a full-width cycle row restarts grid auto-placement at column 1 while
-   label parity keeps counting - so parity drifts out of step with the actual
-   column after a span. Tagging at build time tracks the real column.
-
-   The checkbox's global margin-right: 0 (which pins it flush in the normal
-   right-aligned rows) is restored here so the toggle and its label keep the
-   panel's 1.1vh rhythm. */
-.ytx-ui-container .ytx-grid > label.ytx-cell-left .label-content {
+/* Toggle-first (`[ ] Label`) so each box precedes the label it controls and
+   proximity cannot misattribute it to the previous cell. flex-start top-aligns
+   the box with a wrapped label's first line, and the checkbox's global
+   margin-right: 0 is restored here to keep the 1.1vh toggle-to-label inset. */
+.ytx-ui-container .ytx-grid > label .label-content {
   flex-direction: row-reverse;
   justify-content: flex-end;
+  align-items: flex-start;
 }
 
-.ytx-ui-container
-  .ytx-grid
-  > label.ytx-cell-left
-  .label-content
-  input[type='checkbox'] {
+.ytx-ui-container .ytx-grid > label .label-content input[type='checkbox'] {
   margin-right: 1.1vh;
 }
 
-/* Narrow-screen fallback. recalcDensity() flags the container when a page's
-   grid content overflows the panel width: three columns drop to two, then
-   everything collapses to one track. Collapsing keeps the rows on screen, and
-   the rules below undo the mirror so a stacked list reads label-then-toggle
-   like every single-column row. */
+/* recalcDensity() flags width overflow: three columns drop to two, then one.
+   Stacking un-mirrors the row so it reads label-then-toggle like the rest. */
 .ytx-ui-container.ytx-grid-col-2 .ytx-grid-3 {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
@@ -651,6 +540,7 @@
 .ytx-ui-container.ytx-grid-stack .ytx-grid > label .label-content {
   flex-direction: row;
   justify-content: space-between;
+  align-items: center;
 }
 
 .ytx-ui-container.ytx-grid-stack
@@ -661,39 +551,24 @@
   margin-right: 0;
 }
 
-/* ---------------------------------------------------------------------------
-   Row metrics
-
-   Every row in the settings body is measured by one rule, because they had
-   drifted apart in three separate ways and the seams showed:
-
-     - checkbox rows padded 1.0vh, cycle-control rows 0.6vh
-     - only checkbox rows set a line-height, so a cycle row resolved against the
-       browser default of roughly 1.2 and sat taller than its neighbours
-     - `.ytx-settings-section label` cancelled the -0.75vh bleed margin but
-       nothing cancelled it for `.shortcut-control-row`, so the cycle rows hung
-       three quarters of a vh further left than the checkboxes above them
-
-   Sizing all of them together is what keeps the gaps even; the alternative is
-   re-deriving four numbers by hand every time one of them moves.
-   --------------------------------------------------------------------------- */
+/* Every row type - checkbox and cycle alike - is measured by this one rule, so
+   padding, line-height and the bleed margin cannot drift between them. */
 
 .ytx-ui-container label,
-.ytx-ui-container .shortcut-control-row {
+.ytx-ui-container .ytx-cycle-row {
   box-sizing: border-box;
   padding: 1vh 0.75vh;
   margin: 0 -0.75vh 0.2vh;
   line-height: 1.1;
-  /* One line of 2.5vh text at 1.1 leading. Pins the row against children that
-     bring their own box - the cycle arrows and the value column both do - so a
-     row cannot grow just because of what happens to sit inside it. */
+  /* Pins the row height against children that bring their own box - the cycle
+     arrows and the value column both do. */
   min-height: 2.75vh;
 }
 
-/* Inside a section the bleed margin is not wanted: the section already supplies
-   the horizontal padding, and bleeding past it is what misaligned the columns. */
+/* Inside a section the bleed margin is not wanted: the section already pads
+   horizontally, and bleeding past it misaligned the columns. */
 .ytx-settings-section label,
-.ytx-settings-section .shortcut-control-row {
+.ytx-settings-section .ytx-cycle-row {
   margin: 0 0 0.2vh;
 }
 
@@ -731,9 +606,8 @@
   display: none;
 }
 
-/* Pointer-only mode (pointerSettingsButton): the badge fades in on pointer
-   movement and out a few seconds later. The panel-open rule above still wins,
-   since display:none beats opacity. */
+/* Pointer-only mode: the badge fades with pointer activity; the panel-open
+   display:none rule still wins, since display:none beats opacity. */
 .ytx-ui-badge.ytx-badge-pointer-mode {
   opacity: 0;
   pointer-events: none;

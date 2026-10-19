@@ -1,7 +1,5 @@
 // Inspired by TizenTube's resolveCommand hook:
 // https://github.com/reisxd/TizenTube/blob/522f83cc012d5b1c75181b651e084a3afa280323/mods/resolveCommand.js
-// The ResolveCommandRegistry wrapping (getInstance/setHook/dispatchCommand) is
-// original YT-X code.
 
 declare global {
   interface Window {

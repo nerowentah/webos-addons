@@ -67,15 +67,7 @@ function handleNewVideo(this: PlayerManager, _: EventMap['newVideo']) {
   this.addEventListener('playbackStart', setPlaybackQuality);
 }
 
-/**
- * Show Video Quality on Start.
- *
- * A few seconds after a video starts, a toast names the quality it settled on
- * (for example "Playing in 1080p60"). The delay lets the adaptive stream - and
- * Force Max Quality, when it is on - finish their negotiation first, so the
- * number shown is the one playback actually runs at rather than the opening
- * guess.
- */
+/** Show Video Quality on Start toast, delayed until adaptive/Force-Max negotiation settles. */
 const QUALITY_TOAST_DELAY_MS = 4000;
 
 let qualityToastVideoID: string | null = null;
@@ -95,8 +87,7 @@ function showQualityOnStart(this: PlayerManager) {
   const videoID = this.currentVideoID;
   if (!videoID || videoID === qualityToastVideoID) return;
 
-  // Claim the video before the delay, so a pause/resume burst inside the
-  // window does not queue several toasts for the same video.
+  // Claim the video before the delay, so a pause/resume burst doesn't queue duplicate toasts.
   qualityToastVideoID = videoID;
   clearQualityToastTimer();
 
@@ -104,8 +95,7 @@ function showQualityOnStart(this: PlayerManager) {
     qualityToastTimer = undefined;
     if (this.currentVideoID !== videoID) return;
     if (!this.player.getPlayerStateObject().isPlaying) {
-      // Paused or buffering again: release the claim so the next playbackStart
-      // on this video makes a fresh attempt.
+      // Paused or buffering again: release the claim so the next playbackStart retries.
       qualityToastVideoID = null;
       return;
     }

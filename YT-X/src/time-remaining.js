@@ -3,20 +3,8 @@ import { getVideo, isWatchPage } from './utils.js';
 import { cssString, formatTime } from './format.js';
 import './time-remaining.css';
 
-/**
- * Show Remaining Time and End Time: "-41:58 · ends 21:45" in front of the
- * duration under the seek bar, the end time on the TV's clock and in its
- * locale's format. (Idea from MickLesk's fork.)
- *
- * A pseudo-element whose content this module writes into one <style>: a node
- * added to YouTube's controls would be deleted by incremental-dom, and the
- * rule applies by itself whenever the controls are rebuilt.
- *
- * The text is refreshed once a second on the watch page, and only while the
- * seek bar is on screen: a stylesheet write restyles the page, which is not
- * free on webOS 3, and nobody sees the text while the controls are hidden. A
- * live stream has no end, so it shows nothing.
- */
+// "-41:58 · ends 21:45" under the seek bar, written as a pseudo-element rule (a
+// real node would be deleted by incremental-dom); ticks once a second while controls show.
 
 const TIME_SELECTOR = '[idomkey="time-label"] [idomkey="duration"]::before';
 const BAR_SELECTOR =
@@ -51,7 +39,6 @@ function controlsVisible() {
 }
 
 function formatEnd(ms) {
-  // Intl is in Chrome 24+, so on webOS 3 too.
   if (!endFormatter) {
     endFormatter = new Intl.DateTimeFormat(navigator.language, {
       hour: 'numeric',
@@ -62,7 +49,7 @@ function formatEnd(ms) {
 }
 
 /** The rule for the video's current position, or '' when there is nothing to show. */
-export function buildCss(duration, currentTime, playbackRate, now) {
+function buildCss(duration, currentTime, playbackRate, now) {
   if (!(duration > 0) || !isFinite(duration) || isNaN(currentTime)) return '';
   const remaining =
     Math.max(0, duration - currentTime) / (playbackRate > 0 ? playbackRate : 1);

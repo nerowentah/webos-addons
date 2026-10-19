@@ -5,63 +5,10 @@ import { addTVSpecsChangeListener, getTVSpecs } from './tv-specs';
 import { canDecodeAt, codecRefusalReason, VIDEO_CODECS } from './webos-caps';
 
 /**
- * Force Video Codec.
- *
- * Lets the user pin video playback to a single codec instead of accepting
- * whatever the player and the server negotiate between them.
- *
- * WHY ANYONE WANTS THIS
- *   The negotiated codec is not always the one the set handles best. Some 2021
- *   panels advertise AV1 through MSE and then stall on it 30-60s in (issue
- *   #143); some sets decode VP9 in hardware and AV1 in software, so AV1 costs
- *   frames; some users simply want to compare. None of that is visible from
- *   inside the app, so this is a switch rather than a heuristic.
- *
- * HOW IT WORKS
- *   Three levers, all of which only ever *narrow* what the player will accept:
- *
- *     1. MediaSource.isTypeSupported - the capability probe the player runs to
- *        decide which formats to ask the server for. This is the lever that
- *        actually changes the negotiation, because the answer feeds the codec
- *        list sent upstream.
- *     2. HTMLMediaElement#canPlayType - the same question asked at the element,
- *        for the paths that go there instead.
- *     3. streamingData.adaptiveFormats / .formats - the offer that comes back.
- *        Stripped as belt and braces, in case a path trusts the offer over its
- *        own probe.
- *
- *   Narrowing only is deliberate: a forced codec is never reported as supported
- *   when the platform says it is not. The worst this can do is leave the player
- *   with fewer options, never with an option the hardware cannot drive.
- *
- * WHAT IT DELIBERATELY WILL NOT DO
- *   - Touch audio. Audio entries and audio/* MIME types are passed through
- *     untouched; filtering them would silence playback.
- *   - Empty a format list. If the wanted codec has no rendition for a video,
- *     that list is left exactly as it was and the request is treated as
- *     unsatisfiable for that video. A stream the user did not ask for beats no
- *     stream at all.
- *   - Force a codec the platform denies. The choice is checked against both the
- *     UHD container table for the panel's actual output resolution and the
- *     untouched isTypeSupported before any hook goes in, and a refusal says why.
- *     HEVC in particular is rarely exposed through MSE on webOS even where the
- *     panel decodes it in hardware, so that selection will usually be refused
- *     here with a message rather than producing a black screen.
- *
- * TAKES EFFECT ON RELOAD
- *   The player probes codecs once, at startup, and caches the answer. Changing
- *   this setting mid-session therefore does nothing until the app is reloaded,
- *   so the change handler says so rather than letting the setting look broken.
+ * Force Video Codec - pins video playback to a chosen codec. All three levers (isTypeSupported, canPlayType, streamingData filtering) only ever *narrow* what the player accepts: a forced codec is never reported as supported when the platform says it is not. Audio entries pass through untouched; a list with no rendition in the wanted codec is left intact; a codec the platform denies at the panel's actual output resolution is refused before any hook installs. Takes effect on reload - the player probes codecs once at startup - so the change handler says so rather than letting the setting look broken.
  */
 
-/**
- * Codec tokens as they appear in MSE MIME strings and adaptiveFormats entries.
- *
- * Both spellings of each are covered: the ISO-BMFF names the player uses
- * (av01, vp09, avc1/avc3, hev1/hvc1) and the shorter names that turn up in
- * hand-written probe strings. Deliberately no VP8 entry - YouTube does not
- * serve it for video any more, and an unrecognised codec is always left alone.
- */
+/** Codec tokens as they appear in MSE MIME strings and adaptiveFormats entries. Both spellings of each are covered; deliberately no VP8 entry - YouTube does not serve it for video any more, and an unrecognised codec is always left alone. */
 const CODEC_PATTERNS = {
   av1: /av0?1/i,
   vp9: /vp0?9/i,
@@ -69,10 +16,7 @@ const CODEC_PATTERNS = {
   hevc: /hev1|hvc1|h\.?265/i
 };
 
-/**
- * Probe strings used to ask the platform whether a codec is real here.
- * Any one of a codec's strings passing counts as supported.
- */
+/** Probe strings used to ask the platform whether a codec is real here; any one passing counts as supported. */
 const CODEC_PROBES = {
   av1: [
     'video/mp4; codecs="av01.0.08M.08"',
@@ -91,25 +35,17 @@ const PINNED_MODES = [...VIDEO_CODECS];
 
 let mode = 'auto';
 
-// Hooks are installed at most once and then left in place, gated internally on
-// `mode`. Uninstalling would mean writing to JSON.parse / isTypeSupported after
-// other modules (adblock.js in particular) have wrapped them, which would drop
-// their hook on the floor. Cost when idle is one call and one string compare.
+// Installed at most once and gated internally on `mode`; never uninstalled, because rewrapping JSON.parse / isTypeSupported after other modules (adblock.js) have wrapped them would drop their hooks on the floor. Cost when idle is one call and one string compare.
 let installed = false;
 
 let origIsTypeSupported = null;
 let origCanPlayType = null;
 let origParse = null;
 
-/**
- * Set when the current player response carries no rendition in the wanted
- * codec. While set, the capability answers go back to the truth so a player
- * that re-probes is not left with nothing to choose from.
- */
+/** Set when the current player response carries no rendition in the wanted codec; while set, capability answers go back to the truth so a player that re-probes is not left with nothing to choose from. */
 let unsatisfiable = false;
 
-// Hoisted: detectCodec runs a few times per format entry, and Object.keys()
-// would allocate on each one.
+// Hoisted: detectCodec runs a few times per format entry and Object.keys() would allocate on each one.
 const CODEC_NAMES = Object.keys(CODEC_PATTERNS);
 
 /** The video codec named in a MIME or codec string, or null if not recognised. */
@@ -120,27 +56,12 @@ function detectCodec(str) {
   return null;
 }
 
-/**
- * Whether a MIME string describes video.
- *
- * This is the guard that keeps audio out of everything below. An audio type
- * names no video codec, so without this check the "does not match the wanted
- * codec" test would decline every audio SourceBuffer and playback would run
- * silent.
- */
+/** The guard that keeps audio out of everything below: without it the "does not match the wanted codec" test would decline every audio SourceBuffer and playback would run silent. */
 function isVideoMime(type) {
   return /^\s*video\//i.test(type);
 }
 
-/**
- * Whether the current mode permits a given codec.
- *
- * Deliberately does not consult `unsatisfiable`. That flag relaxes the
- * capability probes, which are global and cannot be answered per video; the
- * format lists have their own per-response guard in filterList(), so letting
- * the flag reach here would mean a response was skipped whenever the previous
- * one happened to lack the codec.
- */
+/** Whether the current mode permits a given codec. Deliberately does not consult `unsatisfiable`: that flag relaxes global capability probes, while the format lists have their own per-response guard in filterList(), so letting it reach here would skip responses whenever the previous one lacked the codec. */
 function allowsCodec(codec) {
   if (mode === 'auto') return true;
   if (mode === 'no_av1') return codec !== 'av1';
@@ -162,8 +83,7 @@ function platformSupports(codec) {
     (window.MediaSource && MediaSource.isTypeSupported) ||
     null;
 
-  // No MSE to ask. Assume yes rather than blocking the user on a probe we
-  // cannot run; the never-empty guards below still apply.
+  // No MSE to ask: assume yes rather than blocking the user on a probe we cannot run; the never-empty guards still apply.
   if (typeof test !== 'function') return true;
 
   for (const probe of probes) {
@@ -176,8 +96,6 @@ function platformSupports(codec) {
   return false;
 }
 
-/* ----------------------------------------------------------- format list --- */
-
 /** The video codec of an adaptiveFormats/formats entry; null for audio. */
 function entryCodec(entry) {
   const mime = entry && entry.mimeType;
@@ -185,13 +103,7 @@ function entryCodec(entry) {
   return detectCodec(mime);
 }
 
-/**
- * Strip disallowed video entries from one format list, in place.
- *
- * Returns the number removed, or -1 when the list holds no rendition in the
- * wanted codec. In that case nothing is removed: emptying the list would leave
- * the player with no video at all.
- */
+/** Strip disallowed video entries from one format list, in place. Returns the number removed, or -1 when the list holds no rendition in the wanted codec; in that case nothing is removed, because emptying the list would leave the player with no video at all. */
 function filterList(list) {
   let allowed = 0;
   let disallowed = 0;
@@ -217,15 +129,7 @@ function filterList(list) {
   return disallowed;
 }
 
-/**
- * Filter both format lists on a streamingData block.
- *
- * The two lists are judged separately on purpose. `formats` holds the muxed
- * progressive streams, which are AVC in practice and have no AV1 equivalent -
- * judging them together with `adaptiveFormats` would either strip the
- * progressive fallback away entirely or block the adaptive filtering that the
- * user actually asked for.
- */
+/** Filter both format lists on a streamingData block. The two lists are judged separately on purpose: `formats` holds the muxed progressive streams (AVC in practice, no AV1 equivalent), so judging them together would either strip the progressive fallback entirely or block the adaptive filtering the user asked for. */
 function filterStreamingData(streaming) {
   if (!streaming) return;
 
@@ -235,8 +139,7 @@ function filterStreamingData(streaming) {
 
   if (Array.isArray(streaming.formats)) filterList(streaming.formats);
 
-  // adaptiveFormats is the list the MSE player negotiates from, so it alone
-  // decides whether this video can honour the setting.
+  // adaptiveFormats alone decides whether this video can honour the setting; it is the list the MSE player negotiates from.
   if (adaptiveResult === -1) {
     if (!unsatisfiable) {
       unsatisfiable = true;
@@ -249,14 +152,11 @@ function filterStreamingData(streaming) {
   }
 }
 
-/* ----------------------------------------------------------------- hooks --- */
-
 function installHooks() {
   if (installed) return;
   installed = true;
 
-  // 1. Capability probe. Narrowing only: an allowed codec is still handed to
-  //    the platform to answer, so this can never claim support that is absent.
+  // Capability probe. Narrowing only: an allowed codec is still handed to the platform to answer, so this can never claim support that is absent.
   if (window.MediaSource && typeof MediaSource.isTypeSupported === 'function') {
     origIsTypeSupported = MediaSource.isTypeSupported;
     MediaSource.isTypeSupported = function (type) {
@@ -270,7 +170,7 @@ function installHooks() {
     };
   }
 
-  // 2. The element-level form of the same question.
+  // Element-level form of the same question.
   if (window.HTMLMediaElement) {
     origCanPlayType = HTMLMediaElement.prototype.canPlayType;
     HTMLMediaElement.prototype.canPlayType = function (type) {
@@ -282,13 +182,9 @@ function installHooks() {
     };
   }
 
-  // 3. The server's offer. Guards are ordered cheapest-first: YouTube parses
-  //    thousands of small blobs and none of them can carry streamingData.
+  // The server's offer. Guards ordered cheapest-first: a streamingData response is tens of kilobytes, while the thousands of small blobs YouTube parses constantly are dismissed on length alone, before the result is looked at.
   origParse = JSON.parse;
   JSON.parse = function (text, reviver) {
-    // A streamingData response is tens of kilobytes, so the small blobs
-    // YouTube parses constantly are dismissed before the result is even looked
-    // at.
     if (mode === 'auto' || typeof text !== 'string' || text.length < 1000) {
       return origParse.call(this, text, reviver);
     }
@@ -307,39 +203,14 @@ function installHooks() {
   };
 }
 
-/* ---------------------------------------------------------------- wiring --- */
-
-/**
- * The video plane height, or undefined while it is still unknown.
- *
- * This is the panel's output resolution, not the graphics canvas: a 4K TV runs
- * this app on a 1920x1080 canvas, and gating a codec on the canvas would decide
- * a 4K question from a 1080p number.
- *
- * Undefined until deviceInfo answers - and undefined means "do not refuse",
- * because the platform probe is the better authority when it is available.
- */
+/** The video plane height, or undefined while still unknown. This is the panel's output resolution, not the graphics canvas (a 4K TV runs this app on a 1920x1080 canvas, and gating a codec on the canvas would decide a 4K question from a 1080p number). Undefined means "do not refuse", because the platform probe is the better authority when available. */
 function playbackHeight() {
   const specs = getTVSpecs();
   if (specs === undefined) return undefined;
   return specs.playbackHeight > 0 ? specs.playbackHeight : undefined;
 }
 
-/**
- * Why a pinned codec cannot work here, or null when it can.
- *
- * Two independent questions, both of which have to be no:
- *
- *   1. Can the platform decode it *at this video plane height*? MSE says yes to
- *      VP9 and AV1 on webOS broadly, but the UHD container table only pairs with
- *      H.264 and HEVC - so a 4K panel decodes neither, and the probe would not
- *      know to say so.
- *   2. Does MSE expose it at all? HEVC is rarely exposed through MSE on webOS
- *      even where the panel decodes it in hardware.
- *
- * The first is checked first because its refusal reason is the more useful of
- * the two, and because it is the one this change was made to catch.
- */
+/** Why a pinned codec cannot work here, or null when it can. Two independent questions, both required: (1) can the platform decode it at this video plane height (the UHD container table only pairs H.264/HEVC with 4K, while MSE says yes to VP9/AV1 broadly)? (2) does MSE expose it at all (HEVC rarely is on webOS even where hardware decodes it)? Checked in that order because the first refusal reason is the more useful one and the one this change was made to catch. */
 function pinnedCodecBlocked(codec) {
   if (!canDecodeAt(codec, playbackHeight())) {
     return codecRefusalReason(codec, playbackHeight());
@@ -353,15 +224,11 @@ function pinnedCodecBlocked(codec) {
 /**
  * Apply the stored setting.
  *
- * @param {boolean} interactive true when the user just changed it, which is the
- *   only time there is a DOM to put a notification in and the only time a
- *   "reload to apply" message is worth showing.
+ * @param {boolean} interactive true when the user just changed it, the only time there is a DOM to put a notification in and the only time a "reload to apply" message is worth showing.
  */
 function applyMode(interactive) {
   let wanted = configRead('forceVideoCodec');
-  // A stored value this build does not know - written by an older or newer
-  // build's option set - matches no codec below, and installing the hooks for
-  // it would refuse every video format. Fall back to Auto instead.
+  // A stored value this build does not know - from an older or newer build's option set - matches no codec below, and installing hooks for it would refuse every video format; fall back to Auto.
   if (wanted !== 'no_av1' && PINNED_MODES.indexOf(wanted) === -1)
     wanted = 'auto';
 
@@ -373,16 +240,14 @@ function applyMode(interactive) {
   }
 
   if (wanted === 'no_av1') {
-    // A negative preference, not a pin, so the resolution table does not apply:
-    // avoiding AV1 is satisfiable by every codec the platform can decode.
+    // A negative preference, not a pin, so the resolution table does not apply; avoiding AV1 is satisfiable by every codec the platform can decode.
     mode = 'no_av1';
     unsatisfiable = false;
     if (interactive) showNotification(NOTIFICATIONS.codecReload('Avoid AV1'));
     return;
   }
 
-  // Install first so the probe below goes through the saved original rather
-  // than whatever else may have wrapped isTypeSupported since startup.
+  // Install first so the probe below goes through the saved original rather than whatever else may have wrapped isTypeSupported since startup.
   installHooks();
 
   if (PINNED_MODES.indexOf(wanted) !== -1) {
@@ -409,10 +274,5 @@ configAddChangeListener('forceVideoCodec', () => applyMode(true));
 
 applyMode(false);
 
-// The video plane is only known once deviceInfo answers, which is after this
-// module evaluates. Re-apply when it lands: a pin that was accepted against an
-// unknown height - and so decided on the platform probe alone - can turn out to
-// be undecodable on a 4K panel. Silent, because this is a correction of a gate
-// the user already made, not a new decision; and late, so a notification would
-// arrive after the message explaining the setting had long since gone.
+// The video plane is only known once deviceInfo answers, after this module evaluates; a pin accepted against an unknown height can turn out to be undecodable on a 4K panel, so re-apply silently when it lands - a correction of a gate the user already made, and a notification would arrive after the setting's message was long gone.
 addTVSpecsChangeListener(() => applyMode(false));

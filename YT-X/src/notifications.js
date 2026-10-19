@@ -2,10 +2,8 @@ import { configRead } from './config.js';
 import { resolvePanelCareMode } from './tv-specs';
 import { MAX_UI_TEXT } from './ui-text.js';
 
-// Notification container is created lazily on first showNotification() call.
-// The care-mode setter is a no-op until then; ui.js wires it on config changes.
-// ensureContainer() still reads the initial config so a notification shown
-// before ui.js applies anything still gets the right classes.
+// Container created lazily on first showNotification(); ensureContainer() reads
+// the initial config, so the care-mode setter is a no-op until then.
 let notificationContainer = null;
 
 function makeEl(tag, className, text) {
@@ -16,11 +14,7 @@ function makeEl(tag, className, text) {
 }
 
 /**
- * Hard cap on a toast's length. Most strings come from the ui-text registry and
- * are already within MAX_UI_TEXT, but a few interpolate values the app does not
- * control (YouTube quality labels, SponsorBlock category names), so the cap is
- * enforced here as well. A tripwire in CI (tools/check-ui-text.cjs) covers the
- * registry; this covers everything that reaches the screen.
+ * Hard cap on a toast's length; a few strings interpolate values the app cannot control.
  */
 function clampText(text) {
   if (typeof text !== 'string' || text.length <= MAX_UI_TEXT) return text;
@@ -42,19 +36,14 @@ function ensureContainer() {
   return notificationContainer;
 }
 
-// Live messages, keyed by text. Replaces an
-// Array.from(querySelectorAll('.message')).find(...) scan that allocated an
-// array of every on-screen message on each call.
+// Live messages, keyed by text, so duplicates are reused rather than stacked.
 const liveMessages = new Map();
 
-// The border colour comes from the stylesheet, so the message follows the
-// active theme and care mode.
+// The border colour comes from the stylesheet, so the message follows the active theme.
 export function showNotification(text, time = 3000) {
   const container = ensureContainer();
   text = clampText(text);
 
-  // Reuse an existing visible message with the same text instead of stacking
-  // duplicates — just extend its timer.
   const existing = liveMessages.get(text);
   if (
     existing &&
@@ -81,9 +70,7 @@ export function showNotification(text, time = 3000) {
     if (liveMessages.get(elmInner.textContent)?.elmInner === elmInner) {
       liveMessages.delete(elmInner.textContent);
     }
-    // Always removes the same wrapper node. The old duplicate-detection path
-    // removed `existing.parentElement` while this removed `elm` — two different
-    // nodes for the same conceptual "dismiss this notification".
+    // Always removes the same wrapper node.
     setTimeout(() => elm.remove(), 1000);
   };
 
