@@ -1,14 +1,5 @@
-/**
- * Fixes webosbrew/youtube-webos/issues/343 without breaking casting
- * (webosbrew/youtube-webos/issues/401)
- *
- * The webOS 2025 built-in Chromecast ("cast core") service conflicts with the
- * app and freezes it, so waking it is blocked. On older firmware the same call
- * is what lets the mobile app push a video into the TV's player, so the block
- * is only applied where the conflict actually exists. Even there it is skipped
- * when the app was itself started by a cast (DIAL / Cast Connect) launch, and
- * it can be switched off from the settings panel.
- */
+// Block waking the webOS 2025 "cast core" service, which freezes the app
+// (webosbrew/youtube-webos/issues/343), except where it breaks casting (issues/401).
 
 import { configRead } from './config';
 import { FetchRegistry } from './hooks';
@@ -39,8 +30,8 @@ function isCastLaunch(params: unknown): boolean {
 }
 
 if (hasCastCoreConflict()) {
-  // handleLaunch() folds the launch params into the YouTube URL, and a later
-  // cast launch arrives as a webOSRelaunch while the app is already running.
+  // handleLaunch() folds launch params into the URL; a later cast launch arrives
+  // as a webOSRelaunch while the app is already running.
   let castLaunch = hasCastParams(window.location.search);
 
   document.addEventListener(

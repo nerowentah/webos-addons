@@ -8,40 +8,15 @@ import {
 } from './thumbnail-quality.js';
 
 /**
- * A minimal reimplementation of the following uBlock Origin rule:
- * https://github.com/uBlockOrigin/uAssets/blob/master/filters/filters.txt
+ * Minimal reimplementation of the uBlock Origin rule: https://github.com/uBlockOrigin/uAssets/blob/master/filters/filters.txt. The original only reached the ad surfaces an anonymous session sees; a signed-in account gets additional, differently-named renderers for the same thing, so this drops them by renderer name instead of by response path.
  *
- * The original only reached the ad surfaces an anonymous session sees. A signed
- * in account gets additional, differently-named renderers for the same thing -
- * the "Up next" rail, mastheads, in-feed ad slots, and the search promo cards -
- * so this drops them by renderer name instead of by response path.
+ * `playbackTracking` is deliberately NOT in the denylist: it is not an ad surface - it carries the videostats/qoe/atr beacon URLs the player reports watch-time to, so dropping it records nothing and leaves the video out of watch history and resume. Whether to strip it is a user choice (`keepPlaybackTracking`), handled explicitly below rather than swept up by the generic renderer walk.
  *
- * `playbackTracking` is deliberately NOT in the denylist. It is not an ad
- * surface: it carries the videostats/qoe/atr beacon URLs the player reports
- * watch-time to, so dropping it records nothing and leaves the video out of
- * watch history and resume. Whether to strip it is a user choice
- * (`keepPlaybackTracking`), handled explicitly below rather than swept up by
- * the generic renderer walk.
- *
- * Several opt-in filters share this hook but are independent of Ad Block:
- * blanking `trackingParams` (`enableTrackingBlock`) is done on the raw text
- * before the parse, swallowing the auto-selected caption track
- * (`disableAutoCaptions`) is a small edit to the parsed player response, and
- * the cosmetic filters (`removeLiveVideos`, `removeUpcomingVideos`,
- * `removeTopLiveGames`, `removeMostRelevant`) walk the parsed body. Raising the
- * autoload threshold of a response's section lists (`loadRowsAhead`) is another
- * such independent pass, and is the only one that runs even with every filter
- * off.
+ * Several opt-in filters share this hook but are independent of Ad Block: `enableTrackingBlock`, `disableAutoCaptions`, `removeLiveVideos`/`removeUpcomingVideos`/`removeTopLiveGames`/`removeMostRelevant`, and `loadRowsAhead` - the last of which runs even with every filter off.
  */
 
 /**
- * Renderer keys whose entire object is a promotion or an ad slot.
- *
- * These are all leaf nodes: the wrapper object holds nothing but the ad, so
- * dropping the whole entry is correct and is what YouTube itself would do with
- * an empty response. The `*` prefix is the one exception shape handled below -
- * YouTube adds a suffix to some of these between response versions, and
- * stripping it is cheaper than chasing each rename.
+ * Renderer keys whose entire object is a promotion or an ad slot - all leaf nodes, so dropping the whole entry is correct. isAdKey additionally matches version suffixes YouTube appends to some of these between response versions (`adSlotRendererFoo`), which is cheaper than chasing each rename.
  */
 const AD_RENDERERS = new Set([
   // Top-level response envelopes.
@@ -57,9 +32,7 @@ const AD_RENDERERS = new Set([
   'linearAds',
   'nonLinearAds',
   'playerLegacyDesktopWatchAds',
-  // The "Includes paid promotion" banner, on the response and its
-  // playerResponse. An ad surface, not the ad itself, so it lives here rather
-  // than in a player-ads helper.
+  // "Includes paid promotion" banner - an ad surface, not the ad itself.
   'paidContentOverlay',
   // Home / browse: full-width and shelf-embedded slots.
   'adSlotRenderer',
@@ -99,11 +72,7 @@ const AD_RENDERERS = new Set([
 ]);
 
 /**
- * Renderer keys that must be dropped together with their siblings.
- *
- * A promoted shelf is a `<container>`-ish wrapper whose `items` array holds the
- * promos. Removing only the leaf renderers would leave the empty wrapper, which
- * YouTube renders as a blank row with a heading, so the whole array goes.
+ * Renderer keys that must be dropped together with their siblings: a promoted shelf is a wrapper whose `items` holds the promos, and removing only the leaf renderers would leave an empty wrapper YouTube renders as a blank row with a heading, so the whole array goes.
  */
 const AD_LIST_OWNERS = new Set([
   'promotedShelfRenderer',
@@ -112,17 +81,11 @@ const AD_LIST_OWNERS = new Set([
   'shelfRendererAd'
 ]);
 
-/**
- * uBlock's rule name for this filter. Kept in the log line so a user reporting
- * "ads still show" can be matched against uBlock's own stats.
- */
+/** uBlock's rule name for this filter, kept in the log line so "ads still show" reports can be matched against uBlock's own stats. */
 const FILTER = 'uAssets/filters.txt';
 
 /**
- * Cosmetic content filters (independent of Ad Block): live and upcoming tiles,
- * and the two titled shelves. Detection is value-based on the exact enums, so a
- * `BADGE_STYLE_TYPE_LIVE_NOW` or a title that merely contains a word is never
- * caught.
+ * Cosmetic content filters (independent of Ad Block). Detection is value-based on exact enums to avoid false matches.
  */
 const BADGE_STYLE_LIVE = 'THUMBNAIL_OVERLAY_BADGE_STYLE_LIVE';
 const BADGE_STYLE_UPCOMING = 'THUMBNAIL_OVERLAY_BADGE_STYLE_UPCOMING';
@@ -137,23 +100,16 @@ const BADGE_LIVE = 1;
 const BADGE_UPCOMING = 2;
 
 /**
- * Depth caps for the cosmetic walk. The badge sits a handful of hops below a
- * tile; the cap bounds a half-megabyte home page in a webview rather than being
- * exact, and the value-based match cannot false-positive.
+ * Depth caps for the cosmetic walk. The badge sits a handful of hops below a tile; the cap bounds a half-megabyte home page in a webview rather than being exact, and the value-based match cannot false-positive.
  */
 const MAX_COSMETIC_DEPTH = 24;
 const MAX_MARKER_DEPTH = 16;
 
-/**
- * Subtrees a removable tile can never be in. playerResponse is where the
- * upcoming/live metadata can also appear, but there is no tile down there.
- */
+/** Subtrees a removable tile can never be in; playerResponse carries upcoming/live metadata but no tile. */
 const SKIP_KEYS = new Set(['playerResponse', 'responseContext']);
 
 /**
- * Renderers that are a container (a shelf, a section, a grid or a bare
- * horizontal list) rather than a leaf tile. A container is only filtered
- * through, never dropped as if it were a tile.
+ * Renderers that are a container (shelf, section, grid, bare horizontal list) rather than a leaf tile; a container is only filtered through, never dropped as a tile.
  */
 const CONTAINER_KEYS = new Set([
   'shelfRenderer',
@@ -163,8 +119,7 @@ const CONTAINER_KEYS = new Set([
 ]);
 
 /**
- * The two titled shelves, compared trimmed and lower-cased. The TV sends the
- * title in the account's language and only the English titles are confirmed.
+ * The two titled shelves, compared trimmed and lower-cased. The TV sends the title in the account's language and only the English titles are confirmed.
  */
 const SHELF_TITLES_LIVE_GAMES = new Set(['top live games']);
 const SHELF_TITLES_MOST_RELEVANT = new Set(['most relevant']);
@@ -184,10 +139,7 @@ function logHit(key) {
   }
 }
 
-/**
- * True if a key names an ad renderer, tolerating the version suffixes YouTube
- * appends (`adSlotRendererFoo`, `displayAdRendererV2`).
- */
+/** True if a key names an ad renderer, tolerating the version suffixes YouTube appends (`adSlotRendererFoo`, `displayAdRendererV2`). */
 function isAdKey(key) {
   if (AD_RENDERERS.has(key)) return true;
   for (const name of AD_RENDERERS) {
@@ -197,16 +149,7 @@ function isAdKey(key) {
 }
 
 /**
- * Walk a response body and drop every ad renderer, at any depth.
- *
- * Explicit-stack rather than recursion: YouTube's initial-data payloads nest
- * seven or eight levels and the ad can sit at any of them, and a response large
- * enough to hold a full home page is also large enough that blowing the JS call
- * stack is a real risk on a webview.
- *
- * The mutation is in place on the parsed object, which is what the site reads.
- * Cycles cannot occur because the value came from JSON.parse, but a seen set is
- * kept anyway to stay safe if this is ever pointed at a non-JSON graph.
+ * Walk a response body and drop every ad renderer, at any depth. Explicit-stack rather than recursion: initial-data payloads nest seven or eight levels and a home-page-sized response is large enough that blowing the webview call stack is a real risk. Mutates in place; a seen set guards against non-JSON graphs even though JSON.parse cannot produce cycles.
  */
 function scrubAds(root) {
   const seen = new Set();
@@ -220,8 +163,7 @@ function scrubAds(root) {
     seen.add(node);
 
     if (Array.isArray(node)) {
-      // Compact in place, dropping ad elements. Reverse order so splice does
-      // not shift the indices still to be walked.
+      // Reverse order so splice does not shift the indices still to be walked.
       for (let i = node.length - 1; i >= 0; i -= 1) {
         const item = node[i];
         if (item !== null && typeof item === 'object') {
@@ -249,8 +191,7 @@ function scrubAds(root) {
         continue;
       }
 
-      // A promoted list whose every child is an ad still has a heading; the
-      // list itself goes, not just its items.
+      // A promoted list whose every child is an ad still has a heading; the list itself goes, not just its items.
       if (
         value !== null &&
         typeof value === 'object' &&
@@ -351,9 +292,7 @@ function hasBadgeValue(node, mask) {
 }
 
 /**
- * Filters a shelf's content lists in place and reports how many items they held
- * and how many are left, so a shelf this filter emptied can be dropped whole -
- * left in place it renders as a heading over skeleton tiles that never fill.
+ * Filters a shelf's content lists in place and reports how many items they held and how many are left, so a shelf this filter emptied can be dropped whole - left in place it renders as a heading over skeleton tiles that never fill.
  */
 function filterShelfLists(shelf, depth) {
   const content = shelf.content;
@@ -389,7 +328,7 @@ function shelfIsDropped(shelf, depth) {
 function scrubList(list, depth) {
   if (depth > MAX_COSMETIC_DEPTH) return;
 
-  // Reverse order so splice does not shift the indices still to be walked.
+  // Reverse order so splice does not shift indices still to be walked.
   for (let i = list.length - 1; i >= 0; i -= 1) {
     const item = list[i];
     if (item === null || typeof item !== 'object') continue;
@@ -443,9 +382,7 @@ function sweep(node, depth) {
 }
 
 /**
- * Cached config flags. JSON.parse runs for thousands of small blobs, so the
- * settings are read once and refreshed from the config change events rather
- * than per call. `filtersEnabled` is the cheap guard every parse pays.
+ * Cached config flags. JSON.parse runs for thousands of small blobs, so settings are read once and refreshed from config change events rather than per call. `filtersEnabled` is the cheap guard every parse pays; `loadRowsAhead` is independent and runs even when every filter is off.
  */
 let enableAdBlock = false;
 let keepPlaybackTracking = true;
@@ -458,9 +395,7 @@ let removeMostRelevant = false;
 let cosmeticMask = 0;
 let cosmeticEnabled = false;
 let filtersEnabled = false;
-// Independent of the filters above: rows-ahead edits the parsed body's
-// continuations, not the ad/cosmetic surfaces, so it is its own guard and runs
-// even when every filter is off.
+// Independent of the filters above: rows-ahead edits the parsed body's continuations, not the ad/cosmetic surfaces, so it is its own guard and runs even when every filter is off.
 let loadRowsAhead = false;
 
 function refreshFilters() {
@@ -504,11 +439,7 @@ for (const key of [
 }
 
 /**
- * A trackingParams value is an opaque token with no quotes or escapes; one
- * carrying a backslash is left as sent. The leading quote keeps the key out of
- * a clickTrackingParams match - endcard clicks still need that one. Blanking
- * the value in the text is one native pass, where walking the parsed tree for
- * the same edit costs more than the parse.
+ * A trackingParams value is an opaque token with no quotes or escapes; one carrying a backslash is left as sent. The leading quote keeps the key out of a clickTrackingParams match (endcard clicks still need that one). Blanking the value in the text is one native pass, where walking the parsed tree for the same edit costs more than the parse.
  */
 const TRACKING_PARAMS_KEY = '"trackingParams"';
 const TRACKING_PARAMS_RE = /"trackingParams"\s*:\s*"[^"\\]*"/g;
@@ -520,9 +451,7 @@ function stripTrackingParams(text) {
 }
 
 /**
- * Subtitles that switch themselves on: the player names a default track and an
- * initial state per audio track. Without the default and with the state off a
- * video starts without subtitles; turning them on by hand still works.
+ * Subtitles that switch themselves on: without the default track and with captionsInitialState off, a video starts without subtitles; turning them on by hand still works.
  */
 function captionsOff(holder) {
   const tracks = holder?.captions?.playerCaptionsTracklistRenderer?.audioTracks;
@@ -536,11 +465,7 @@ function captionsOff(holder) {
 }
 
 /**
- * Response-shape signatures, tested in order. Keep in sync with the paths the
- * thumbnail rewriter (thumbnail-quality.js) dispatches on; a null result makes
- * it fall back to a bounded scan, which is correct but costs more, so the
- * order matters: the more specific shapes come first and SEARCH is excluded
- * from a browse envelope.
+ * Response-shape signatures, tested in order. Keep in sync with the thumbnail rewriter (thumbnail-quality.js); a null result falls back to a bounded scan (correct but more expensive). More specific shapes come first, and SEARCH is excluded from a browse envelope.
  */
 const RESPONSE_TYPE_SIGNATURES = [
   {
@@ -623,15 +548,13 @@ JSON.parse = function () {
     return r;
   }
 
-  // Rows ahead is independent of the filters, so it runs first and whatever
-  // the filters do below leaves the raised continuations in place.
+  // Rows ahead is independent of the filters, so it runs first; whatever the filters do below leaves the raised continuations in place.
   if (loadRowsAhead) {
     raiseRowsAhead(r, detectRowsAheadType(r));
   }
 
   if (enableAdBlock) {
-    // Pre-existing envelope deletes, kept explicit because they are the cases
-    // that are certain to appear and are worth a distinct log line.
+    // Pre-existing envelope deletes, kept explicit because they are certain to appear and are worth a distinct log line.
     if (r.adPlacements) {
       delete r.adPlacements;
       logHit('adPlacements');
@@ -647,9 +570,7 @@ JSON.parse = function () {
       logHit('playerAds');
     }
 
-    // Opt-in only: stripping playbackTracking kills watch history and resume,
-    // so it is kept unless the user explicitly turns the toggle off. Handled
-    // here rather than in AD_RENDERERS because it is not an ad surface.
+    // Opt-in only: stripping playbackTracking kills watch history and resume, so it is kept unless the user explicitly turns the toggle off. Handled here rather than in AD_RENDERERS because it is not an ad surface.
     if (!keepPlaybackTracking && r.playbackTracking) {
       delete r.playbackTracking;
       logHit('playbackTracking');
@@ -669,9 +590,7 @@ JSON.parse = function () {
     for (const key of cosmeticRemoved) logHit(key);
   }
 
-  // Max Thumbnail Quality: rewrite thumbnail URLs in the parsed body. Always on
-  // and run last, so shelves and ad slots removed above are never rewritten.
-  // The response type is detected once here and handed to the rewriter.
+  // Max Thumbnail Quality: rewrite thumbnail URLs in the parsed body. Always on and run last, so shelves and ad slots removed above are never rewritten. The response type is detected once here and handed to the rewriter.
   upgradeResponseThumbnails(r, detectResponseType(r));
 
   return r;

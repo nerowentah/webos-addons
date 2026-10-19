@@ -29,10 +29,8 @@ JSON.parse = function () {
     removeShelvesWithShorts(sectionListRenderer);
   }
 
-  // Side menu (guide): Shorts is its own entry in the left rail. Guide entries
-  // only ever appear inside the guide payload, so acting on arrays that hold
-  // them cannot touch feed or player content. The raw payload is checked first
-  // so the full-tree walk only runs for the (rare) guide response.
+  // Side menu (guide): guide entries only appear in the guide payload, so
+  // filtering there cannot touch feed or player content.
   const text = arguments[0];
   if (
     typeof text === 'string' &&
@@ -57,34 +55,22 @@ function removeShelvesWithShorts(container) {
 }
 
 /**
- * Renderers that own a guide entry, so an array of them is a guide rail.
- *
- * Only a guide payload nests these keys, so `removeShortsFromGuide` acts only
- * where the walk proves it is looking at the side menu - never at a browse or
- * player response, even though those also carry `navigationEndpoint`s.
+ * Renderers that own a guide entry, so an array of them is a guide rail; these
+ * keys only nest inside a guide payload.
  */
 const GUIDE_KEYS = new Set(['guideEntryRenderer', 'guideShelfRenderer']);
 
 const MAX_GUIDE_DEPTH = 32;
 
-/**
- * Drop the Shorts entries from every guide rail in the response.
- *
- * The leanback guide is a short list (a few dozen entries), so a bounded walk
- * over it is cheap and lets the filter reach entries nested in a shelf as well
- * as the top-level rail.
- */
+/** Drop the Shorts entries from every guide rail in the response. */
 function removeShortsFromGuide(node, depth) {
   if (node === null || typeof node !== 'object' || depth > MAX_GUIDE_DEPTH) {
     return;
   }
 
   if (Array.isArray(node)) {
-    // Reverse order so splice does not shift the indices still to be walked;
-    // mutates the array the parent holds, so the rail stays live in the payload.
-    // Kept elements are descended into, so entries nested in a shelf (for
-    // example items -> guideSectionRenderer.items -> guideEntryRenderer) are
-    // still reached.
+    // Reverse order so splice does not shift indices still to be walked, and
+    // descend into kept elements to reach entries nested in a shelf.
     for (let i = node.length - 1; i >= 0; i -= 1) {
       if (isShortsGuideEntry(node[i])) node.splice(i, 1);
       else removeShortsFromGuide(node[i], depth + 1);
@@ -121,10 +107,8 @@ function isShortsEndpoint(entry) {
   if (browse.browseId === 'FEshorts') return true;
   if (browse.canonicalBaseUrl === '/shorts') return true;
 
-  // The Shorts entry is addressed by a browse params that base64-decodes to
-  // 'shorts'; matching on the literal ASCII covers the channel "Shorts" tab
-  // variant as well as the side-menu entries that reuse it. The params arrive
-  // URL-encoded (for example a trailing `%3D`), so decode before atob.
+  // Params base64-decode to the literal ASCII 'shorts' (channel tab and
+  // side-menu variants); they arrive URL-encoded, so decode before atob.
   if (typeof browse.params !== 'string') return false;
   try {
     return atob(decodeURIComponent(browse.params)).includes('shorts');

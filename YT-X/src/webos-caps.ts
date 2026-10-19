@@ -1,56 +1,25 @@
 /**
  * webOS version numbering and the capability matrix.
  *
- * webOS exposes two independent rendering planes, and almost every resolution
- * bug in this app came from treating them as one:
- *
- *   Graphics plane ("UI plane" upstream). Fixed by the `resolution` property in
- *   appinfo.json, and only ever 1920x1080 or 1280x720 - webOS TV does not
- *   support UHD graphics for web apps at all. This is the CSS pixel canvas, so
- *   it is measured with `window.innerWidth` / `window.innerHeight`.
- *
- *   Video plane. The panel's real output resolution: 3840x2160 on a UHD set,
- *   1920x1080 on an FHD set. The TV's scaler upscales the graphics canvas to
- *   the panel in hardware, after rasterization, so nothing in CSS can observe
- *   or compensate for it. This is read from `webOS.deviceInfo().screenWidth` /
- *   `.screenHeight`.
- *
- * Neither number is derivable from the other, so this module keeps them apart
- * and never averages or maxes them together.
+ * Two independent rendering planes, neither derivable from the other: the
+ * graphics plane (fixed 1920x1080/1280x720 canvas, from innerWidth/innerHeight,
+ * hardware-upscaled to the panel) and the video plane (the panel's real output,
+ * from deviceInfo().screenWidth/Height). Never average or max them together.
+ * Capability detection is the authority: the CAPABILITIES minimum versions are documentation-derived expectations for the
+ * debug dump to falsify, never behavioural gates — firmware backports make
+ * version sniffing unreliable, and a newer version must never disable a feature.
  *
  * @see https://webostv.developer.lge.com/develop/specifications/app-resolution
  * @see https://github.com/webOS-TV-app-samples/Resolution
- *
- * VERSION NUMBERING
- *   Three schemes are in circulation and they are easy to confuse:
- *
- *     internal  6, 7, 8, 9, 10, 11    what the UA's `webOS-<n>` segment carries
- *     TV        6, 22, 23, 24, 25, 26  what LG's spec pages are titled with
- *     Chrome    79, 87, 94, 108, 121   the webview engine, per .browserslistrc
- *
- *   normalizeInternalVersion() accepts either the internal or the TV form and
- *   returns the internal one, so a UA that changed scheme would not silently
- *   invert every version comparison in the app.
- *
- * GATING PHILOSOPHY
- *   Capability detection is the authority. The minimum versions in CAPABILITIES
- *   are documentation-derived expectations, recorded so the debug dump can
- *   falsify them on real hardware; they never decide behaviour on their own.
- *   That is deliberate: firmware backports make version sniffing unreliable, and
- *   a version newer than this table must never disable a feature. See
- *   isVersionAtLeast().
  */
 
 /** webOS's own version numbers, as distinct from the TV/marketing ones. */
 export type WebOSVersion = number;
 
 /**
- * Known releases, newest last.
- *
- * Chrome 121 (webOS internal 10) is the last engine version LG has published
- * alongside a webOS version here; internal 11 / TV 26 is listed for the version
- * arithmetic only, deliberately without a Chrome figure rather than guessing
- * one. Mirrors .browserslistrc, which is the build's support matrix of record.
+ * Known releases, newest last. Chrome 121 (internal 10) is the last engine
+ * version LG published; internal 11 deliberately has no Chrome figure rather
+ * than a guess. Mirrors .browserslistrc, the build's support matrix of record.
  */
 const RELEASES = [
   { internal: 6, tv: 6, chrome: 79 },
@@ -66,16 +35,14 @@ const RELEASES = [
 }[];
 
 /** Newest internal webOS version this module knows about. */
-export const NEWEST_KNOWN_VERSION: WebOSVersion = 11;
+const NEWEST_KNOWN_VERSION: WebOSVersion = 11;
 
 /** The lowest webOS version this app supports (Chrome 79). */
-export const MIN_SUPPORTED_VERSION: WebOSVersion = 6;
+const MIN_SUPPORTED_VERSION: WebOSVersion = 6;
 
 /**
- * TV version -> internal version.
- *
- * Only the TV numbers that differ from the internal ones appear. webOS TV 6 is
- * 6 in both schemes.
+ * TV -> internal version. Only numbers that differ appear (webOS TV 6 is 6 in
+ * both schemes).
  */
 const TV_TO_INTERNAL = new Map<number, WebOSVersion>(
   RELEASES.filter((r) => r.tv !== r.internal).map((r) => [r.tv, r.internal])
@@ -101,12 +68,9 @@ export function compareVersions(a: string, b: string): number {
 }
 
 /**
- * True when `version` is at least `minimum`.
- *
- * An unknown version - one newer than anything in RELEASES - is treated as the
- * newest known, never the oldest. Gating on a version can only ever turn a
- * feature off for firmware we recognise, so a TV from the future keeps
- * everything rather than silently losing it.
+ * True when `version` is at least `minimum`. An unknown (newer) version reads
+ * as the newest, never the oldest: gating can only turn features off for
+ * firmware we recognise, so a TV from the future keeps everything.
  */
 export function isVersionAtLeast(
   version: WebOSVersion | undefined,
@@ -131,21 +95,13 @@ export interface NormalizedVersion {
 }
 
 /**
- * Coerce a version from the app UA into the internal scheme.
- *
- * The UA is built by `vendorExtension.userAgent` in appinfo.json, which
- * interpolates `$platformVersion$`. It has not been confirmed on a
- * device which numbering that substitution produces - this exists because
- * `hasCastCoreConflict()` gates on `>= 10` for the webOS 2025 firmware, and that
- * is only correct under the internal scheme. Under the TV scheme an unhandled
- * "25" would compare `>= 10` as true on TV 22, 23 and 24 too, blocking the cast
- * fix on three firmware lines it is not meant to touch.
- *
- * The two schemes are distinguishable: the TV numbering jumps 6 -> 22 and never
- * returns to single digits, so anything at or above 22 is unambiguously TV.
- * Values below that are identical under both schemes up to internal 10, and are
- * reported as 'internal' because that is the scheme the rest of the app uses.
- * A device dump of the `versionScheme` field settles it.
+ * Coerce a version from the app UA into the internal scheme. Unconfirmed which
+ * numbering `$platformVersion$` produces, and it matters: hasCastCoreConflict()'s
+ * `>= 10` gate is only correct internally — under the TV scheme a bare "25"
+ * would compare >= 10 on TV 22-24 and block the cast fix on lines it must not
+ * touch. Distinguishable: the TV numbering jumps 6 -> 22 and never returns to
+ * single digits; below that the schemes coincide up to internal 10, reported as
+ * 'internal' because that is what the rest of the app uses.
  */
 export function normalizeInternalVersion(
   raw: string | undefined
@@ -158,8 +114,8 @@ export function normalizeInternalVersion(
   if (major >= FIRST_DIVERGENT_TV_VERSION) {
     const internal = TV_TO_INTERNAL.get(major);
     if (internal !== undefined) return { version: internal, scheme: 'tv' };
-    // A TV number from the future (webOS TV 27+). Internally that is past the
-    // newest release we know, which is the forward-compatible answer.
+    // A TV number from the future: past the newest release we know, the
+    // forward-compatible answer.
     return { version: major, scheme: 'tv' };
   }
 
@@ -182,13 +138,11 @@ export type CapabilityId =
 export interface Capability {
   readonly id: CapabilityId;
   readonly label: string;
-  /** Where the value comes from. */
   readonly source: string;
   /** Lowest internal webOS version expected to provide it. */
   readonly minInternalVersion: WebOSVersion;
   /** The runtime predicate that actually decides availability. */
   readonly probe: string;
-  /** What is used when the probe fails. */
   readonly fallback: string;
   /** What the app loses when the probe fails. */
   readonly consequence: string;
@@ -196,11 +150,8 @@ export interface Capability {
 
 /**
  * The matrix of record, dumped by `__ytx_debug__` with a verdict per row.
- *
- * `minInternalVersion` is an expectation to be checked against hardware, not a
- * switch: every row's behaviour is decided by its `probe` string. Where LG
- * publishes no version at all the minimum is the app's own support floor, which
- * reads as "not a version-gated capability, just probe it".
+ * `minInternalVersion` is an expectation to falsify on hardware, never a
+ * switch: behaviour is decided by each row's `probe`.
  */
 export const CAPABILITIES: readonly Capability[] = [
   {
@@ -295,26 +246,12 @@ export const VIDEO_CODECS = ['av1', 'vp9', 'avc', 'hevc'] as const;
 export type VideoCodec = (typeof VIDEO_CODECS)[number];
 
 /**
- * Which codecs the platform can decode, by video plane height.
- *
- * From the AV Format specification. The two rules that combine into this table:
- *
- *   - The per-resolution codec rows are unchanged between webOS TV 6.0 and 26:
- *     Full HD tops out at H.264 and HEVC 1920x1080; 4K UHD and 8K UHD add VP9
- *     and AV1 renditions.
- *   - The container table is narrower for UHD. For the UHD resolutions
- *     (3840x2160 and 4096x2160) the supported combinations are H.264/AVC and HEVC
- *     only, with no VP9 and no AV1 - which is what cancels the VP9/AV1 renditions
- *     the resolution rows advertise for exactly those heights.
- *
- * The second rule is the one that bites, and it is why this table is narrower
- * than the codec rows suggest. Pinning AV1 or VP9 on a 4K panel cannot succeed:
- * every UHD rendition is in a codec the platform will not decode. Filtering it
- * silently used to leave the user on whatever the server offered with no
- * explanation, so force-codec.js refuses the selection with a reason instead.
- *
- * 8K is the exception that proves the rule: 7680x4320 is not a UHD resolution by
- * that container table, so AV1 is decodable there.
+ * Which codecs the platform can decode, by video plane height (from the AV
+ * Format specification). The UHD container table is narrower than the
+ * resolution rows: 3840/4096x2160 pair only with H.264 and HEVC, cancelling
+ * the VP9/AV1 renditions the rows advertise for those heights — so pinning
+ * AV1 or VP9 on a 4K panel can never succeed, and force-codec.js refuses it
+ * with a reason. 8K (7680x4320) is not UHD by that table, so AV1 works there.
  *
  * @see https://webostv.developer.lge.com/develop/specifications/video-audio-260
  */
@@ -332,12 +269,9 @@ const UHD_MIN_HEIGHT = 2160;
 
 /**
  * Codecs decodable at a given video plane height, or `null` when the height is
- * unknown.
- *
- * Unknown is not the same as "everything": with no playback resolution there is
- * no basis to refuse anything, so the platform's own probe remains the decider.
+ * unknown — no basis to refuse anything, so the platform probe decides.
  */
-export function decodableCodecsAt(
+function decodableCodecsAt(
   playbackHeight: number | undefined
 ): readonly VideoCodec[] | null {
   if (
@@ -354,11 +288,9 @@ export function decodableCodecsAt(
 }
 
 /**
- * Whether a codec can be decoded at the given video plane height.
- *
- * Returns `true` when the height is unknown, deferring to the platform probe -
- * refusing on absent information would lock users out of a codec their set
- * handles fine.
+ * Whether a codec can be decoded at the given video plane height. `true` when
+ * the height is unknown: refusing on absent information would lock users out
+ * of a codec their set handles fine.
  */
 export function canDecodeAt(
   codec: VideoCodec,
@@ -369,10 +301,8 @@ export function canDecodeAt(
 }
 
 /**
- * Human-readable reason a codec was refused, for a notification.
- *
- * The pixel height is the video plane's, so this reads correctly on a 4K panel
- * regardless of which graphics canvas the app happens to be running on.
+ * Human-readable reason a codec was refused, for a notification. The height is
+ * the video plane's, so this reads correctly regardless of the graphics canvas.
  */
 export function codecRefusalReason(
   codec: VideoCodec,

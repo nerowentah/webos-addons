@@ -1,12 +1,8 @@
 /* LG TVs don't have a system font for math unicode symbols. */
 
 /* Source: https://fonts.googleapis.com/css2?family=Noto+Sans+Math&display=swap
-   The latin subset Google appends is deliberately dropped: grabbing it would
-   have every element that falls back to Arial (the SponsorBlock popup, YouTube
-   text that names Arial explicitly) rendered with a math typeface. The range
-   below covers only the math glyphs the TV font lacks.
-   The woff2 is vendored locally so the app makes no runtime request to
-   fonts.gstatic.com; the comment above keeps the upstream source URL. */
+   The appended latin subset is dropped deliberately - it would restyle every
+   Arial fallback with a math face; the woff2 is vendored, so no runtime fetch. */
 @font-face {
   font-family: Arial; /* LG TVs don't have the Arial font so replacing is safe. */
   font-style: normal;

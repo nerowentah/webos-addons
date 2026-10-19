@@ -1,39 +1,16 @@
 /**
- * Async access to the webOS device API.
- *
- * The platform injects `window.webOS` into the webview, and its `deviceInfo`
- * member is how the video plane is read. Two things make this a module rather
- * than three lines at the call site:
- *
- *   1. It is asynchronous. The reference documents `deviceInfo` as a callback
- *      method - "The function to call once the information is collected", "Call
- *      returns: Returns undefined" - so there is no synchronous value to read.
- *      Anything that needs the specs at startup (the cast-core block in
- *      block-webos-cast.ts runs at module-evaluation time) has to stay on the
- *      synchronous UA path and pick this up later.
- *
- *   2. Its shape is not settled. The official reference describes the callback
- *      form, but community typings describe `deviceInfo` as a plain object. Both
- *      are probed here rather than betting the video plane on either.
- *
- * Nothing in this module rejects. A missing API, a throwing callback, or a
- * callback that never fires all resolve to `null`, because the app has a working
- * path without any of it: after the scale fix in tv-specs.ts, the
- * viewport-only answer is already correct, and the device API only adds the
- * panel's real output resolution on top.
- *
+ * Async access to the webOS device API: the injected `webOS.deviceInfo` is a
+ * callback method (community typings also describe a plain object - both are
+ * probed), and nothing here rejects - a missing, throwing or wedged API
+ * resolves to `null`, because the viewport-only path in tv-specs.ts already
+ * works without the panel's real output resolution.
  * @see https://webostv.developer.lge.com/develop/references/webostvjs-webos
  */
 
 import type { WebOSDeviceInfo } from './globals';
 
 /**
- * How long to wait for `deviceInfo` before giving up.
- *
- * The callback is serviced by the platform's own bridge, so it normally lands
- * within a frame or two. A second is generous; the ceiling exists so a wedged
- * bridge cannot leave the spec enrichment permanently pending and the debug dump
- * permanently silent.
+ * How long to wait for `deviceInfo` before giving up; the ceiling stops a wedged bridge leaving the spec enrichment and debug dump pending forever.
  */
 const DEVICE_INFO_TIMEOUT_MS = 1000;
 
@@ -41,12 +18,7 @@ type Timer = ReturnType<typeof setTimeout>;
 
 let cached: Promise<WebOSDeviceInfo | null> | null = null;
 
-/**
- * `webOS.deviceInfo` as a plain object, if that is the shape in play.
- *
- * Guarded on the field being non-null and not a function, so the documented
- * callback form is never mistaken for an object.
- */
+/** `webOS.deviceInfo` as a plain object, if that is the shape in play; the field being a function means the documented callback form, never an object. */
 function deviceInfoObject(): WebOSDeviceInfo | null {
   const api = window.webOS;
   if (api === undefined) return null;
@@ -110,11 +82,7 @@ function probeDeviceInfo(): Promise<WebOSDeviceInfo | null> {
 }
 
 /**
- * The device info, or `null` when the platform did not provide it.
- *
- * Resolved once and cached: the values describe the hardware, so they cannot
- * change while the app is running, and a repeat call would otherwise queue
- * another bridge round trip.
+ * The device info, or `null` when the platform did not provide it; resolved once and cached (hardware values cannot change, so a repeat call would just queue another bridge round trip).
  */
 export function getDeviceInfo(): Promise<WebOSDeviceInfo | null> {
   cached ??= probeDeviceInfo();

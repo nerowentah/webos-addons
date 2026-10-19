@@ -2,33 +2,14 @@ import { configRead } from './config.js';
 import { isSearchPage, COLOR_CODE_MAP, SYNTHETIC_KEY_FLAG } from './utils.js';
 
 /**
- * Type in Search with a Keyboard.
- *
- * On the search page, a USB or Bluetooth keyboard's printable keys go into the
- * search query. YouTube TV holds the query behind its on-screen keyboard, with
- * no text field to write into, so typing is done by pressing that keyboard's
- * keys for the viewer: the key whose label is the character typed, and the
- * space, backspace and search keys for Space, Backspace and Enter.
- *
- * Some builds of the TV app already take printable keys natively. Which one
- * this TV runs is not known up front, so the first character is a probe: it
- * goes to YouTube untouched, and if the query changed, the app types by itself
- * and this module stays out of the way for the rest of the session. If it did
- * not, that character (and any typed while waiting) is typed on the on-screen
- * keyboard, and each way of pressing a key is tried until the query changes.
- * If none changes it, typing is left alone until the next search page visit.
- *
- * What counts as typing, so the remote keeps working as before:
- *   - letters, space and punctuation are text on the search page;
- *   - digits only within a few seconds of another typed character: on their
- *     own, the remote's number keys are shortcuts;
- *   - Enter submits only right after typing (the remote's OK is the same key
- *     code), Backspace deletes only what was typed here;
- *   - arrows, OK, Back, the colour keys and anything with Ctrl/Alt/Meta are
- *     never touched, nor are keys aimed at a text field or the settings panel.
- *
- * Every lookup fails safe: no on-screen key, no change - the key goes to
- * YouTube exactly as before.
+ * Types in Search with a USB/Bluetooth keyboard by pressing the on-screen
+ * keyboard's keys. The first character probes whether the app already takes
+ * printable keys natively; if not, each press strategy is tried until the
+ * query changes, failing safe (no matching key -> YouTube gets it untouched).
+ * Remote rules kept: digits only within TYPING_WINDOW_MS of another key,
+ * Enter only right after typing, Backspace only undoes keys typed here;
+ * arrows/OK/Back/colour/modifier keys and keys in a text field or the
+ * settings panel are never touched.
  */
 
 const LOG_PREFIX = '[KeyboardSearch]';
@@ -36,9 +17,7 @@ const DEBUG = false;
 
 // A digit or an Enter counts as keyboard input this long after a typed key.
 const TYPING_WINDOW_MS = 3000;
-// How long the query gets to show a character before it counts as untouched.
-// Generous: a slow TV that types natively but late would otherwise be typed
-// for twice.
+// How long the query gets to settle; generous so a slow TV that types natively but late is not also typed for by this module.
 const SETTLE_MS = 400;
 
 const KEY_SELECTOR = 'yt-keyboard-key, ytlr-keyboard-key';
@@ -46,8 +25,7 @@ const KEY_CLASS_SELECTOR =
   '[class*="ytKeyboardKey"], [class*="ytLrKeyboardKey"]';
 const QUERY_SELECTORS = ['ytlr-search-text-box', 'ytlr-search-bar'];
 
-// The on-screen keyboard's labels are in the UI language; the icon class names
-// are not, so they are the fallback.
+// On-screen key labels are in the UI language; icon class names are not, so they are the fallback.
 const SPACE_LABEL =
   /^(?:space|space ?bar|espace|espacio|espaço|leerzeichen|spazio|spatie|spacja|mezera|medzera|szóköz|spațiu|razmak|presledek|пробел|пробіл|интервал|boşluk|mellanslag|mellemrum|välilyönti|mellomrom|διάστημα|スペース|공백|空格)$/i;
 const BACKSPACE_LABEL = /^(?:backspace|delete|del|⌫)$/i;
@@ -74,8 +52,7 @@ const PUNCTUATION = {
 const KEY_BACKSPACE = 8;
 const KEY_ENTER = 13;
 
-// 'unknown' until the first character settles it: 'native' (YouTube types by
-// itself), 'osk' (we press on-screen keys) or 'none' (nothing worked).
+// 'unknown' until the first character settles it: 'native' (YouTube types by itself), 'osk' (we press on-screen keys) or 'none' (nothing worked).
 let mode = 'unknown';
 let pressStrategy = 0;
 let lastTypedAt = 0;
@@ -197,8 +174,7 @@ function dispatchMouse(el, type, at) {
   el.dispatchEvent(evt);
 }
 
-// Ways of pressing an on-screen key, tried in order until one changes the
-// query; the one that does is kept.
+// Ways of pressing an on-screen key, tried in order until one changes the query; the working one is kept.
 const PRESS_STRATEGIES = [
   function click(el) {
     el.click();
@@ -288,11 +264,7 @@ function typeOnScreen(chars) {
   }
 }
 
-/**
- * The first character went to YouTube. If the query changed, YouTube types by
- * itself. If not, find a way of pressing on-screen keys that changes it, then
- * type everything that came in meanwhile.
- */
+/** The probe character went to YouTube; if the query did not change, find a press strategy that does, then type everything queued meanwhile. */
 function settleProbe() {
   const p = probe;
   p.timer = null;
@@ -315,8 +287,7 @@ function tryStrategy(p, strategy) {
   }
   const key = findKey(p.chars[0]);
   if (!key) {
-    // No key to press for it (keyboard not shown, another layout or script):
-    // drop that character and decide on the next one.
+    // No key to press for it (keyboard not shown, another layout or script); drop that character and decide on the next one.
     p.chars.shift();
     if (p.chars.length === 0) {
       probe = null;
@@ -376,8 +347,7 @@ function onKeyDown(evt) {
   }
 
   if (code === KEY_ENTER) {
-    // The remote's OK sends the same code: Enter submits only right after
-    // keyboard typing.
+    // The remote's OK sends the same code: Enter submits only right after keyboard typing.
     if (mode !== 'osk' || !typing || typedCount === 0) return;
     const key = findSpecialKey(onScreenKeys(), SEARCH_LABEL, SEARCH_ICON);
     if (!key) return;
@@ -407,11 +377,9 @@ function onKeyDown(evt) {
     return;
   }
 
-  // mode === 'unknown'
   lastTypedAt = now;
   if (probe) {
-    // Still deciding: YouTube gets this one too, and it is queued in case
-    // YouTube does nothing with it.
+    // Still deciding: YouTube gets this one too, and it is queued in case YouTube does nothing with it.
     probe.chars.push(ch);
     return;
   }
@@ -430,8 +398,7 @@ function onKeyUp(evt) {
   evt.stopImmediatePropagation();
 }
 
-// Window capture, registered before YouTube's app code runs, so a key typed
-// here never reaches YouTube's own handlers as well.
+// Window capture, registered before YouTube's app code runs, so a key typed here never also reaches YouTube's own handlers.
 window.addEventListener('keydown', onKeyDown, true);
 window.addEventListener('keyup', onKeyUp, true);
 window.addEventListener('ytx-page-update', (evt) => {

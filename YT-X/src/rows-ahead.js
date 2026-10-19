@@ -1,20 +1,10 @@
-// Rows loaded ahead. The app asks for the next rows of a vertical list (the
-// home feed, a browse tab, search results) once fewer rows than a threshold are
-// left below the focused one: the response's own
-// nextContinuationData.autoloadThresholdItemsFromEnd when above 0, else the
-// section_list_continuation_threshold flag, else 3. YouTube sends the flag as 1,
-// so the next rows are asked for only on the last row, and a quick run down the
-// home screen reaches rows that have not arrived. The response's value outranks
-// the flag, so the parse hook (adblock.js) raises it on every section list a
-// response carries. A list filled on visibility (autoloadEnabled with
-// autoloadOnVisible) does not read the threshold, and a reloadContinuationData
-// is left as sent.
+// The app asks for the next rows once fewer than the threshold remain below the
+// focused one: the response's autoloadThresholdItemsFromEnd (raised by adblock.js), else the flag, else 3.
 
 /** Rows left below the focused one when the app asks for the next ones. */
-export const ROWS_AHEAD = 4;
+const ROWS_AHEAD = 4;
 
-// The section lists themselves (their `continuations` sit beside `contents`),
-// per response type as detectRowsAheadType() detects it.
+// The section lists per response type, as detectRowsAheadType() detects it.
 const SECTION_LISTS = {
   HOME_BROWSE: [
     [
@@ -45,12 +35,8 @@ const BROWSE_TABS_NAV = [
 ];
 
 /**
- * The response types this module acts on. Only the shapes whose top-level
- * layout carries section lists are named; every other response returns null and
- * is left alone. The order matters: the browse and search shapes overlap on
- * `contents`, so the browse tabs and home browse (which both divert through
- * tvBrowseRenderer) are tested before the bare SEARCH shape, which excludes
- * tvBrowseRenderer for the same reason.
+ * Response types this module acts on; order matters because browse and search
+ * overlap on `contents` (browse/tabs first, SEARCH excludes tvBrowseRenderer).
  */
 const TYPE_SIGNATURES = [
   {

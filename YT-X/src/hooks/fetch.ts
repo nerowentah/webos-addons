@@ -20,8 +20,7 @@ interface ResponseInfo extends RequestInfo {
 
 interface EventMap {
   request: CustomEvent<RequestInfo>;
-  // Listeners may replace evt.detail.response to substitute the response the
-  // caller receives, or preventDefault() to cancel the fetch entirely.
+  // Listeners may replace evt.detail.response, or preventDefault() to cancel the fetch.
   response: CustomEvent<ResponseInfo>;
 }
 
@@ -45,8 +44,7 @@ export class FetchRegistry extends CustomEventTarget<EventMap> {
 
     try {
       const blob = await resource.clone().blob();
-      // Debug-only dumps: cap the size so a pathological body can't flood the
-      // console with base64.
+      // Debug-only: cap the size so a pathological body can't flood the console.
       if (!blob.size || blob.size > 262144) return null;
 
       const fr = new FileReader();
@@ -74,8 +72,7 @@ export class FetchRegistry extends CustomEventTarget<EventMap> {
     }
   }
 
-  // Debug dumps must not expose credentials, so requests whose URL carries
-  // auth material (path or credentials) are never echoed to the console.
+  // Never echo requests carrying auth material (path or credentials) to the console.
   static #isSensitive(url: URL) {
     return (
       url.username !== '' ||

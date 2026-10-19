@@ -1,10 +1,5 @@
-// fetch() of a JSON answer with one deadline that covers the body as well as
-// the headers. Clearing the timer when the headers arrived left `res.json()`
-// with no deadline at all: a server that stalled mid-body hung the caller for
-// good (no fallback server, no retry, no next refresh). The timer is cleared
-// on every outcome, so a request that won the race leaves nothing to fire.
-
-const HAS_ABORT_CONTROLLER = typeof AbortController !== 'undefined';
+// One deadline covers the body as well as the headers: clearing the timer once
+// headers arrived left res.json() with no deadline, so a mid-body stall hung forever.
 
 function abortError() {
   const error = new Error('aborted');
@@ -13,14 +8,8 @@ function abortError() {
 }
 
 /**
- * Resolves with `{ ok, status, data }`: the parsed body of a 2xx answer, or
- * `data: null` (body unread) for any other status. Rejects like fetch() does,
- * with Error('timeout') once `timeoutMs` passes - headers or body - and with
- * an AbortError when `opts.signal` aborts.
- *
- * The request runs on its own AbortController where the engine has one, so a
- * timeout drops the connection too. Without one the request itself runs on, but
- * its answer is never handed out after the deadline.
+ * Resolves with `{ ok, status, data }` (parsed body for 2xx, else `data: null`);
+ * rejects with Error('timeout') past `timeoutMs` or an AbortError on `opts.signal`.
  *
  * @param {string} url
  * @param {number} timeoutMs
@@ -28,32 +17,29 @@ function abortError() {
  */
 export function fetchJsonWithTimeout(url, timeoutMs, opts) {
   const outer = opts && opts.signal ? opts.signal : null;
-  const controller = HAS_ABORT_CONTROLLER ? new AbortController() : null;
+  const controller = new AbortController();
   let timer = null;
   let onOuterAbort = null;
 
   const cutoff = new Promise((_, reject) => {
-    // Rejected before the controller aborts: the request's own AbortError
-    // would otherwise win the race and a timeout would read as an abort.
+    // Reject before aborting: the request's own AbortError would otherwise win the race.
     timer = setTimeout(() => {
       timer = null;
       reject(new Error('timeout'));
-      if (controller) controller.abort();
+      controller.abort();
     }, timeoutMs);
 
     if (outer) {
       onOuterAbort = () => {
         reject(abortError());
-        if (controller) controller.abort();
+        controller.abort();
       };
       if (outer.aborted) onOuterAbort();
       else outer.addEventListener('abort', onOuterAbort);
     }
   });
 
-  const request = (
-    controller ? fetch(url, { signal: controller.signal }) : fetch(url)
-  ).then((response) =>
+  const request = fetch(url, { signal: controller.signal }).then((response) =>
     response.ok
       ? response
           .json()
