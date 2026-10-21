@@ -56,8 +56,9 @@ async function press(session, token) {
  * @param {string} selector
  */
 async function click(session, selector) {
-  const rect = await session.evaluate(
-    `(() => { const el = document.querySelector(${JSON.stringify(selector)}); if (!el) return null; const r = el.getBoundingClientRect(); return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) }; })()`
+  const rect = await session.callFunction(
+    'function (selector) { const el = document.querySelector(selector); if (!el) return null; const r = el.getBoundingClientRect(); return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) }; }',
+    selector
   );
   if (!rect) throw new HarnessError(`no element matches ${selector}`);
   const base = { ...rect, button: 'left', buttons: 1, clickCount: 1 };
