@@ -306,7 +306,14 @@ function createOptionsPanel() {
     tabIndex: 0,
     events: {
       keydown: (e) => {
-        if (e.key === 'Escape' || e.key === 'Back' || e.code === 'Backspace') {
+        if (
+          e.key === 'Escape' ||
+          e.key === 'Back' ||
+          e.keyCode === REMOTE_KEYS.BACK.code ||
+          e.code === 'Backspace'
+        ) {
+          e.preventDefault();
+          e.stopImmediatePropagation();
           showOptionsPanel(false);
         }
       }
