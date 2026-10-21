@@ -5,9 +5,8 @@
  * graphics plane (fixed 1920x1080/1280x720 canvas, from innerWidth/innerHeight,
  * hardware-upscaled to the panel) and the video plane (the panel's real output,
  * from deviceInfo().screenWidth/Height). Never average or max them together.
- * Capability detection is the authority: the CAPABILITIES minimum versions are documentation-derived expectations for the
- * debug dump to falsify, never behavioural gates — firmware backports make
- * version sniffing unreliable, and a newer version must never disable a feature.
+ * Capability detection is the authority — firmware backports make version
+ * sniffing unreliable, and a newer version must never disable a feature.
  *
  * @see https://webostv.developer.lge.com/develop/specifications/app-resolution
  * @see https://github.com/webOS-TV-app-samples/Resolution
@@ -34,12 +33,6 @@ const RELEASES = [
   chrome: number | undefined;
 }[];
 
-/** Newest internal webOS version this module knows about. */
-const NEWEST_KNOWN_VERSION: WebOSVersion = 11;
-
-/** The lowest webOS version this app supports (Chrome 79). */
-const MIN_SUPPORTED_VERSION: WebOSVersion = 6;
-
 /**
  * TV -> internal version. Only numbers that differ appear (webOS TV 6 is 6 in
  * both schemes).
@@ -65,20 +58,6 @@ export function compareVersions(a: string, b: string): number {
     if (aN !== bN) return aN - bN;
   }
   return 0;
-}
-
-/**
- * True when `version` is at least `minimum`. An unknown (newer) version reads
- * as the newest, never the oldest: gating can only turn features off for
- * firmware we recognise, so a TV from the future keeps everything.
- */
-export function isVersionAtLeast(
-  version: WebOSVersion | undefined,
-  minimum: WebOSVersion
-): boolean {
-  if (version === undefined || !isFinite(version)) return true;
-  if (version > NEWEST_KNOWN_VERSION) return true;
-  return version >= minimum;
 }
 
 /** The TV/marketing version for an internal webOS version, if known. */
@@ -121,122 +100,6 @@ export function normalizeInternalVersion(
 
   return { version: major, scheme: 'internal' };
 }
-
-/* ------------------------------------------------------- capability matrix --- */
-
-export type CapabilityId =
-  | 'deviceInfo'
-  | 'playbackResolution'
-  | 'uhd'
-  | 'uhd8K'
-  | 'oled'
-  | 'sdkVersion'
-  | 'tuner'
-  | 'appInfo'
-  | 'luna';
-
-export interface Capability {
-  readonly id: CapabilityId;
-  readonly label: string;
-  readonly source: string;
-  /** Lowest internal webOS version expected to provide it. */
-  readonly minInternalVersion: WebOSVersion;
-  /** The runtime predicate that actually decides availability. */
-  readonly probe: string;
-  readonly fallback: string;
-  /** What the app loses when the probe fails. */
-  readonly consequence: string;
-}
-
-/**
- * The matrix of record, dumped by `__ytx_debug__` with a verdict per row.
- * `minInternalVersion` is an expectation to falsify on hardware, never a
- * switch: behaviour is decided by each row's `probe`.
- */
-export const CAPABILITIES: readonly Capability[] = [
-  {
-    id: 'deviceInfo',
-    label: 'webOS API object',
-    source: 'window.webOS (injected)',
-    minInternalVersion: MIN_SUPPORTED_VERSION,
-    probe: "typeof window.webOS === 'object' && window.webOS !== null",
-    fallback: 'UA-parsed model / firmware / platform version',
-    consequence: 'No playback resolution; scale still resolves to 1.0'
-  },
-  {
-    id: 'playbackResolution',
-    label: 'Video playback resolution',
-    source: 'webOS.deviceInfo().screenWidth / .screenHeight',
-    minInternalVersion: MIN_SUPPORTED_VERSION,
-    probe: 'both fields are finite positive numbers',
-    fallback: 'window.screen.width / .height',
-    consequence: 'Panel class and max-resolution ceiling are guesses'
-  },
-  {
-    id: 'uhd',
-    label: 'UHD panel flag',
-    source: 'webOS.deviceInfo().uhd',
-    minInternalVersion: MIN_SUPPORTED_VERSION,
-    probe: "typeof info.uhd === 'boolean'",
-    fallback: 'inferred from playback height',
-    consequence: 'Panel class falls back to height inference'
-  },
-  {
-    id: 'uhd8K',
-    label: '8K panel flag',
-    source: 'webOS.deviceInfo().uhd8K',
-    minInternalVersion: MIN_SUPPORTED_VERSION,
-    probe: "typeof info.uhd8K === 'boolean'",
-    fallback: 'false',
-    consequence: 'No 8K tier'
-  },
-  {
-    id: 'oled',
-    label: 'OLED panel flag',
-    source: 'webOS.deviceInfo().oled',
-    minInternalVersion: MIN_SUPPORTED_VERSION,
-    probe: 'info.oled === true',
-    fallback: 'parsePanelType() model-string match',
-    consequence: 'LCD parts can be misread as OLED'
-  },
-  {
-    id: 'sdkVersion',
-    label: 'webOS TV version',
-    source: 'webOS.deviceInfo().sdkVersion',
-    minInternalVersion: MIN_SUPPORTED_VERSION,
-    probe: "typeof info.sdkVersion === 'string'",
-    fallback: 'UA platform version',
-    consequence: 'Only the internal numbering is available'
-  },
-  {
-    id: 'tuner',
-    label: 'Tuner presence',
-    source: 'webOS.deviceInfo().tuner',
-    minInternalVersion: 11,
-    probe: "typeof info.tuner === 'boolean'",
-    fallback: 'not consumed',
-    consequence: 'None; recorded for diagnostics only'
-  },
-  {
-    id: 'appInfo',
-    label: "App's own appinfo.json",
-    source: 'webOS.fetchAppInfo()',
-    minInternalVersion: MIN_SUPPORTED_VERSION,
-    probe: 'callback delivers an object with a resolution',
-    fallback: 'not needed',
-    consequence:
-      'None: the canvas is measured from innerWidth/innerHeight, and the design space is fixed at 1920x1080 because that is the space the YouTube TV UI is authored against'
-  },
-  {
-    id: 'luna',
-    label: 'Luna service requests',
-    source: 'webOS.service.request()',
-    minInternalVersion: MIN_SUPPORTED_VERSION,
-    probe: "typeof window.webOS.service?.request === 'function'",
-    fallback: 'cross-check skipped',
-    consequence: 'No second opinion on the reported specs'
-  }
-];
 
 /* --------------------------------------------------------- codec matrix --- */
 

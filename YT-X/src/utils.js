@@ -6,8 +6,7 @@ export function extractLaunchParams() {
   try {
     return JSON.parse(window.launchParams);
   } catch {
-    // Platform-launched params are not guaranteed to be valid JSON.
-    console.warn('ignoring malformed launchParams');
+    // Platform-launched params are not guaranteed to be valid JSON; ignore them.
     return {};
   }
 }
@@ -35,7 +34,6 @@ export function contentTargetOf(params) {
 }
 
 export function handleLaunch(params) {
-  console.info('handleLaunch', params);
   let ytURL = getYTURL();
 
   // Custom "target" param because launches with "contentTarget" do not respect
@@ -47,7 +45,6 @@ export function handleLaunch(params) {
   switch (typeof contentTarget) {
     case 'string': {
       if (contentTarget.length > 2048) {
-        console.warn('Overlong contentTarget ignored');
         break;
       }
       let direct;
@@ -61,11 +58,9 @@ export function handleLaunch(params) {
         direct.protocol === 'https:' &&
         direct.origin === ytURL.origin
       ) {
-        console.info('Launching from direct contentTarget');
         ytURL = direct;
       } else {
         // Out of app dial launch with second screen on home: { contentTarget: 'pairingCode=<UUID>&theme=cl&dialLaunch=watch' }
-        console.info('Launching from partial contentTarget');
         if (contentTarget.indexOf('v=v=') === 0)
           contentTarget = contentTarget.substring(2);
 
@@ -78,11 +73,9 @@ export function handleLaunch(params) {
     }
     case 'object': {
       if (contentTarget === null) break;
-      console.info('Voice launch');
 
       const { intent, intentParam } = contentTarget;
       if (typeof intent !== 'string' || typeof intentParam !== 'string') {
-        console.warn('Invalid voice launch params');
         break;
       }
       // Ctrl+F tvhtml5LaunchUrlComponentChanged & REQUEST_ORIGIN_GOOGLE_ASSISTANT in base.js for info
@@ -102,9 +95,6 @@ export function handleLaunch(params) {
 
       search.set('vq', intentParam.slice(0, 512));
       break;
-    }
-    default: {
-      console.info('Default launch');
     }
   }
 
@@ -219,7 +209,6 @@ const createEventStrategy = (type, opts) => new KeyboardEvent(type, opts);
  */
 export function sendKey(keyDef, target = document.body) {
   if (!keyDef || !keyDef.code) {
-    console.warn('[Utils] Invalid key definition');
     return;
   }
 

@@ -1,46 +1,48 @@
 /* eslint no-redeclare: 0 */
 /* global fetch:writable */
 import { configRead } from './config';
+import { registerParseProcessor } from './hooks/json-parse';
 
 const SHELF_SHORTS = 'TVHTML5_SHELF_RENDERER_TYPE_SHORTS';
 
-const origParse = JSON.parse;
-JSON.parse = function () {
-  const r = origParse.apply(this, arguments);
+registerParseProcessor((r, text) => {
   if (!configRead('removeShorts')) {
-    return r;
+    return;
   }
 
+  const found = findFirstObjects(r, [
+    'gridRenderer',
+    'gridContinuation',
+    'sectionListRenderer'
+  ]);
+
   // First page of subscriptions tab
-  const gridRenderer = findFirstObject(r, 'gridRenderer');
+  const gridRenderer = found.gridRenderer;
   if (gridRenderer?.items) {
     removeShorts(gridRenderer);
   }
 
   // Pagination
-  const gridContinuation = findFirstObject(r, 'gridContinuation');
+  const gridContinuation = found.gridContinuation;
   if (gridContinuation?.items) {
     removeShorts(gridContinuation);
   }
 
   // Shelf on subscriptions tab
-  const sectionListRenderer = findFirstObject(r, 'sectionListRenderer');
+  const sectionListRenderer = found.sectionListRenderer;
   if (sectionListRenderer?.contents) {
     removeShelvesWithShorts(sectionListRenderer);
   }
 
   // Side menu (guide): guide entries only appear in the guide payload, so
   // filtering there cannot touch feed or player content.
-  const text = arguments[0];
   if (
     typeof text === 'string' &&
     (text.includes('guideEntryRenderer') || text.includes('guideShelfRenderer'))
   ) {
     removeShortsFromGuide(r, 0);
   }
-
-  return r;
-};
+});
 
 function removeShorts(container) {
   container.items = container.items.filter(
@@ -117,15 +119,23 @@ function isShortsEndpoint(entry) {
   }
 }
 
-function findFirstObject(haystack, needle) {
-  for (const key in haystack) {
-    if (key === needle) {
-      return haystack[key];
+/** First truthy value per needle key in one pre-order walk (same result as a separate search per key); stops once every needle is found. */
+function findFirstObjects(root, needles) {
+  const found = {};
+  let remaining = needles.length;
+
+  const walk = (haystack) => {
+    for (const key in haystack) {
+      const value = haystack[key];
+      if (value && found[key] === undefined && needles.includes(key)) {
+        found[key] = value;
+        if (--remaining === 0) return true;
+      }
+      if (typeof value === 'object' && walk(value)) return true;
     }
-    if (typeof haystack[key] === 'object') {
-      const result = findFirstObject(haystack[key], needle);
-      if (result) return result;
-    }
-  }
-  return null;
+    return false;
+  };
+
+  walk(root);
+  return found;
 }

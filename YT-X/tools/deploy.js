@@ -33,9 +33,6 @@ if (!APP_RESOLUTIONS.includes(resolution)) {
   process.exit(1);
 }
 
-// Mode: development inlines source maps for TV debugging; production is default.
-const mode = argv.includes('--dev') ? 'development' : 'production';
-
 /** Map CLI tools to node entrypoints (skip .cmd shims on Windows). */
 const TOOL_ENTRIES = {
   webpack: './node_modules/webpack/bin/webpack.js',
@@ -69,7 +66,7 @@ function run(step, tool, args) {
 const ipk = `./${appinfo.id}_${getVersion()}_all.ipk`;
 
 run('build', 'webpack', [
-  `--mode=${mode}`,
+  '--mode=production',
   '--env',
   `resolution=${resolution}`
 ]);

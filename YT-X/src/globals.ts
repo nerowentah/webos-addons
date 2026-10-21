@@ -54,7 +54,7 @@ export interface WebOSApi {
   /** Documented as a callback method; also probed as a plain object. */
   deviceInfo?: WebOSDeviceInfoFn | WebOSDeviceInfo;
   /**
-   * The Luna IPC bridge, present when webOSTV.js is loaded; kept for the debug matrix only - it cannot expose the panel's video-plane resolution, so it cannot substitute for deviceInfo.
+   * The Luna IPC bridge, present when webOSTV.js is loaded; it cannot expose the panel's video-plane resolution, so it cannot substitute for deviceInfo.
    */
   service?: {
     request?: (params: Record<string, unknown>) => Promise<unknown>;
@@ -73,7 +73,6 @@ declare global {
   interface Window {
     launchParams?: webOSLaunchParams;
     webOS?: WebOSApi;
-    __ytx_debug__?: boolean;
   }
 
   interface Document {

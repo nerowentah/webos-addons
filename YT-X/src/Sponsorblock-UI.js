@@ -4,11 +4,18 @@ import { segmentColors } from './config.js';
 import { SPONSOR_POPUP } from './ui-text.js';
 import { formatTime } from './format.js';
 
+// The quality toast finishes ~7s after playback starts (4s delay + 3s visible).
+const AUTO_SHOW_DELAY_MS = 8000;
+const AUTO_HIDE_MS = 8000;
+
 class SponsorBlockUI {
   constructor() {
     this.popup = null;
-    this.visible = false;
     this.hasSegments = false;
+    this.showTimer = null;
+    this.hideTimer = null;
+    this.hasShownOnce = false;
+    this.suppressed = false;
   }
 
   getSegmentColor(category) {
@@ -72,6 +79,8 @@ class SponsorBlockUI {
 
     this.hasSegments = segments && segments.length > 0;
     if (!this.hasSegments) {
+      this.clearTimers();
+      this.hasShownOnce = false;
       this.popup.classList.remove('visible');
       return;
     }
@@ -120,20 +129,47 @@ class SponsorBlockUI {
 
       container.appendChild(row);
     });
-
-    if (this.visible) {
-      this.popup.classList.add('visible');
-    }
   }
 
-  togglePopup(visible) {
-    if (!this.popup) this.createPopup();
-    this.visible = visible;
+  clearTimers() {
+    clearTimeout(this.showTimer);
+    clearTimeout(this.hideTimer);
+    this.showTimer = null;
+    this.hideTimer = null;
+  }
 
-    if (this.visible && this.hasSegments) {
+  // Shows the popup once per video, AUTO_SHOW_DELAY_MS after playback starts.
+  scheduleAutoShow() {
+    if (
+      this.suppressed ||
+      this.showTimer ||
+      this.hasShownOnce ||
+      !this.hasSegments
+    ) {
+      return;
+    }
+
+    this.showTimer = setTimeout(() => {
+      this.showTimer = null;
+      if (this.suppressed || this.hasShownOnce || !this.hasSegments) return;
+
+      this.hasShownOnce = true;
       this.popup.classList.add('visible');
+      this.hideTimer = setTimeout(() => {
+        this.hideTimer = null;
+        this.popup.classList.remove('visible');
+      }, AUTO_HIDE_MS);
+    }, AUTO_SHOW_DELAY_MS);
+  }
+
+  // Called with the settings-panel state: the popup never shows while it is open.
+  setSuppressed(suppressed) {
+    this.suppressed = suppressed;
+    if (suppressed) {
+      this.clearTimers();
+      if (this.popup) this.popup.classList.remove('visible');
     } else {
-      this.popup.classList.remove('visible');
+      this.scheduleAutoShow();
     }
   }
 }

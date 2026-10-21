@@ -4,11 +4,9 @@
   position: fixed;
   top: 5%;
   right: 5%;
-  bottom: auto;
-  left: auto;
 
   background-color: #000000;
-  border: 0.09vh solid red;
+  border: 0.09vh solid #ff0000;
   border-radius: 0.8vh;
   padding: 1.2vh;
 
@@ -17,7 +15,7 @@
   overflow-y: auto;
 
   z-index: 9999;
-  color: #eee;
+  color: #eeeeee;
   font-family: Roboto, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   box-shadow: 0 0.6vh 1.2vh rgba(0, 0, 0, 0.8);
@@ -59,19 +57,18 @@
 .sb-header-icon {
   width: 2.2vh;
   height: 2.2vh;
-  fill: #ff0000;
   margin-right: 0.6vh;
 }
 
 .sb-header-text {
   font-size: 2.4vh;
   font-weight: 700;
-  color: #fff;
+  color: #ffffff;
 }
 
 .sb-header-subtitle {
   font-size: 1.4vh;
-  color: #aaa;
+  color: #a0a0a0;
 }
 
 .sb-segment-row {
@@ -96,32 +93,35 @@
   border-radius: 50%;
   flex-shrink: 0;
   margin-right: 0.6vh;
+  /* Light hairline so the dark category dots (outro, hook) clear 3:1 against
+     the popup's black plate; popup-only, the progress-bar overlay skips it. */
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.65);
 }
 
 .sb-segment-category {
   font-weight: 700;
   font-size: 1.9vh;
-  color: #e0e0e0;
+  color: #eeeeee;
 }
 
 .sb-segment-time {
   font-size: 1.9vh;
   font-family: 'Roboto Mono', monospace;
-  color: #fff;
+  color: #ffffff;
   font-weight: 400;
 }
 
 .sb-segments-popup:focus {
   outline: none;
-  border-color: #fff;
+  border-color: #ffffff;
 }
 
 .sb-segment-row:focus {
-  background-color: #fff;
+  background-color: #ffffff;
   outline: none;
 }
 
 .sb-segment-row:focus .sb-segment-category,
 .sb-segment-row:focus .sb-segment-time {
-  color: #000;
+  color: #000000;
 }

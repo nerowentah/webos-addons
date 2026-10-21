@@ -123,7 +123,7 @@ to build from source instead, continue below.
 3. Build and package the app:
 
    ```sh
-   npm run build:dev
+   npm run build
    npm run package
    ```
 
@@ -256,7 +256,7 @@ npm install
 ### Building an IPK
 
 ```sh
-npm run build:dev
+npm run build
 npm run package
 ```
 
@@ -308,21 +308,6 @@ They are development-only and inherited transitively from that CLI; no
 non-deprecated release exists at the pinned versions, and forcing newer versions
 through `overrides` breaks the CLI's callback-based file handling, so they are
 left as-is.
-
-### Debugging
-
-webOS supports the standard Chrome DevTools Protocol, so the app can be
-inspected like any web page:
-
-```sh
-ares-inspect -d <device_name> --app youtube.leanback.v4
-```
-
-Or, if the TV is set as the default device:
-
-```sh
-npm run inspect
-```
 
 ---
 

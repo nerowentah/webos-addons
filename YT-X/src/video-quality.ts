@@ -32,7 +32,6 @@ function notifyPlaybackQuality(this: PlayerManager) {
 function setPlaybackQuality(this: PlayerManager, _: unknown) {
   if (this.playerMode === PlayerMode.PREVIEW) return;
 
-  console.debug('[video-quality] setting playback quality');
   this.removeEventListener('playbackStart', setPlaybackQuality);
 
   const prevQuality = this.player.getPlaybackQualityLabel();
@@ -44,7 +43,6 @@ function setPlaybackQuality(this: PlayerManager, _: unknown) {
   }
 
   const timeoutToken = window.setTimeout(() => {
-    console.warn('[video-quality] timed out waiting for quality change');
     clearInterval(intervalToken);
     notifyPlaybackQuality.call(this);
   }, 3000);

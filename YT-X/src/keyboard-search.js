@@ -12,9 +12,6 @@ import { isSearchPage, COLOR_CODE_MAP, SYNTHETIC_KEY_FLAG } from './utils.js';
  * settings panel are never touched.
  */
 
-const LOG_PREFIX = '[KeyboardSearch]';
-const DEBUG = false;
-
 // A digit or an Enter counts as keyboard input this long after a typed key.
 const TYPING_WINDOW_MS = 3000;
 // How long the query gets to settle; generous so a slow TV that types natively but late is not also typed for by this module.
@@ -206,8 +203,7 @@ function press(el, strategy) {
   try {
     PRESS_STRATEGIES[strategy](el);
     return true;
-  } catch (err) {
-    if (DEBUG) console.warn(LOG_PREFIX, 'Pressing a key failed:', err);
+  } catch {
     return false;
   }
 }
@@ -273,7 +269,6 @@ function settleProbe() {
     mode = 'native';
     typedCount += p.chars.length;
     probe = null;
-    if (DEBUG) console.info(LOG_PREFIX, 'YouTube types natively');
     return;
   }
   tryStrategy(p, 0);
@@ -306,20 +301,12 @@ function tryStrategy(p, strategy) {
       pressStrategy = strategy;
       typedCount++;
       probe = null;
-      if (DEBUG)
-        console.info(
-          LOG_PREFIX,
-          'Typing on the on-screen keyboard, strategy',
-          PRESS_STRATEGIES[strategy].name
-        );
       typeOnScreen(p.chars.slice(1));
     } else if (strategy + 1 < PRESS_STRATEGIES.length) {
       tryStrategy(p, strategy + 1);
     } else {
       mode = 'none';
       probe = null;
-      if (DEBUG)
-        console.info(LOG_PREFIX, 'No way to type found; leaving keys alone');
     }
   }, SETTLE_MS);
 }

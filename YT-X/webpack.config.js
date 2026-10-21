@@ -39,17 +39,16 @@ function transformAppInfo(input, resolution) {
   return JSON.stringify(appInfo, null, 2);
 }
 
-/** @type {(env: Record<string, string>, argv: { mode?: string }) => (import('webpack').Configuration)[]} */
-const makeConfig = (env, argv) => [
+/** @type {(env: Record<string, string>) => (import('webpack').Configuration)[]} */
+const makeConfig = (env) => [
   {
     // Read .browserslistrc explicitly rather than relying on the cwd-relative
     // default, so the ES floor is fixed wherever webpack is invoked from.
     target: 'browserslist',
 
-    // Maps are dev-only: in production they ship as stray .map files and force
-    // css-loader to duplicate every rule's raw CSS into the JS bundle. Use
-    // `npm run build:dev` (inline maps) to debug on a TV.
-    devtool: argv.mode === 'development' ? 'inline-source-map' : false,
+    // Maps would ship as stray .map files and force css-loader to duplicate
+    // every rule's raw CSS into the JS bundle; none are ever emitted.
+    devtool: false,
 
     output: {
       // webpack's default (md4) is unsupported by OpenSSL 3 / Node >= 17;
@@ -104,13 +103,9 @@ const makeConfig = (env, argv) => [
 
       // Pin the production defaults explicitly so repeated builds over the same
       // sources emit byte-identical, hash-stable files (integrity comparisons).
-      ...(argv.mode === 'development'
-        ? {}
-        : {
-            moduleIds: 'deterministic',
-            chunkIds: 'deterministic',
-            realContentHash: true
-          })
+      moduleIds: 'deterministic',
+      chunkIds: 'deterministic',
+      realContentHash: true
     },
 
     entry: {
@@ -179,10 +174,12 @@ const makeConfig = (env, argv) => [
           ]
         },
         {
-          // Bundled images (e.g. the SponsorBlock popup icon) emit as
-          // static assets and are referenced by URL.
+          // Bundled images (e.g. the SponsorBlock popup icon) inline as data
+          // URLs: the webview navigates to youtube.com at launch (utils.js
+          // handleLaunch), so an emitted file's auto publicPath would resolve
+          // against youtube.com.
           test: /\.(png|jpe?g|gif|svg)$/i,
-          type: 'asset/resource'
+          type: 'asset/inline'
         },
         {
           test: /\.(woff2?|eot|ttf|otf)$/i,

@@ -15,27 +15,28 @@ function stringify(
   space?: string | number
 ): string {
   let processedValue = value;
-  if (!isPrimitive(processedValue)) {
-    try {
-      processedValue = structuredClone(processedValue);
-
-      const processed = processedValue as Record<string, unknown>;
-      const ctx = (processed?.playbackContext as Record<string, unknown>)
-        ?.contentPlaybackContext as unknown;
+  if (!isPrimitive(value)) {
+    // Copy only the path being edited: this runs on every stringify, and a full structuredClone of a large player/log payload stalls the main thread.
+    const playbackContext = (value as Record<string, unknown>).playbackContext;
+    if (!isPrimitive(playbackContext)) {
+      const pc = playbackContext as Record<string, unknown>;
+      const ctx = pc.contentPlaybackContext;
       if (!isPrimitive(ctx)) {
-        (ctx as Record<string, unknown>).isInlinePlaybackNoAd = true;
-        console.info('[JSON.stringify] Set isInlinePlaybackNoAd');
+        processedValue = {
+          ...(value as Record<string, unknown>),
+          playbackContext: {
+            ...pc,
+            contentPlaybackContext: {
+              ...(ctx as Record<string, unknown>),
+              isInlinePlaybackNoAd: true
+            }
+          }
+        };
       }
-    } catch (err) {
-      console.warn('[JSON.stringify] structuredClone failed:', err);
-      processedValue = value;
     }
   }
 
-  if (typeof replacer === 'function') {
-    return originalStringify(processedValue, replacer, space);
-  }
-  return originalStringify(processedValue, replacer, space);
+  return originalStringify(processedValue, replacer as never, space);
 }
 
 JSON.stringify = stringify;

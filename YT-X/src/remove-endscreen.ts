@@ -1,21 +1,13 @@
-import kindOf from 'which-builtin-type';
-
 import { configRead } from './config';
+import { registerParseProcessor } from './hooks/json-parse';
 
 function isObject(value: unknown): value is object {
-  // @ts-expect-error - bad types
-  return kindOf(value) === 'Object';
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-type JSONReviver = Parameters<typeof JSON.parse>[1];
-
-const originalParse = JSON.parse;
-
-function jsonParse(str: string, reviver?: JSONReviver) {
-  const res = originalParse(str, reviver) as unknown;
-
+registerParseProcessor((res) => {
   if (!configRead('removeEndscreen')) {
-    return res;
+    return;
   }
 
   if (
@@ -24,11 +16,6 @@ function jsonParse(str: string, reviver?: JSONReviver) {
     isObject(res.endscreen) &&
     'endscreenRenderer' in res.endscreen
   ) {
-    console.debug('Removed endscreen from JSON response', res.endscreen);
     delete res.endscreen;
   }
-
-  return res;
-}
-
-JSON.parse = jsonParse;
+});

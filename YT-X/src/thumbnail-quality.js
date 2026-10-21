@@ -1,11 +1,4 @@
-/** Rewrites thumbnail URLs inside adblock.js's JSON.parse hook so the app is only handed the high-quality URL. maxresdefault does not exist for every video and YouTube answers a miss with a small grey placeholder rather than a 404 (see PLACEHOLDER_MAX_BYTES), hence the speculative qualityMode and the verification queue. */
-const DEBUG = false;
-
-/** qualityMode: 'safe' (fixed). Modes: 'safe' only emits rungs known to exist or probe-confirmed (never grey); 'eager' draws maxres then corrects a miss; 'sd' is eager stopped at sddefault (cheaper decode, less sharp). */
-const qualityMode = 'safe';
-
-/** Emit WebP derivatives (~25-30% smaller) when the runtime can decode them. Off by default: `vi_webp` coverage is per-video/all-or-nothing with nothing in the response advertising it, so a miss costs a grey tile until the probe lands. */
-const USE_WEBP = false;
+/** Rewrites thumbnail URLs inside adblock.js's JSON.parse hook so the app is only handed the high-quality URL. maxresdefault does not exist for every video and YouTube answers a miss with a small grey placeholder rather than a 404 (see PLACEHOLDER_MAX_BYTES), hence the verification queue: only rungs known to exist or probe-confirmed are emitted, always as `/vi/` JPEG (`vi_webp` coverage is per-video and nothing in the response advertises it). */
 
 const ENABLE_LIVE_PROMOTION = true;
 
@@ -72,16 +65,8 @@ const FLOOR_RANK = RANK.hqdefault;
 /** Rungs generated for every video ever uploaded. Above this needs proof. */
 const GUARANTEED_RANK = RANK.hqdefault;
 
-/** The best rung a mode emits or probes for. A single rung, deliberately: maxresdefault and hq720 are both 1280x720 for most uploads, so probing the second rung doubled verification traffic to distinguish identical-size files. A miss falls straight to the guaranteed floor. */
-function usefulRankFor(mode) {
-  return mode === 'sd' ? RANK.sddefault : RANK.maxresdefault;
-}
-
-function drawsUnproven(mode) {
-  return mode === 'sd' || mode === 'eager';
-}
-
-let usefulRank = usefulRankFor(qualityMode);
+/** The best rung emitted or probed for. A single rung, deliberately: maxresdefault and hq720 are both 1280x720 for most uploads, so probing the second rung doubled verification traffic to distinguish identical-size files. A miss falls straight to the guaranteed floor. */
+const usefulRank = RANK.maxresdefault;
 
 // A probe that learned nothing (timeout/network error), unlike a miss: a missing rung is answered with a 404 or a tiny grey placeholder, which a HEAD reads and an image loads.
 const UNKNOWN = 'unknown';
@@ -93,18 +78,6 @@ const THUMB_IN_CSS_RE = /i\.ytimg\.com\/vi(?:_webp)?\/([\w-]+)\//;
 
 const DOM_SELECTOR =
   'ytlr-thumbnail-details, ytlr-surface-page, thumbnail image';
-
-// Must be synchronous: the first browse response can arrive before an async detection settles, and a mid-session flip would emit two URL families for one video and halve the HTTP cache hit rate.
-const webpSupported = (() => {
-  if (!USE_WEBP) return false;
-  try {
-    const canvas = document.createElement('canvas');
-    canvas.width = canvas.height = 1;
-    return canvas.toDataURL('image/webp').indexOf('data:image/webp') === 0;
-  } catch {
-    return false;
-  }
-})();
 
 const enabled = true;
 
@@ -145,10 +118,6 @@ let visibleSampleAt = 0;
 const now = () => window.performance.now();
 
 const idle = (cb) => window.requestIdleCallback(cb, { timeout: 500 });
-
-function debugLog(...args) {
-  if (DEBUG) console.info('[ThumbQuality]', ...args);
-}
 
 /** Sets `key`, dropping the oldest entry at `limit`; returns the dropped key, or null. */
 function capSet(map, key, value, limit) {
@@ -196,7 +165,6 @@ function loadCache() {
       if (rank >= 0 && rank < QUALITY_NAMES.length)
         qualityCache.set(entry.slice(0, sep), rank);
     }
-    debugLog(`loaded ${qualityCache.size} cached qualities`);
   } catch {
     // Private mode / quota / storage disabled — the cache is an optimisation.
   }
@@ -224,11 +192,9 @@ function scheduleSave() {
   saveTimer = setTimeout(saveCache, CACHE_SAVE_DEBOUNCE);
 }
 
-/** Build a thumbnail URL. `forceJpeg` because the hqdefault floor is only guaranteed in the `/vi/` family - `vi_webp` coverage is not universal and a webp fallback for a webp miss would land on the same 404, leaving the tile grey permanently. */
-function buildUrl(videoId, name, forceJpeg) {
-  return webpSupported && !forceJpeg
-    ? 'https://i.ytimg.com/vi_webp/' + videoId + '/' + name + '.webp'
-    : 'https://i.ytimg.com/vi/' + videoId + '/' + name + '.jpg';
+/** Build a thumbnail URL in the `/vi/` family, the only one whose hqdefault floor is guaranteed. */
+function buildUrl(videoId, name) {
+  return 'https://i.ytimg.com/vi/' + videoId + '/' + name + '.jpg';
 }
 
 /** Resolve one thumbnail URL to its upgraded form, or null to leave it alone. Emits the useful rung clamped to the safe ceiling (what is known to exist, from this response or a cached probe); when useful exceeds safe a probe is scheduled and the better rung lands on a later parse, so the tile is correct meanwhile rather than grey. Entry width/height are left alone; the app sizes tiles from them. */
@@ -255,11 +221,9 @@ function upgradeEntry(entry, proven) {
   if (verified !== undefined) {
     // A verified answer outranks the mode: drawing unproven rungs is a policy for the *unknown*, not a licence to re-emit a rung already watched 404. scheduleProbe is gated on `verified === undefined`, so a wrong answer here would never be revisited.
     ceiling = ceilingBeforeMode;
-  } else if (drawsUnproven(qualityMode)) {
-    ceiling = usefulRank;
   }
 
-  // Every mode wants the best rung that exists up to its own cap; they differ only in whether an *unproven* rung may be rendered meanwhile. Not capped by slot width - that would land on hqdefault, matching the ceiling, so no probe would ever run.
+  // Wants the best rung that exists; an *unproven* rung is never rendered meanwhile. Not capped by slot width - that would land on hqdefault, matching the ceiling, so no probe would ever run.
   const useful = usefulRank;
   let target = useful > ceiling ? ceiling : useful;
   if (target < currentRank) target = currentRank;
@@ -270,11 +234,7 @@ function upgradeEntry(entry, proven) {
   if (unresolved) scheduleProbe(videoId);
 
   // Above the guarantee we rely on per-family proof (a probe verified the exact URL it fetched); at or below it we rely on hqdefault always existing, which is a `/vi/` guarantee only.
-  const next = buildUrl(
-    videoId,
-    QUALITY_NAMES[target],
-    target <= GUARANTEED_RANK
-  );
+  const next = buildUrl(videoId, QUALITY_NAMES[target]);
   // Tracked even when the URL stays as sent: the probe's answer still has to be written back into this entry.
   if (unresolved) trackPending(videoId, entry, ceilingBeforeMode);
   if (next === url) return 0;
@@ -571,8 +531,6 @@ function scanForThumbnails(root) {
       if (value && typeof value === 'object') queue.push(value, nextDepth);
     }
   }
-  if (DEBUG && changed)
-    debugLog(`fallback scan upgraded ${changed} (visited ${visited})`);
   return changed;
 }
 
@@ -630,8 +588,6 @@ export function upgradeResponseThumbnails(data, responseType) {
   // A known response type that yielded nothing means the shape moved.
   if (changed === 0 && !scanned) changed += scanForThumbnails(data);
 
-  if (DEBUG && changed)
-    debugLog(`${responseType}: rewrote ${changed} thumbnail URLs`);
   // Not gated on `changed`: a response that rewrote nothing can still have queued probes (a URL already at its rung), and those must start now. deferProbes() returns at once when the queue is empty.
   deferProbes();
   // Scrolling brings stale tiles on screen and produces parses, so this is the cheapest possible retry trigger.
@@ -728,7 +684,7 @@ function applyCorrection(videoId, rank) {
   const entries = pendingEntries.get(videoId);
   if (!entries) return;
   pendingEntries.delete(videoId);
-  const url = buildUrl(videoId, QUALITY_NAMES[rank], rank <= GUARANTEED_RANK);
+  const url = buildUrl(videoId, QUALITY_NAMES[rank]);
   for (let i = 0; i < entries.length; i++) {
     if (entries[i] && entries[i].url !== url) entries[i].url = url;
   }
@@ -751,14 +707,8 @@ function onProbeDone(videoId, rank, generation) {
     return;
   }
 
-  // Nothing learned (null): nothing is saved, so the next session asks again; the video is not re-queued this session (probeAttempted), so a flaky network cannot become a retry loop. Unproven-drawing modes keep what they drew - a timeout is no evidence - while 'safe' holds the floor for this session. A miss is an answer, and saved.
+  // Nothing learned (null): nothing is saved, so the next session asks again; the video is not re-queued this session (probeAttempted), so a flaky network cannot become a retry loop, and the floor holds meanwhile. A miss is an answer, and saved.
   const unknown = typeof rank !== 'number';
-  if (unknown && drawsUnproven(qualityMode)) {
-    pendingEntries.delete(videoId);
-    provenFloor.delete(videoId);
-    drainProbes();
-    return;
-  }
   const resolved = unknown ? FLOOR_RANK : rank;
   // A video the cache no longer remembers may be probed again when it comes back; the one-attempt rule is for videos that were never answered.
   const evicted = capSet(qualityCache, videoId, resolved, CACHE_LIMIT);
@@ -982,7 +932,6 @@ function runPromotionSweep() {
   }
 
   const applied = new Set();
-  let patched = 0;
   for (let i = 0; i < nodes.length; i++) {
     const element = nodes[i];
     const background = element.style && element.style.backgroundImage;
@@ -1000,7 +949,6 @@ function runPromotionSweep() {
     // Layered, not replaced: the current image stays visible underneath until the new one has decoded, so a promotion never flashes an empty tile.
     element.style.backgroundImage = 'url("' + next + '"), ' + background;
     applied.add(match[1]);
-    patched++;
   }
 
   // A correction is NOT discarded just because this sweep found no home for it: the list is virtualised, so a probe's tile is often not in the DOM yet. Entries survive a few rounds then expire, bounding the map.
@@ -1016,7 +964,6 @@ function runPromotionSweep() {
   if (pendingPromotions.size > 0 && !promoteTimer) {
     promoteTimer = setTimeout(runPromotionSweep, PROMOTION_RETRY_DELAY);
   }
-  if (DEBUG && patched) debugLog(`promotion sweep patched ${patched} tiles`);
 }
 
 function handleVisibilityChange() {

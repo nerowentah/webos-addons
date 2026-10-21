@@ -114,7 +114,7 @@ const configOptions = new Map([
   ['hideLogo', { default: false, desc: UI_LABELS.hideLogo }],
   [
     'pointerSettingsButton',
-    { default: false, desc: UI_LABELS.pointerSettingsButton }
+    { default: true, desc: UI_LABELS.pointerSettingsButton }
   ],
   ['forceHighResVideo', { default: false, desc: UI_LABELS.forceHighResVideo }],
   [
@@ -166,7 +166,6 @@ function loadStoredConfig() {
   const storage = window.localStorage.getItem(CONFIG_KEY);
 
   if (storage === null) {
-    console.info('Config not set; using defaults.');
     return null;
   }
 
@@ -204,6 +203,18 @@ function loadStoredConfig() {
     // Drop the retired badge toggle (the on-screen badge is always shown now).
     if (parsed) {
       delete parsed.showYtxButton;
+    }
+
+    // One-time swap: the badge toggle's meaning inverted (Pointer-Only Button
+    // became Fixed Settings Panel Button), so a stored value flips once to keep
+    // each user's chosen behavior. The marker stops the swap after the value is
+    // written back; until then a re-run stays deterministic because storage is
+    // only swapped in memory.
+    if (parsed && !parsed.badgeModeV2) {
+      if (parsed.pointerSettingsButton !== undefined) {
+        parsed.pointerSettingsButton = !parsed.pointerSettingsButton;
+      }
+      parsed.badgeModeV2 = true;
     }
 
     // Drop the retired thumbnail toggle (upgrading is unconditional now).
@@ -246,8 +257,7 @@ function loadStoredConfig() {
     }
 
     return parsed;
-  } catch (err) {
-    console.warn('Error parsing stored config:', err);
+  } catch {
     return null;
   }
 }
@@ -273,13 +283,6 @@ export function configRead(key) {
   }
 
   if (localConfig[key] === undefined) {
-    console.warn(
-      'Populating key',
-      key,
-      'with default value',
-      defaultConfig[key]
-    );
-
     localConfig[key] = defaultConfig[key];
   }
 
@@ -294,7 +297,6 @@ export function configWrite(key, value) {
   const oldValue =
     localConfig[key] !== undefined ? localConfig[key] : defaultConfig[key];
 
-  console.info('Changing key', key, 'from', oldValue, 'to', value);
   localConfig[key] = value;
   window.localStorage[CONFIG_KEY] = JSON.stringify(localConfig);
 

@@ -26,7 +26,6 @@ interface EventMap {
 
 export class FetchRegistry extends CustomEventTarget<EventMap> {
   #originalFetch: typeof fetch;
-  #fetchCount = 0;
 
   private constructor() {
     super();
@@ -35,74 +34,21 @@ export class FetchRegistry extends CustomEventTarget<EventMap> {
     window.fetch = this.#customFetch;
   }
 
-  static async #dumpBody(resource: Request | Response) {
-    if (
-      !resource?.constructor?.name ||
-      !['Request', 'Response'].includes(resource.constructor.name)
-    )
-      return null;
-
-    try {
-      const blob = await resource.clone().blob();
-      // Debug-only: cap the size so a pathological body can't flood the console.
-      if (!blob.size || blob.size > 262144) return null;
-
-      const fr = new FileReader();
-
-      const res = new Promise((resolve, reject) => {
-        fr.addEventListener('load', () => {
-          resolve(fr.result);
-        });
-        fr.addEventListener('error', () => {
-          reject(new Error('FileReader error while reading blob'));
-        });
-        fr.addEventListener('abort', () => {
-          reject(new Error('FileReader aborted while reading blob'));
-        });
-      });
-
-      fr.readAsDataURL(blob);
-
-      return await res;
-    } catch (err) {
-      if (window.__ytx_debug__) {
-        console.warn('[FetchRegistry] Failed to dump body:', err);
-      }
-      return null;
-    }
-  }
-
-  // Never echo requests carrying auth material (path or credentials) to the console.
-  static #isSensitive(url: URL) {
-    return (
-      url.username !== '' ||
-      url.password !== '' ||
-      /oauth|token|nonce|account|sapisid|upload/.test(url.pathname)
-    );
-  }
-
   #customFetch = async (resource: FetchTarget, init?: RequestInit) => {
     const url = new URL(
       resource instanceof Request ? resource.url : resource.toString(),
       document.location.href
     );
 
-    if (window.__ytx_debug__) {
-      console.debug(`Request ${this.#fetchCount}:`, url);
-      if (init && !FetchRegistry.#isSensitive(url)) {
-        // init can carry credentials; never log raw header values.
-        console.debug(`Options  ${this.#fetchCount}:`, {
-          ...init,
-          headers: '[redacted]'
-        });
-      }
-
-      if (resource instanceof Request && !FetchRegistry.#isSensitive(url)) {
-        const reqBody = await FetchRegistry.#dumpBody(resource);
-        if (reqBody)
-          console.debug(`Request Body ${this.#fetchCount}:`, reqBody);
-      }
+    // Media segments dominate fetch traffic and no listener acts on them; skip the events so buffer refills pay nothing extra.
+    if (
+      url.hostname.endsWith('.googlevideo.com') ||
+      url.pathname === '/videoplayback'
+    ) {
+      // @ts-expect-error FetchTarget (StringConvertible) is wider than fetch's input signature.
+      return this.#originalFetch(resource, init);
     }
+
     const reqAllowed = this.dispatchEvent(
       new TypedCustomEvent('request', {
         detail: { url, resource, init },
@@ -110,23 +56,11 @@ export class FetchRegistry extends CustomEventTarget<EventMap> {
       })
     );
     if (!reqAllowed) {
-      console.info(
-        `Fetch request ${this.#fetchCount} was cancelled by listener.`,
-        resource,
-        init
-      );
       throw new TypeError('Failed to fetch');
     }
 
     // @ts-expect-error FetchTarget (StringConvertible) is wider than fetch's input signature.
     const res = await this.#originalFetch(resource, init);
-
-    if (window.__ytx_debug__ && !FetchRegistry.#isSensitive(url)) {
-      console.debug(`Response ${this.#fetchCount}:`, res);
-
-      const resBody = await FetchRegistry.#dumpBody(res);
-      if (resBody) console.debug(`Response Body ${this.#fetchCount}:`, resBody);
-    }
 
     const resEvent = new TypedCustomEvent('response', {
       detail: { url, resource, init, response: res },
@@ -135,14 +69,8 @@ export class FetchRegistry extends CustomEventTarget<EventMap> {
     const resAllowed = this.dispatchEvent(resEvent);
 
     if (!resAllowed) {
-      console.info(
-        `Fetch response ${this.#fetchCount} was cancelled by listener.`,
-        res
-      );
       throw new TypeError('Failed to fetch');
     }
-
-    this.#fetchCount++;
 
     return resEvent.detail.response;
   };

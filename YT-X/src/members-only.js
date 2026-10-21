@@ -1,5 +1,6 @@
 /* eslint no-redeclare: 0 */
 import { configRead } from './config';
+import { registerParseProcessor } from './hooks/json-parse';
 
 /**
  * Remove members-only videos at the JSON layer. Unit of removal is the whole
@@ -39,36 +40,24 @@ function isRack(item) {
 
 const TILE_KEY_RE = /(?:Renderer|ViewModel)$/;
 
-const origParse = JSON.parse;
-
-let hitCount = 0;
-
 /** Lists this filter emptied, so a shelf is deleted only when we emptied it — never one YouTube served empty. */
 let emptiedLists = new Set();
 
-JSON.parse = function () {
-  const r = origParse.apply(this, arguments);
+/** Every marker the scrub can act on, as raw text: MEMBERS_ONLY style values and the word "member(s)" in a heading. A payload without any is not walked. */
+const MEMBERS_TEXT_RE = /MEMBERS_ONLY|\bmembers?\b/i;
 
+registerParseProcessor((r, text) => {
   if (!configRead('removeMembersOnly')) {
-    return r;
+    return;
   }
 
-  if (r !== null && typeof r === 'object') {
-    emptiedLists = new Set();
-    for (const key of scrubMembersOnly(r, 0)) logHit(key);
+  if (typeof text === 'string' && !MEMBERS_TEXT_RE.test(text)) {
+    return;
   }
 
-  return r;
-};
-
-function logHit(key) {
-  hitCount += 1;
-  if (hitCount <= 25) {
-    console.info(`[members-only] removed ${key}`);
-  } else if (hitCount === 26) {
-    console.info('[members-only] further removals suppressed');
-  }
-}
+  emptiedLists = new Set();
+  scrubMembersOnly(r, 0);
+});
 
 function hasMembersOnlyMarker(node, depth) {
   if (node === null || typeof node !== 'object') return false;

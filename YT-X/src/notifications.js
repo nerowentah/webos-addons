@@ -18,9 +18,6 @@ function makeEl(tag, className, text) {
  */
 function clampText(text) {
   if (typeof text !== 'string' || text.length <= MAX_UI_TEXT) return text;
-  console.warn(
-    `[notifications] message trimmed to ${MAX_UI_TEXT} chars: ${text}`
-  );
   return text.slice(0, MAX_UI_TEXT - 1).trimEnd() + '…';
 }
 

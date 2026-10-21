@@ -8,7 +8,7 @@ import {
   sponsorblockFallbackAPI,
   sponsorblockTimeoutMs
 } from './config';
-import { setSponsorBlockPopupSync, showNotification } from './ui';
+import { setSponsorBlockPanelSync, showNotification } from './ui';
 import { NOTIFICATIONS } from './ui-text.js';
 import sponsorBlockUI from './Sponsorblock-UI.js';
 import { fetchJsonWithTimeout } from './hooks/fetch-timeout.js';
@@ -166,6 +166,7 @@ class SponsorBlockHandler {
     this.durationChangeHandler = () => this.buildOverlay();
     this.playingHandler = () => {
       if (this.refreshPending) this.refreshSegments();
+      sponsorBlockUI.scheduleAutoShow();
     };
     this.muteCheckHandler = () => {
       if (
@@ -190,7 +191,6 @@ class SponsorBlockHandler {
     segments.sort((a, b) => a.segment[0] - b.segment[0]);
     this.segments = segments;
     this.segmentsSig = segmentsSignature(segments);
-    console.info(this.videoID, 'Got segments:', this.segments);
 
     this.watchConfig();
     this.attachVideo();
@@ -199,7 +199,6 @@ class SponsorBlockHandler {
       sponsorBlockUI.updateSegments([]);
       if (configRead('sbPeriodicRefresh')) {
         // Stay alive with nothing to skip: later submissions are picked up by the refresh.
-        console.info(this.videoID, 'No segments yet, will check again');
         if (data !== null) this.consecutiveEmptyChecks++;
         this.scheduleRefresh();
       }
@@ -208,6 +207,7 @@ class SponsorBlockHandler {
 
     this.rebuildSegments();
     sponsorBlockUI.updateSegments(this.segments);
+    sponsorBlockUI.scheduleAutoShow();
     this.buildOverlay();
     this.scheduleRefresh();
   }
@@ -233,10 +233,7 @@ class SponsorBlockHandler {
         if (res.ok) return res.data;
         // 404 is an answer, not a failure worth retrying.
         return res.status === 404 ? [] : null;
-      } catch (err) {
-        if (!this.isDestroyed && err.name !== 'AbortError') {
-          console.warn(this.videoID, 'Fetch attempt failed:', err.message);
-        }
+      } catch {
         return null;
       }
     };
@@ -380,12 +377,9 @@ class SponsorBlockHandler {
 
     this.video = document.querySelector('video');
     if (!this.video) {
-      console.info(this.videoID, 'No video yet...');
       this.attachVideoTimeout = setTimeout(() => this.attachVideo(), 100);
       return;
     }
-
-    console.info(this.videoID, 'Video found, binding...');
 
     this.video.addEventListener('play', this.scheduleSkipHandler);
     this.video.addEventListener('pause', this.scheduleSkipHandler);
@@ -398,7 +392,6 @@ class SponsorBlockHandler {
 
   buildOverlay() {
     if (!this.video || !this.video.duration) {
-      console.info('No video duration yet');
       return;
     }
 
@@ -465,7 +458,6 @@ class SponsorBlockHandler {
           }
         }
 
-        console.info('slider found...', this.slider);
         clearInterval(this.sliderInterval);
         this.sliderInterval = null;
         addSliderObserver(last);
@@ -478,11 +470,9 @@ class SponsorBlockHandler {
         if (m.removedNodes) {
           for (const node of m.removedNodes) {
             if (node === this.sliderSegmentsOverlay) {
-              console.info('bringing back segments overlay');
               addSliderOverlay();
             }
             if (node === this.slider) {
-              console.info('slider removed, watching again');
               this.sliderObserver.disconnect();
               watchForSlider();
             }
@@ -509,14 +499,12 @@ class SponsorBlockHandler {
 
   scheduleSkip() {
     if (!this.active) {
-      console.info(this.videoID, 'No longer active, ignoring...');
       return;
     }
 
     if (!this.video) return;
 
     if (this.video.paused) {
-      console.info(this.videoID, 'Currently paused, ignoring...');
       return;
     }
 
@@ -529,7 +517,6 @@ class SponsorBlockHandler {
         this.nextSkipTimeout = null;
       }
       this.lastScheduled = null;
-      console.info(this.videoID, 'No more segments');
       return;
     }
 
@@ -553,17 +540,8 @@ class SponsorBlockHandler {
     }
     this.lastScheduled = { segment, delay: skipDelay };
 
-    console.info(
-      this.videoID,
-      'Scheduling skip of',
-      segment,
-      'in',
-      start - currentTime
-    );
-
     this.nextSkipTimeout = setTimeout(() => {
       if (this.video.paused) {
-        console.info(this.videoID, 'Currently paused, ignoring...');
         return;
       }
 
@@ -574,7 +552,6 @@ class SponsorBlockHandler {
 
       this.skippedSegmentStarts.add(start);
       const skipName = barTypes[segment.category]?.name || segment.category;
-      console.info(this.videoID, 'Skipping', segment);
       showNotification(NOTIFICATIONS.skipping(skipName));
       this.video.currentTime = end;
       this.scheduleSkip();
@@ -654,9 +631,8 @@ class SponsorBlockHandler {
       const sig = segmentsSignature(segments);
       if (sig === this.segmentsSig) return;
       this.applyRefreshedSegments(segments, sig);
-    } catch (err) {
+    } catch {
       this.consecutiveFailures++;
-      console.warn(this.videoID, 'Refresh failed', err);
     } finally {
       this.refreshInFlight = false;
       if (!this.isDestroyed) this.scheduleRefresh();
@@ -675,14 +651,11 @@ class SponsorBlockHandler {
     this.segmentsSig = sig;
     this.rebuildSegments();
     sponsorBlockUI.updateSegments(this.segments);
+    sponsorBlockUI.scheduleAutoShow();
 
     if (!this.sliderObserver) this.buildOverlay();
     else this.drawSegments();
 
-    console.info(
-      this.videoID,
-      `Segments updated (${before.length} -> ${segments.length})`
-    );
     if (added > 0) {
       showNotification(NOTIFICATIONS.sponsorNew(added));
     }
@@ -690,8 +663,6 @@ class SponsorBlockHandler {
   }
 
   destroy() {
-    console.info(this.videoID, 'Destroying');
-
     this.active = false;
 
     this.clearRefresh();
@@ -733,7 +704,6 @@ class SponsorBlockHandler {
     this.skippableSegments = [];
 
     sponsorBlockUI.updateSegments([]);
-    sponsorBlockUI.togglePopup(false);
 
     this.configListeners.forEach(({ key, callback }) => {
       configRemoveChangeListener(key, callback);
@@ -759,8 +729,8 @@ class SponsorBlockHandler {
 // second hashchange never saw the first one's value change (cause unknown), so the workaround is kept.
 window.sponsorblock = null;
 
-// The options panel toggles the SponsorBlock popup through the ui.js seam.
-setSponsorBlockPopupSync(sponsorBlockUI.togglePopup.bind(sponsorBlockUI));
+// The options panel suppresses the SponsorBlock popup through the ui.js seam.
+setSponsorBlockPanelSync(sponsorBlockUI.setSuppressed.bind(sponsorBlockUI));
 
 function uninitializeSponsorblock() {
   if (!window.sponsorblock) {
@@ -768,8 +738,8 @@ function uninitializeSponsorblock() {
   }
   try {
     window.sponsorblock.destroy();
-  } catch (err) {
-    console.warn('window.sponsorblock.destroy() failed!', err);
+  } catch {
+    // A throwing destroy must not stop the teardown.
   }
   window.sponsorblock = null;
 }
@@ -780,7 +750,6 @@ window.addEventListener(
     const newURL = new URL(location.hash.substring(1), location.href);
     // Detach on non-/watch paths so SponsorBlock does not attach to the home page's playback preview video.
     if (newURL.pathname !== '/watch' && window.sponsorblock) {
-      console.info('uninitializing sponsorblock on a non-video page');
       uninitializeSponsorblock();
       return;
     }
@@ -790,22 +759,12 @@ window.addEventListener(
       videoID &&
       (!window.sponsorblock || window.sponsorblock.videoID != videoID);
 
-    console.info(
-      'hashchange',
-      videoID,
-      window.sponsorblock,
-      window.sponsorblock ? window.sponsorblock.videoID : null,
-      needsReload
-    );
-
     if (needsReload) {
       uninitializeSponsorblock();
 
       if (configRead('enableSponsorBlock')) {
         window.sponsorblock = new SponsorBlockHandler(videoID);
         window.sponsorblock.init();
-      } else {
-        console.info('SponsorBlock disabled, not loading');
       }
     }
   },

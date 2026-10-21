@@ -81,9 +81,6 @@ const AD_LIST_OWNERS = new Set([
   'shelfRendererAd'
 ]);
 
-/** uBlock's rule name for this filter, kept in the log line so "ads still show" reports can be matched against uBlock's own stats. */
-const FILTER = 'uAssets/filters.txt';
-
 /**
  * Cosmetic content filters (independent of Ad Block). Detection is value-based on exact enums to avoid false matches.
  */
@@ -124,21 +121,6 @@ const CONTAINER_KEYS = new Set([
 const SHELF_TITLES_LIVE_GAMES = new Set(['top live games']);
 const SHELF_TITLES_MOST_RELEVANT = new Set(['most relevant']);
 
-/** Names removed by the current cosmetic pass, for the log line. */
-let cosmeticRemoved = [];
-
-let hitCount = 0;
-
-/** Log once, not once per key, so a big response cannot flood the console. */
-function logHit(key) {
-  hitCount += 1;
-  if (hitCount <= 25) {
-    console.info(`[adblock] ${FILTER} removed ${key}`);
-  } else if (hitCount === 26) {
-    console.info('[adblock] further removals suppressed');
-  }
-}
-
 /** True if a key names an ad renderer, tolerating the version suffixes YouTube appends (`adSlotRendererFoo`, `displayAdRendererV2`). */
 function isAdKey(key) {
   if (AD_RENDERERS.has(key)) return true;
@@ -147,6 +129,15 @@ function isAdKey(key) {
   }
   return false;
 }
+
+/**
+ * Raw-text twin of isAdKey: a key longer than 8 characters matches by prefix (`"name`), a shorter one exactly (`"name"`). A payload with no such key cannot hold an ad renderer, so scrubAds is skipped for it.
+ */
+const AD_KEY_TEXT_RE = new RegExp(
+  [...AD_RENDERERS, ...AD_LIST_OWNERS]
+    .map((name) => `"${name}${name.length > 8 ? '' : '"'}`)
+    .join('|')
+);
 
 /**
  * Walk a response body and drop every ad renderer, at any depth. Explicit-stack rather than recursion: initial-data payloads nest seven or eight levels and a home-page-sized response is large enough that blowing the webview call stack is a real risk. Mutates in place; a seen set guards against non-JSON graphs even though JSON.parse cannot produce cycles.
@@ -336,7 +327,6 @@ function scrubList(list, depth) {
     if (item.shelfRenderer) {
       if (shelfIsDropped(item.shelfRenderer, depth + 1)) {
         list.splice(i, 1);
-        cosmeticRemoved.push('shelfRenderer');
       }
       continue;
     }
@@ -349,7 +339,6 @@ function scrubList(list, depth) {
 
     if (cosmeticMask && hasWantedBadge(item, cosmeticMask, 0)) {
       list.splice(i, 1);
-      cosmeticRemoved.push('item');
     }
   }
 }
@@ -372,7 +361,6 @@ function sweep(node, depth) {
     if (key === 'shelfRenderer') {
       if (shelfIsDropped(value, depth)) {
         delete node[key];
-        cosmeticRemoved.push(key);
       }
       continue;
     }
@@ -554,29 +542,32 @@ JSON.parse = function () {
   }
 
   if (enableAdBlock) {
-    // Pre-existing envelope deletes, kept explicit because they are certain to appear and are worth a distinct log line.
+    // Pre-existing envelope deletes, kept explicit because they are certain to appear.
     if (r.adPlacements) {
       delete r.adPlacements;
-      logHit('adPlacements');
     }
 
     if (Array.isArray(r.adSlots)) {
       delete r.adSlots;
-      logHit('adSlots');
     }
 
     if (r.playerAds) {
       delete r.playerAds;
-      logHit('playerAds');
     }
 
     // Opt-in only: stripping playbackTracking kills watch history and resume, so it is kept unless the user explicitly turns the toggle off. Handled here rather than in AD_RENDERERS because it is not an ad surface.
     if (!keepPlaybackTracking && r.playbackTracking) {
       delete r.playbackTracking;
-      logHit('playbackTracking');
     }
 
-    for (const key of scrubAds(r)) logHit(key);
+    // Not skipped when a reviver may have renamed keys, or the input is not text.
+    if (
+      typeof text !== 'string' ||
+      arguments.length > 1 ||
+      AD_KEY_TEXT_RE.test(text)
+    ) {
+      scrubAds(r);
+    }
   }
 
   if (disableAutoCaptions) {
@@ -585,9 +576,7 @@ JSON.parse = function () {
   }
 
   if (cosmeticEnabled) {
-    cosmeticRemoved = [];
     sweep(r, 0);
-    for (const key of cosmeticRemoved) logHit(key);
   }
 
   // Max Thumbnail Quality: rewrite thumbnail URLs in the parsed body. Always on and run last, so shelves and ad slots removed above are never rewritten. The response type is detected once here and handed to the rewriter.

@@ -76,8 +76,6 @@ const createElement = (tag, props = {}, ...children) => {
       !/^on/i.test(key)
     ) {
       el.setAttribute(key, val);
-    } else {
-      console.warn(`[UI] Ignored unsafe or unknown createElement prop: ${key}`);
     }
   }
 
@@ -99,7 +97,7 @@ function createConfigCheckbox(key) {
 
   const labelContent = createElement(
     'div',
-    { class: 'label-content', style: { fontSize: '2.1vh' } },
+    { class: 'label-content' },
     configGetDesc(key),
     elmInput
   );
@@ -194,8 +192,7 @@ function createGenericControlRow(
     },
     createElement('span', {
       text: labelText,
-      class: 'ytx-cycle-label',
-      style: { fontSize: '2.1vh' }
+      class: 'ytx-cycle-label'
     }),
     createElement(
       'div',
@@ -281,10 +278,12 @@ let optionsPanelVisible = false;
 let panelInitBlock = false;
 let lastSafeFocus = null;
 
-// Wired by Sponsorblock-UI.js via setSponsorBlockPopupSync; no-op until then.
-let syncSponsorBlockPopup = () => {};
-export function setSponsorBlockPopupSync(fn) {
-  syncSponsorBlockPopup = fn;
+// Wired by sponsorblock.js via setSponsorBlockPanelSync; no-op until then.
+// The registered fn receives the panel-open state; the popup is suppressed
+// while the panel is open.
+let syncSponsorBlockPanel = () => {};
+export function setSponsorBlockPanelSync(fn) {
+  syncSponsorBlockPanel = fn;
 }
 
 const SPONSOR_CATEGORIES = [
@@ -366,7 +365,6 @@ function createOptionsPanel() {
       'input',
       '.ytx-cycle-row, input'
     ];
-    const hasPopups = [false, false, false, false, true];
 
     pagesArray[activePage].style.display = 'none';
     tabBtns[activePage].classList.remove('active');
@@ -385,7 +383,6 @@ function createOptionsPanel() {
       if (focusTarget) focusTarget.focus();
     }
 
-    syncSponsorBlockPopup(hasPopups[activePage] && isWatchPage());
     recalcDensity();
   };
 
@@ -420,8 +417,8 @@ function createOptionsPanel() {
         createConfigCheckbox('forceHighResVideo'),
         createConfigCheckbox('showQualityOnStart'),
         createConfigCheckbox('showTimeRemaining'),
+        createConfigCheckbox('loadRowsAhead'),
         createVideoCodecControl(),
-        createConfigCheckbox('removeEndscreen'),
         createConfigCheckbox('keepPlaying')
       ],
       true
@@ -445,18 +442,9 @@ function createOptionsPanel() {
           [
             createConfigCheckbox('fixMultilineTitles'),
             createConfigCheckbox('pointerSettingsButton'),
-            createConfigCheckbox('loadRowsAhead'),
             createConfigCheckbox('keyboardSearch'),
             createConfigCheckbox('disableAnimations'),
-            createConfigCheckbox('autoAccountSelect')
-          ],
-          true
-        )
-      );
-      pageUITweaks.appendChild(
-        createSection(
-          PANEL.sections.cosmeticFiltering,
-          [
+            createConfigCheckbox('autoAccountSelect'),
             createConfigCheckbox('disableAutoCaptions'),
             createConfigCheckbox('hideLogo'),
             createConfigCheckbox('removeShorts'),
@@ -464,7 +452,8 @@ function createOptionsPanel() {
             createConfigCheckbox('removeLiveVideos'),
             createConfigCheckbox('removeUpcomingVideos'),
             createConfigCheckbox('removeTopLiveGames'),
-            createConfigCheckbox('removeMostRelevant')
+            createConfigCheckbox('removeMostRelevant'),
+            createConfigCheckbox('removeEndscreen')
           ],
           true
         )
@@ -607,8 +596,8 @@ function applyUIFixes() {
         if (bodyClasses.contains('app-quality-root')) {
           bodyClasses.remove('app-quality-root');
         }
-      } catch (e) {
-        console.error('error in <body> class observer callback:', e);
+      } catch {
+        // A throwing observer callback must not break the mutation loop.
       }
     });
 
@@ -619,8 +608,8 @@ function applyUIFixes() {
       attributeFilter: ['class'],
       characterData: false
     });
-  } catch (e) {
-    console.error('error setting up <body> class observer:', e);
+  } catch {
+    // Observer setup is best-effort.
   }
 }
 
@@ -670,16 +659,12 @@ function animatePanelOut() {
 
 function showOptionsPanel(visible) {
   if (panelInitBlock) {
-    console.log(
-      '[UI] Options panel toggle blocked due to initialization lock.'
-    );
     return;
   }
   if (visible === undefined || visible === null) visible = true;
 
   if (visible && !optionsPanelVisible) {
     if (!optionsPanel) {
-      console.log('[UI] Initializing Options Panel (Lazy Load)...');
       panelInitBlock = true;
       setTimeout(() => {
         panelInitBlock = false;
@@ -690,12 +675,11 @@ function showOptionsPanel(visible) {
       applyPanelCareMode(configRead('panelCareMode'));
     }
 
-    console.debug('Showing and focusing options panel!');
     optionsPanel.style.display = 'block';
     animatePanelIn();
     if (optionsPanel.buildDeferredPages) optionsPanel.buildDeferredPages();
     if (optionsPanel.recalcDensity) optionsPanel.recalcDensity();
-    syncSponsorBlockPopup(optionsPanel.activePage === 4 && isWatchPage());
+    syncSponsorBlockPanel(true);
 
     const activeTabBtn = optionsPanel.querySelector('.ytx-tab-btn.active');
     if (activeTabBtn) {
@@ -707,9 +691,8 @@ function showOptionsPanel(visible) {
     }
     optionsPanelVisible = true;
   } else if (!visible && optionsPanelVisible && optionsPanel) {
-    console.debug('Hiding options panel!');
     animatePanelOut();
-    syncSponsorBlockPopup(false);
+    syncSponsorBlockPanel(false);
     optionsPanel.blur();
     optionsPanelVisible = false;
     lastSafeFocus = null;
@@ -724,9 +707,7 @@ document.addEventListener(
   (e) => {
     if (!optionsPanelVisible || !optionsPanel) return;
     const target = e.target;
-    const isSafeFocus =
-      (optionsPanel && optionsPanel.contains(target)) ||
-      target.closest('.sb-segments-popup');
+    const isSafeFocus = optionsPanel && optionsPanel.contains(target);
     if (isSafeFocus) lastSafeFocus = target;
     else {
       e.stopPropagation();
@@ -887,8 +868,9 @@ configBadge.addEventListener(
 );
 document.body.appendChild(configBadge);
 
-// With pointerSettingsButton on, the badge tracks pointer activity: shown on a
-// real move, fading seconds later, dismissed by D-pad/pointer-hide/navigation.
+// With the Fixed Settings Panel Button off, the badge tracks pointer activity:
+// shown on a real move, fading seconds later, dismissed by
+// D-pad/pointer-hide/navigation. On, it stays put as a fixed entry point.
 const POINTER_BADGE_HIDE_MS = 4000;
 let pointerBadgeTimer = null;
 let lastPointerX = -1;
@@ -903,7 +885,7 @@ const hidePointerBadge = () => {
 };
 
 const showPointerBadge = () => {
-  if (!configRead('pointerSettingsButton')) {
+  if (configRead('pointerSettingsButton')) {
     return;
   }
   configBadge.classList.add('ytx-badge-visible');
@@ -912,9 +894,10 @@ const showPointerBadge = () => {
 };
 
 const syncBadgeVisibility = () => {
-  const pointerMode = !!configRead('pointerSettingsButton');
-  configBadge.classList.toggle('ytx-badge-pointer-mode', pointerMode);
-  if (!pointerMode) hidePointerBadge();
+  const fixed = !!configRead('pointerSettingsButton');
+  configBadge.classList.toggle('ytx-badge-pointer-mode', !fixed);
+  // Any pointer-mode "visible" state (and its fade timer) is stale across a mode switch; drop it so the badge settles into the new resting visibility.
+  hidePointerBadge();
 };
 syncBadgeVisibility();
 configAddChangeListener('pointerSettingsButton', syncBadgeVisibility);
@@ -951,6 +934,57 @@ window.addEventListener(
 window.addEventListener('ytx-page-update', (evt) => {
   if (evt.detail.isWatch || evt.detail.isShorts) hidePointerBadge();
 });
+
+// Watch-band translucency: walk up from the playback scrim and make any
+// opaque ancestor (YouTube's solid metadata surface or a care-theme plate)
+// translucent. Re-run on nav; the class is stripped off the watch page.
+const WATCH_BAND_CANDIDATES = '.p0DeOc, .Jx9xPc, .k82tDb';
+const WATCH_BAND_CLASS = 'ytx-watch-band-translucent';
+// getComputedStyle reports a solid colour as rgb(...) with no alpha channel.
+const isOpaqueColor = (color) => {
+  if (!color.startsWith('rgb')) return false;
+  const alpha = color.split(',')[3];
+  return alpha === undefined || parseFloat(alpha) >= 0.9;
+};
+let watchBandFrame = 0;
+function applyWatchBandTranslucency() {
+  const scrim =
+    document.querySelector("[idomkey='shadow']") ||
+    document.querySelector('.ytLrWatchDefaultShadow') ||
+    document.querySelector('.ytLrWatchDefault2025Shadow');
+  const active = scrim?.isConnected && isWatchPage();
+  if (!active) {
+    document.querySelectorAll(`.${WATCH_BAND_CLASS}`).forEach((el) => {
+      el.classList.remove(WATCH_BAND_CLASS);
+    });
+    return;
+  }
+  let el = scrim.parentElement;
+  for (let depth = 0; el && depth < 6; depth++, el = el.parentElement) {
+    if (el.classList.contains(WATCH_BAND_CLASS)) continue;
+    if (
+      el.matches(WATCH_BAND_CANDIDATES) ||
+      isOpaqueColor(getComputedStyle(el).backgroundColor)
+    ) {
+      el.classList.add(WATCH_BAND_CLASS);
+    }
+  }
+}
+// Transition/animation events fire in bursts; coalesce them to one pass per frame.
+function scheduleWatchBandTranslucency() {
+  if (watchBandFrame) return;
+  watchBandFrame = requestAnimationFrame(() => {
+    watchBandFrame = 0;
+    applyWatchBandTranslucency();
+  });
+}
+window.addEventListener('ytx-page-update', applyWatchBandTranslucency);
+['transitionend', 'animationend'].forEach((evt) => {
+  document.addEventListener(evt, scheduleWatchBandTranslucency, {
+    passive: true
+  });
+});
+applyWatchBandTranslucency();
 
 // Burst seek: rapid presses accumulate and apply in one operation after a short buffer, so holding a seek key does not thrash the player.
 let seekAccumulator = 0;
@@ -1043,6 +1077,9 @@ function initGlobalStyles() {
     html.ytx-hide-logo ytlr-redux-connect-ytlr-logo-entity,
     html.ytx-hide-logo ytlr-logo-entity { visibility: hidden !important; }
 
+    html.oled-theme-active { --ytx-dark-rgb: 0 0 0; }
+    html.qned-theme-active { --ytx-dark-rgb: 20 20 20; }
+
     html.oled-theme-active #container,
     html.oled-theme-active .ytLrGuideResponseMask,
     html.oled-theme-active .geClSe,
@@ -1076,6 +1113,9 @@ function initGlobalStyles() {
     html.qned-theme-active .p0DeOc { background-color: #141414 !important; }
     html.qned-theme-active ytlr-player-focus-ring { border: 0.375rem solid rgb(160, 160, 160) !important; }
     html.qned-theme-active ytlr-surface-page { background-color: #141414 !important; }
+
+    html.oled-theme-active .ytx-watch-band-translucent { background-color: rgba(0, 0, 0, 0.6) !important; }
+    html.qned-theme-active .ytx-watch-band-translucent { background-color: rgba(20, 20, 20, 0.6) !important; }
 
     html.ytx-fix-titles .SK1srf .WVWtef,
     html.ytx-fix-titles .SK1srf .niS3yd {

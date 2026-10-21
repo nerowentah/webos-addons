@@ -12,9 +12,6 @@ import {
   getVideo
 } from './utils.js';
 
-// Set to true when debugging the keep-alive / player-sizing logic.
-const DEBUG = false;
-
 function isPlayerHidden(video) {
   return (
     video.style.display == 'none' ||
@@ -29,10 +26,6 @@ const STATE_PLAYING = 1;
 function setShortsKeepAlive(enable) {
   if (enable) {
     if (shortsKeepAliveTimer) return;
-    DEBUG &&
-      console.info(
-        '[ScreensaverFix] Shorts detected: Starting keep-alive (Yellow Key / 30s)'
-      );
     shortsKeepAliveTimer = window.setInterval(() => {
       const player = document.getElementById(SELECTORS.PLAYER_ID);
       const isPlaying =
@@ -41,18 +34,12 @@ function setShortsKeepAlive(enable) {
         player.getPlayerState() === STATE_PLAYING;
       if (!isPlaying) return;
 
-      // Never log the element itself: console.log(msg, node) retains a strong
-      // reference to a possibly-removed node - a slow leak firing every 30s
-      // for the whole Shorts session, with no way to drain the buffer.
-      DEBUG && console.log('[ScreensaverFix] keep-alive tick');
-
       // activeElement is document.body when nothing else has focus, null only pre-load.
       const target = document.activeElement || document.body;
 
       sendKey(REMOTE_KEYS.YELLOW, target);
     }, 30000);
   } else if (shortsKeepAliveTimer) {
-    DEBUG && console.info('[ScreensaverFix] Stopping Shorts keep-alive');
     clearInterval(shortsKeepAliveTimer);
     shortsKeepAliveTimer = null;
   }
@@ -71,10 +58,6 @@ const playerCtrlObs = new MutationObserver((mutations) => {
   const video = mutations[0]?.target;
   // Both of these are normal during navigation teardown, not error conditions.
   if (!video || !(video instanceof HTMLVideoElement) || !video.isConnected) {
-    DEBUG &&
-      console.warn(
-        '[ScreensaverFix] Video element gone, disconnecting observer'
-      );
     playerCtrlObs.disconnect();
     // The page may still be the watch page with a new <video>; ytx-page-update fires only on a page-type change, so look again.
     setTimeout(updateState, 0);
@@ -104,8 +87,8 @@ const playerCtrlObs = new MutationObserver((mutations) => {
       if (style.height !== th) style.height = th;
       if (style.left !== '0px') style.left = '0px';
       if (style.top !== '0px') style.top = '0px';
-    } catch (e) {
-      console.warn('[ScreensaverFix] Error updating video styles:', e);
+    } catch {
+      // Style writes can throw on a detached element; stop observing so a failing pass cannot loop.
       playerCtrlObs.disconnect();
     }
   });
@@ -140,14 +123,13 @@ function lunaCall(method, params, onResponse, subscribe) {
       }
       try {
         onResponse(res);
-      } catch (e) {
-        DEBUG && console.warn('[ScreensaverFix] luna callback failed:', e);
+      } catch {
+        // A throwing response handler must not break the luna callback.
       }
     };
     bridge.call(TVPOWER_URI + method, JSON.stringify(params));
     return bridge;
-  } catch (e) {
-    DEBUG && console.warn('[ScreensaverFix] luna call failed:', method, e);
+  } catch {
     return null;
   }
 }
@@ -167,17 +149,11 @@ function registerScreenSaverRequest() {
     { subscribe: true, clientName: SCREENSAVER_CLIENT },
     (res) => {
       if (!res || res.returnValue === false) {
-        DEBUG &&
-          console.info('[ScreensaverFix] Screensaver request refused:', res);
         return;
       }
       // The first answer only confirms the subscription; each screensaver the TV is about to start comes with a timestamp to answer.
       if (res.timestamp === undefined) return;
       const playing = isVideoPlaying();
-      DEBUG &&
-        console.info(
-          `[ScreensaverFix] Screensaver request: ${playing ? 'blocked (video playing)' : 'allowed'}`
-        );
       lunaCall('responseScreenSaverRequest', {
         clientName: SCREENSAVER_CLIENT,
         ack: !playing,
@@ -225,12 +201,7 @@ async function findWatchVideo() {
     return node instanceof HTMLVideoElement
       ? node
       : node.querySelector('video');
-  } catch (e) {
-    DEBUG &&
-      console.info(
-        '[ScreensaverFix] No video element to attach to:',
-        e.message
-      );
+  } catch {
     return null;
   } finally {
     if (videoWait === controller) videoWait = null;
@@ -254,8 +225,8 @@ async function bindWatchVideo() {
         attributeFilter: ['style']
       });
     }
-  } catch (e) {
-    console.warn('[ScreensaverFix] Error attaching to video element:', e);
+  } catch {
+    // Attaching the observer is best-effort; the next page update retries.
   }
 }
 

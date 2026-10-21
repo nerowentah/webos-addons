@@ -62,11 +62,6 @@ function probeDeviceInfo(): Promise<WebOSDeviceInfo | null> {
     // Declared after finish() so the closure captures the binding, not a
     // snapshot: finish() clears it, and that has to be the same timer.
     const timer: Timer = setTimeout(() => {
-      if (window.__ytx_debug__) {
-        console.warn(
-          `[webos-device] deviceInfo did not answer within ${DEVICE_INFO_TIMEOUT_MS}ms`
-        );
-      }
       finish(null);
     }, DEVICE_INFO_TIMEOUT_MS);
 
@@ -74,8 +69,7 @@ function probeDeviceInfo(): Promise<WebOSDeviceInfo | null> {
       api.deviceInfo((info) => {
         finish(info ?? null);
       });
-    } catch (err) {
-      console.warn('[webos-device] deviceInfo threw', err);
+    } catch {
       finish(null);
     }
   });
@@ -89,18 +83,12 @@ export function getDeviceInfo(): Promise<WebOSDeviceInfo | null> {
   return cached;
 }
 
-/** Whether the platform injected its `webOS` API object. */
-export function hasWebOS(): boolean {
-  const api = window.webOS;
-  return typeof api === 'object' && api !== null;
-}
-
-/** Whether the Luna bridge is reachable, for the debug matrix only. */
+/** Whether the Luna bridge is reachable. */
 export function hasLunaBridge(): boolean {
   return typeof window.webOS?.service?.request === 'function';
 }
 
-/** `webOSTV.js` build version, for the debug dump. Absent without the library. */
+/** `webOSTV.js` build version. Absent without the library. */
 export function getLibVersion(): string | undefined {
   const version = window.webOS?.libVersion;
   return typeof version === 'string' ? version : undefined;

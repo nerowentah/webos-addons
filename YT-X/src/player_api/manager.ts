@@ -40,7 +40,6 @@ class PlayerManager
   #lastPlayerState: PlayerStateObject | null = null;
 
   #handleNewVideo(videoID: VideoID) {
-    console.debug('[PlayerManager] new video', videoID);
     this.dispatchEvent(new TypedCustomEvent('newVideo', { detail: videoID }));
   }
 
@@ -54,8 +53,6 @@ class PlayerManager
 
     // Assume video ID hasn't changed if diff is empty.
     if (Object.keys(diff).length === 0) return;
-
-    console.debug('[PlayerManager] player state changed', { diff });
 
     const currentVideoID = this.currentVideoID;
     if (this.#lastVideoID !== currentVideoID) {

@@ -41,15 +41,6 @@ export class ResolveCommandRegistry {
       return this.#originalFn(command, extra);
     }
 
-    if (window.__ytx_debug__) {
-      console.group(`[${this.constructor.name}] Resolving`);
-      console.debug('Command:');
-      console.debug(command);
-      console.debug('Extra:');
-      console.debug(extra);
-      console.groupEnd();
-    }
-
     for (const key of Object.keys(command)) {
       if (this.#cmds.has(key)) {
         return this.#cmds.get(key)!(this.#originalFn, command, extra);
@@ -75,8 +66,6 @@ export class ResolveCommandRegistry {
     );
 
     hookTarget.instance.resolveCommand = this.resolveCommand;
-
-    console.debug(`[${this.constructor.name}] Hooked:`, this.#originalFn);
   }
 
   private static checkHookTarget(targetName: string) {
@@ -154,22 +143,12 @@ export class ResolveCommandRegistry {
           try {
             registry = new ResolveCommandRegistry(key);
             return registry;
-          } catch (err) {
+          } catch {
             failed.add(key);
-            console.error(
-              `[${this.constructor.name}] Failed to hook "${key}", retrying...`,
-              err
-            );
             return attempt();
           }
         })
-        .catch((err) => {
-          console.error(
-            `[${this.constructor.name}] Failed to get hook target, retrying...`,
-            err
-          );
-          return attempt();
-        });
+        .catch(() => attempt());
     };
 
     return attempt();

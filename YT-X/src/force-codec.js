@@ -141,12 +141,7 @@ function filterStreamingData(streaming) {
 
   // adaptiveFormats alone decides whether this video can honour the setting; it is the list the MSE player negotiates from.
   if (adaptiveResult === -1) {
-    if (!unsatisfiable) {
-      unsatisfiable = true;
-      console.info(
-        `[ForceCodec] This video has no ${mode.toUpperCase()} stream; using what the server offers.`
-      );
-    }
+    unsatisfiable = true;
   } else if (unsatisfiable) {
     unsatisfiable = false;
   }
@@ -254,7 +249,6 @@ function applyMode(interactive) {
     const refusal = pinnedCodecBlocked(wanted);
     if (refusal !== null) {
       mode = 'auto';
-      console.warn(`[ForceCodec] ${refusal}; leaving codec selection alone.`);
       if (interactive) {
         showNotification(NOTIFICATIONS.codecUnavailable);
       }

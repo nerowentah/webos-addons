@@ -3,16 +3,9 @@
  * graphics-plane / video-plane model this module relies on.
  */
 
+import { getDeviceInfo, getLibVersion, hasLunaBridge } from './webos-device';
 import {
-  getDeviceInfo,
-  getLibVersion,
-  hasLunaBridge,
-  hasWebOS
-} from './webos-device';
-import {
-  CAPABILITIES,
   compareVersions,
-  isVersionAtLeast,
   normalizeInternalVersion,
   tvVersionFor
 } from './webos-caps';
@@ -236,14 +229,9 @@ function update() {
   for (const listener of changeListeners) {
     try {
       listener();
-    } catch (err) {
-      console.warn('[tv-specs] change listener threw', err);
+    } catch {
+      // A throwing listener must not break the rest of the update.
     }
-  }
-
-  if (window.__ytx_debug__) {
-    console.debug('[tv-specs]', currentSpecs);
-    console.debug('[tv-specs] capability matrix', capabilityReport());
   }
 }
 
@@ -404,9 +392,9 @@ export function hasCastCoreConflict(): boolean {
     return true;
   }
 
-  // The asymmetry with isVersionAtLeast() is deliberate: an unknown version
-  // reads as oldest here, because blocking phone-to-TV casting on a set with
-  // no problem is worse than missing the block on a 2025 firmware.
+  // Deliberately asymmetric: an unknown version reads as oldest here, because
+  // blocking phone-to-TV casting on a set with no problem is worse than
+  // missing the block on a 2025 firmware.
   return specs.internalVersion >= 10;
 }
 
@@ -420,68 +408,13 @@ export function hasCastCoreConflict(): boolean {
 async function enrichFromDevice(): Promise<void> {
   const info = await getDeviceInfo();
 
-  if (info === null) {
-    if (window.__ytx_debug__) {
-      console.info(
-        '[tv-specs] no deviceInfo; the video plane stays on the screen fallback'
-      );
-    }
-    return;
-  }
+  if (info === null) return;
 
   deviceInfo = info;
   update();
 }
 
-/**
- * The capability matrix with a per-row verdict. `expected`/`versionMet` are
- * diagnostics, not gates; an unrecognised newer version reports
- * `versionMet: true` so future firmware never looks like a missing feature.
- */
-function capabilityReport() {
-  const specs = currentSpecs;
-  const fromPlatform = specs?.playbackSource === 'deviceInfo';
-
-  const verdicts: Record<string, string> = {
-    deviceInfo: hasWebOS() ? 'available' : 'unavailable',
-    playbackResolution: fromPlatform
-      ? 'available (deviceInfo)'
-      : `fallback (${specs?.playbackSource ?? 'unknown'})`,
-    uhd:
-      specs?.panelUhd !== undefined
-        ? `available (${String(specs.panelUhd)})`
-        : 'fallback (height inference)',
-    uhd8K:
-      specs?.panelUhd8K !== undefined
-        ? `available (${String(specs.panelUhd8K)})`
-        : 'fallback (false)',
-    oled:
-      specs?.panelOled !== undefined
-        ? `available (${String(specs.panelOled)})`
-        : 'fallback (model family code)',
-    sdkVersion:
-      specs?.sdkVersion !== undefined
-        ? 'available (deviceInfo)'
-        : 'fallback (UA platform version)',
-    tuner: 'not consumed',
-    appInfo: 'not needed (canvas read from innerWidth/innerHeight)',
-    luna: hasLunaBridge() ? 'available' : 'unavailable'
-  };
-
-  return CAPABILITIES.map((cap) => ({
-    id: cap.id,
-    expected: `webOS internal >= ${cap.minInternalVersion}`,
-    versionMet: isVersionAtLeast(
-      specs?.internalVersion,
-      cap.minInternalVersion
-    ),
-    verdict: verdicts[cap.id] ?? 'unknown',
-    probe: cap.probe,
-    consequence: cap.consequence
-  }));
-}
-
-/* ---------------------------------------------------------------- startup --- */
+/* -------------------------------------------------------- startup --- */
 
 let resizeToken: number | undefined;
 

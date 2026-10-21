@@ -16,12 +16,7 @@ function getPrefsCookie() {
 }
 
 const hook: ResolveCommandHook = function (resolveCommand, payload, extra) {
-  const passthrough = () => {
-    console.warn(
-      '[lang-settings-fix] Passing through due to payload mismatch.'
-    );
-    return resolveCommand(payload, extra);
-  };
+  const passthrough = () => resolveCommand(payload, extra);
 
   if (
     !payload.setClientSettingEndpoint ||

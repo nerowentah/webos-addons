@@ -1,8 +1,20 @@
+/* Shared dark plate hue (panel, badge, playback scrim); the OLED/QNED theme
+   rules in ui.js override it.
+
+   WCAG AA alpha floors: over a worst-case white backdrop a translucent dark
+   plate keeps 4.5:1 only if its alpha stays at or above the text's floor -
+   #fff 0.55, #b5b5b5 0.70, #a0a0a0 0.75, #ff4444 0.90 (so red text belongs on
+   the 0.95 panel, never the badge). backdrop-filter blur softens bright bleed
+   but does not guarantee contrast; keep the alphas. */
+:root {
+  --ytx-dark-rgb: 26 26 26;
+}
+
 /* Classic Red is the only theme, so these are base values, not an override:
-   #ff0000 pure - borders/focus; #ff4444 soft - heading/label text; #cc0000
-   dark - filled controls (checkbox, scrollbar thumb). A care-mode border is
-   this pure red at 0.35 on every surface, so a mode switch changes only a hue
-   and a plate, never the presence, width or strength of an edge. */
+   #ff0000 pure - borders/focus/scrollbar; #ff4444 soft - heading/label text;
+   #cc0000 dark - filled controls (checkbox, pressed close). A care-mode border
+   is this pure red at 0.35 on every surface, so a mode switch changes only a
+   hue and a plate, never the presence, width or strength of an edge. */
 
 /* Fixed 70vw, not shrink-to-fit: each row must be wider than its text plus its
    toggle for space-between to pin the toggle to the right edge. Fixed 70vh so
@@ -13,9 +25,7 @@
   left: 50%;
   transform: translate(-50%, -50%);
   width: 70vw;
-  max-width: 70vw;
   height: 70vh;
-  max-height: 70vh;
   color: #ffffff;
   font-family:
     -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -25,12 +35,10 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background-color: rgba(26, 26, 26, 0.85);
-  background-image: none;
+  background-color: rgba(var(--ytx-dark-rgb), 0.95);
+  backdrop-filter: blur(0.8vh) saturate(1.1);
   border: 0.09vh solid #3f3f3f;
   border-radius: 1.5vh;
-  box-shadow: none;
-  opacity: 1;
   transition:
     opacity 150ms ease,
     transform 150ms ease;
@@ -70,7 +78,13 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  text-shadow: none;
+}
+
+/* Shared resting border for the two small controls; hover/checked/focus
+   overrides below restate border-color. */
+.ytx-close-btn,
+.ytx-ui-container input[type='checkbox'] {
+  border: 0.19vh solid #767676;
 }
 
 .ytx-close-btn {
@@ -85,7 +99,6 @@
   justify-content: center;
   background: #2a2a2a;
   color: #ff4444;
-  border: 0.19vh solid #4a4a4a;
   border-radius: 50%;
   font-size: 2vh;
   font-weight: bold;
@@ -157,7 +170,7 @@
 }
 
 .ytx-ui-container > div::-webkit-scrollbar-thumb {
-  background: #cc0000;
+  background: #ff0000;
   border-radius: 0.4vh;
 }
 
@@ -167,12 +180,10 @@
   box-sizing: border-box;
   width: 1.85vh;
   height: 1.85vh;
-  margin: 0;
-  margin-right: 1.1vh;
+  margin: 0 1.1vh 0 0;
   appearance: none;
   -webkit-appearance: none;
   background: #2a2a2a;
-  border: 0.19vh solid #4a4a4a;
   border-radius: 0.4vh;
   position: relative;
   cursor: pointer;
@@ -185,7 +196,6 @@
 .ytx-ui-container input[type='checkbox']:checked {
   background: #cc0000;
   border-color: #ff0000;
-  box-shadow: none;
 }
 
 .ytx-ui-container input[type='checkbox']:checked::after {
@@ -227,6 +237,7 @@
   align-items: center;
   justify-content: space-between;
   flex: 1;
+  font-size: 2.1vh;
 }
 
 .ytx-ui-container .label-content input[type='checkbox'] {
@@ -235,9 +246,8 @@
 
 .ytx-ui-container .ytx-cycle-row:focus,
 .ytx-ui-container label:focus-within {
-  background: rgba(255, 0, 0, 0.1);
-  border-radius: 0.75vh;
-  box-shadow: 0 0 0 0.19vh rgba(255, 0, 0, 0.5);
+  background: rgba(255, 0, 0, 0.18);
+  box-shadow: 0 0 0 0.19vh #ff0000;
   outline: none;
 }
 
@@ -255,7 +265,7 @@
    border is the accent bar and must stay opaque - the care rules restore it
    after setting the translucent hairline. */
 .ytx-notification-container .message {
-  background: rgba(0, 0, 0, 0.55);
+  background: rgba(0, 0, 0, 0.75);
   border: 0.09vh solid rgba(255, 0, 0, 0.35);
   color: #ffffff;
   -webkit-font-smoothing: antialiased;
@@ -287,20 +297,21 @@
   border: 0.09vh solid rgba(255, 0, 0, 0.35);
 }
 
-.ytx-ui-container.oled-care {
-  background: #000000;
-}
-
 /* Each checkbox plate matches its panel background, so the control reads as a
    hole in the panel rather than a chip sitting on it. */
+.ytx-ui-container.oled-care,
 .ytx-ui-container.oled-care input[type='checkbox'] {
   background: #000000;
-  border-color: #555555;
 }
 
+.ytx-ui-container.qned-care,
 .ytx-ui-container.qned-care input[type='checkbox'] {
-  background: rgba(20, 20, 20, 0.85);
-  border-color: #555555;
+  background: rgba(20, 20, 20, 0.95);
+}
+
+.ytx-ui-container.oled-care input[type='checkbox'],
+.ytx-ui-container.qned-care input[type='checkbox'] {
+  border-color: #767676;
 }
 
 /* Fill and border must differ: left at #555555 both would vanish into each
@@ -316,22 +327,14 @@
    it to restore the opaque accent bar - reversing the two fades the bar. */
 .ytx-notification-container.oled-care .message,
 .ytx-notification-container.qned-care .message {
-  background: rgba(42, 42, 42, 0.55);
+  background: rgba(42, 42, 42, 0.75);
   border-color: rgba(255, 0, 0, 0.35);
   border-left-color: #ff0000;
   box-shadow: none;
-  color: #dddddd;
-}
-
-.ytx-ui-container.qned-care {
-  background: rgba(20, 20, 20, 0.85);
+  color: #eeeeee;
 }
 
 .ytx-ui-container.qned-care .ytx-tab-btn {
-  color: #8a8a8a;
-}
-
-.ytx-ui-container.qned-care .ytx-ui-version {
   color: #a0a0a0;
 }
 
@@ -351,7 +354,7 @@
   margin: 0 0.5vh;
   background: transparent;
   border: none;
-  color: #aaaaaa;
+  color: #b5b5b5;
   font-size: 2.1vh;
   font-weight: 700;
   padding: 1vh 2vh;
@@ -391,7 +394,8 @@
 }
 
 .ytx-cycle-label {
-  color: #e0e0e0;
+  color: #eeeeee;
+  font-size: 2.1vh;
   font-weight: 400;
 }
 
@@ -458,12 +462,12 @@
 .ytx-settings-section {
   margin: 1vh 0 0.5vh;
   padding: 0 1vh 0.5vh;
-  border: 0.19vh solid #444444;
+  border: 0.19vh solid #3f3f3f;
   border-radius: 0.6vh;
 }
 
 .ytx-settings-section > .section-title {
-  color: #bbbbbb;
+  color: #b5b5b5;
   font-size: 2.6vh;
   font-weight: bold;
   text-transform: uppercase;
@@ -475,7 +479,7 @@
    so it reads as a quiet caption. */
 .ytx-settings-section > .section-title .section-title-note {
   margin-left: 1vh;
-  color: #888888;
+  color: #a0a0a0;
   font-size: 1.48vh;
   font-weight: normal;
   text-transform: none;
@@ -494,7 +498,9 @@
   column-gap: 2.5vh;
 }
 
-.ytx-ui-container .ytx-grid-2 {
+/* recalcDensity() flags width overflow: three columns drop to two, then one. */
+.ytx-ui-container .ytx-grid-2,
+.ytx-ui-container.ytx-grid-col-2 .ytx-grid-3 {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
@@ -527,12 +533,7 @@
   margin-right: 1.1vh;
 }
 
-/* recalcDensity() flags width overflow: three columns drop to two, then one.
-   Stacking un-mirrors the row so it reads label-then-toggle like the rest. */
-.ytx-ui-container.ytx-grid-col-2 .ytx-grid-3 {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
+/* Stacking un-mirrors the row so it reads label-then-toggle like the rest. */
 .ytx-ui-container.ytx-grid-stack .ytx-grid {
   grid-template-columns: 1fr;
 }
@@ -582,12 +583,13 @@
   padding: 0.3em 0.7em;
   font-size: 0.8rem;
   line-height: 1.2;
-  color: rgba(255, 255, 255, 0.75);
+  color: #ffffff;
   -webkit-font-smoothing: antialiased;
-  background: rgba(0, 0, 0, 0.45);
+  background: rgba(var(--ytx-dark-rgb), 0.72);
+  backdrop-filter: blur(0.8vh) saturate(1.1);
   border: 1px solid rgba(255, 255, 255, 0.25);
   border-radius: 999px;
-  opacity: 0.6;
+  opacity: 0.85;
   cursor: pointer;
   transition:
     opacity 150ms ease,
@@ -599,7 +601,14 @@
 .ytx-ui-badge:focus {
   opacity: 1;
   color: #ffffff;
-  outline: 3px solid rgba(255, 255, 255, 0.6);
+  /* Double ring: white inner edge against the dark plate, dark outer edge
+     against the plate, so the indicator reads over white video as well as
+     black. A single white outline vanishes on a bright frame. */
+  outline: 3px solid #ffffff;
+  outline-offset: 1px;
+  box-shadow:
+    0 0 0 1px #ffffff,
+    0 0 0 5px rgba(0, 0, 0, 0.8);
 }
 
 .ytx-ui-badge-hidden {
@@ -614,7 +623,7 @@
 }
 
 .ytx-ui-badge.ytx-badge-pointer-mode.ytx-badge-visible {
-  opacity: 0.6;
+  opacity: 0.85;
   pointer-events: auto;
 }
 
@@ -647,7 +656,6 @@
   width: 100%;
   position: absolute;
   border-radius: 9001px;
-  display: inline-block;
 }
 
 /* Allow overlay segments to overflow */
@@ -660,6 +668,6 @@
   position: absolute;
   right: 2rem;
   bottom: 0.5rem;
-  color: #8a8a8a;
+  color: #a0a0a0;
   font-size: 1.48vh;
 }
