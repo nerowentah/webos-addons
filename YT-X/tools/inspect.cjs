@@ -156,6 +156,7 @@ const DIAGNOSTICS = `(() => {
   const overlay = document.querySelector('.ytx-ui-container');
   return {
     url: location.href,
+    visibility: document.visibilityState,
     appRendered: !!document.querySelector('ytlr-app'),
     domNodes: document.getElementsByTagName('*').length,
     focusables: document.querySelectorAll('[tabindex]').length,

@@ -27,13 +27,13 @@ function makeConfig(api) {
         }
       ],
       [
-        // structuredClone (src/hooks/json-stringify.ts) predates the Chrome 79 floor.
+        // structuredClone (src/youtube/hooks/json-stringify.ts) predates the Chrome 79 floor.
         'polyfill-corejs3',
         {
           method: 'usage-pure',
           version: corejspureVersion,
           // Pure polyfills would rewrite JSON.parse/stringify into imports,
-          // bypassing the hooks in src/hooks and src/adblock.js.
+          // bypassing the hooks in src/youtube/hooks and src/features/adblock/adblock.js.
           exclude: ['es.json.parse', 'esnext.json.parse']
         }
       ]

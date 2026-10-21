@@ -291,8 +291,11 @@ npm run lint:all # audit, eslint, type-check, prettier
 npm run verify   # production build plus ES compatibility check
 ```
 
-`verify` fails if the bundle uses syntax newer than ES2022. Chrome 79 support
-for the rest (optional chaining, etc.) comes from Babel via `.browserslistrc`.
+`verify` fails if the bundle uses syntax newer than ES2022, and
+`tools/check-syntax-floor.cjs` rejects the specific syntax Chrome 79 cannot parse
+(optional chaining, nullish coalescing, logical assignment, static blocks).
+Everything else for the Chrome 79 floor comes from Babel via `.browserslistrc`;
+private class fields are left native because Chrome 74+ supports them.
 
 ### Debugging on the TV
 
@@ -306,12 +309,22 @@ npm run drive -- "down,down,ok" shot.png     # keys: up down left right ok back 
 npm run verify:device                        # deploy + on-TV checks (manual, not run in CI)
 ```
 
-Add `-d <device>` to pick a device. Limitations:
+Add `-d <device>` to pick a device.
+
+The device profile needs **both** `passphrase` and `privatekey`
+(`ares-setup-device -m <device> -i privatekey=<keyname>`). Without the key the CLI
+falls back to an empty password and only reports
+`All configured authentication methods failed`.
+
+Limitations:
 
 - Screenshots cannot capture the hardware video plane. Check playback through
   `<video>.currentTime` advancing instead.
-- Keys sent through the protocol count as real input. A script calling
-  `dispatchEvent` does not, so it cannot drive the key handlers here.
+- Keys and clicks sent through the protocol count as real input. A script calling
+  `dispatchEvent` or `el.click()` from `eval` does not reach the app's listeners,
+  so pointer-driven UI goes through `drive`/`verify:device`, which use `Input.*`.
+- If `inspect` reports `"visibility": "hidden"`, the app is backgrounded and input
+  is dropped. `npm run launch` brings it forward.
 
 YT-X is a userscript injected into youtube.com. Do not add a Luna service, a
 local proxy or a custom focus engine: YouTube owns the page, its focus and its

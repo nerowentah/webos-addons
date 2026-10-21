@@ -175,7 +175,7 @@ const makeConfig = (env) => [
         },
         {
           // Bundled images (e.g. the SponsorBlock popup icon) inline as data
-          // URLs: the webview navigates to youtube.com at launch (utils.js
+          // URLs: the webview navigates to youtube.com at launch (core/utils.js
           // handleLaunch), so an emitted file's auto publicPath would resolve
           // against youtube.com.
           test: /\.(png|jpe?g|gif|svg)$/i,

@@ -49,7 +49,34 @@ async function press(session, token) {
   await sleep(SETTLE_MS);
 }
 
-module.exports = { press, KEYS, sleep };
+/**
+ * Click an element with trusted input. In-page `el.click()` does not drive the
+ * app's listeners on webOS, so pointer-driven UI has to go through the protocol.
+ * @param {Awaited<ReturnType<typeof connect>>} session
+ * @param {string} selector
+ */
+async function click(session, selector) {
+  const rect = await session.evaluate(
+    `(() => { const el = document.querySelector(${JSON.stringify(selector)}); if (!el) return null; const r = el.getBoundingClientRect(); return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) }; })()`
+  );
+  if (!rect) throw new HarnessError(`no element matches ${selector}`);
+  const base = { ...rect, button: 'left', buttons: 1, clickCount: 1 };
+  await session.send('Input.dispatchMouseEvent', {
+    type: 'mouseMoved',
+    ...base
+  });
+  await session.send('Input.dispatchMouseEvent', {
+    type: 'mousePressed',
+    ...base
+  });
+  await session.send('Input.dispatchMouseEvent', {
+    type: 'mouseReleased',
+    ...base
+  });
+  await sleep(SETTLE_MS);
+}
+
+module.exports = { press, click, sleep };
 
 if (require.main === module) {
   runCli(async () => {

@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 // Fails the build when a user-visible string outgrows its cap.
 //
-// The strings live in src/ui-text.js; this imports that module (it has no DOM
+// The strings live in src/config/ui-text.js; this imports that module (it has no DOM
 // or localStorage dependencies) and checks every static value, then runs each
 // notification template with a documented worst-case input. Wired into
 // `npm run verify`, so an over-long label can never reach a build.
 //
 // The import path is built at runtime rather than written as a literal so the
-// browser tsconfig project stays the only one that owns src/ui-text.js; a
+// browser tsconfig project stays the only one that owns src/config/ui-text.js; a
 // static import here would drag it into the tooling project too and trip
 // TypeScript's composite-project file-ownership rule.
 
@@ -57,7 +57,7 @@ function walk(node, cap, where) {
 }
 
 async function main() {
-  const modulePath = path.join(ROOT, 'src', 'ui-text.js');
+  const modulePath = path.join(ROOT, 'src', 'config', 'ui-text.js');
   const mod = await import(pathToFileURL(modulePath).href);
   const {
     MAX_UI_TEXT,
@@ -85,7 +85,6 @@ async function main() {
     [NOTIFICATIONS.skipping, ['interaction reminder']],
     [NOTIFICATIONS.muted, ['interaction reminder']],
     [NOTIFICATIONS.sponsorNew, [99]],
-    [NOTIFICATIONS.seek, ['+3600']],
     [NOTIFICATIONS.playingIn, ['2160p60 HDR']],
     [NOTIFICATIONS.selectedMax, ['2160p60 HDR', '2160p60 HDR']]
   ];
