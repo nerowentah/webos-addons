@@ -291,6 +291,32 @@ npm run lint:all # audit, eslint, type-check, prettier
 npm run verify   # production build plus ES compatibility check
 ```
 
+`verify` fails if the bundle uses syntax newer than ES2022. Chrome 79 support
+for the rest (optional chaining, etc.) comes from Babel via `.browserslistrc`.
+
+### Debugging on the TV
+
+Needs a TV added with `ares-setup-device` and the app installed (`npm run deploy`).
+These attach through `ares-inspect` and drive the app over the DevTools protocol.
+
+```sh
+npm run inspect                              # DOM, focus, video and heap diagnostics
+npm run inspect -- eval "document.querySelectorAll('video').length"
+npm run drive -- "down,down,ok" shot.png     # keys: up down left right ok back red green yellow blue
+npm run verify:device                        # deploy + on-TV checks (manual, not run in CI)
+```
+
+Add `-d <device>` to pick a device. Limitations:
+
+- Screenshots cannot capture the hardware video plane. Check playback through
+  `<video>.currentTime` advancing instead.
+- Keys sent through the protocol count as real input. A script calling
+  `dispatchEvent` does not, so it cannot drive the key handlers here.
+
+YT-X is a userscript injected into youtube.com. Do not add a Luna service, a
+local proxy or a custom focus engine: YouTube owns the page, its focus and its
+player.
+
 ### Dependency notes
 
 Two advisories in the development dependency tree have no upstream fix and are

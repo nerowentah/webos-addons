@@ -255,6 +255,7 @@
   position: fixed;
   top: 1.85vh;
   right: 1.85vh;
+  /* 16px at 1080p, deliberate: matches YouTube's own toast scale. Same for the section note. */
   font-size: 1.48vh;
   z-index: 1200;
   max-width: 37vh;
