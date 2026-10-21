@@ -137,12 +137,44 @@ async function connect({ device } = {}) {
     return r.result.value;
   };
 
+  /**
+   * Call a function declaration in the page with JSON-serialisable arguments
+   * passed as values, so nothing is spliced into evaluated source.
+   * @param {string} functionDeclaration
+   * @param {...unknown} args
+   */
+  const callFunction = async (functionDeclaration, ...args) => {
+    const g = /** @type {any} */ (
+      await send('Runtime.evaluate', { expression: 'globalThis' })
+    );
+    try {
+      const r = /** @type {any} */ (
+        await send('Runtime.callFunctionOn', {
+          functionDeclaration,
+          objectId: g.result.objectId,
+          arguments: args.map((value) => ({ value })),
+          returnByValue: true,
+          awaitPromise: true
+        })
+      );
+      if (r.exceptionDetails) {
+        throw new HarnessError(
+          r.exceptionDetails.exception?.description ?? r.exceptionDetails.text
+        );
+      }
+      return r.result.value;
+    } finally {
+      await send('Runtime.releaseObject', { objectId: g.result.objectId });
+    }
+  };
+
   await send('Runtime.enable');
   await send('Performance.enable');
 
   return {
     send,
     evaluate,
+    callFunction,
     log,
     close() {
       ws.close();
