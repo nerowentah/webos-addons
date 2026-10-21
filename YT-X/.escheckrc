@@ -1,5 +1,5 @@
 {
-  "ecmaVersion": 2025,
+  "ecmaVersion": 2022,
   "checkBrowser": false,
   "looseGlobMatching": false,
   "files": [

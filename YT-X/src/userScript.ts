@@ -1,33 +1,32 @@
-import { handleLaunch } from './utils';
+import { handleLaunch } from './core/utils';
 
 document.addEventListener(
   'webOSRelaunch',
   (evt) => {
-    console.info('RELAUNCH:', evt, window.launchParams);
     handleLaunch(evt.detail);
   },
   true
 );
 
-import './app_api/index';
-import './adblock.js';
-import './hooks/json-stringify';
-import './shorts.js';
-import './members-only.js';
-import './sponsorblock.js';
-import './ui.js';
-import './font-fix.css';
-import './thumbnail-quality.js';
-import './screensaver-fix.js';
-import './yt-fixes.css';
-import './video-quality';
-import './lang-settings-fix';
-import './remove-endscreen';
-import './force-codec.js';
-import './previews.js';
-import './keep-playing.js';
-import './hooks';
-import './block-webos-cast';
-import './auto-account-select';
-import './time-remaining.js';
-import './keyboard-search.js';
+import './youtube/app_api/index';
+import './features/adblock/adblock.js';
+import './youtube/hooks/json-stringify';
+import './features/adblock/shorts.js';
+import './features/adblock/members-only.js';
+import './features/sponsorblock/sponsorblock.js';
+import './ui/ui.js';
+import './styles/font-fix.css';
+import './features/adblock/thumbnail-quality.js';
+import './platform/screensaver-fix.js';
+import './styles/yt-fixes.css';
+import './features/playback/video-quality';
+import './youtube/mods/lang-settings-fix';
+import './features/adblock/remove-endscreen';
+import './features/playback/force-codec.js';
+import './features/playback/previews.js';
+import './features/keep-playing/keep-playing.js';
+import './youtube/hooks';
+import './platform/block-webos-cast';
+import './youtube/mods/auto-account-select';
+import './ui/time-remaining.js';
+import './features/keyboard-search/keyboard-search.js';

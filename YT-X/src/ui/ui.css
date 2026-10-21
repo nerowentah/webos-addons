@@ -1,0 +1,674 @@
+/* Shared dark plate hue (panel, badge, playback scrim); the OLED/QNED theme
+   rules in ui.js override it.
+
+   WCAG AA alpha floors: over a worst-case white backdrop a translucent dark
+   plate keeps 4.5:1 only if its alpha stays at or above the text's floor -
+   #fff 0.55, #b5b5b5 0.70, #a0a0a0 0.75, #ff4444 0.90 (so red text belongs on
+   the 0.95 panel, never the badge). backdrop-filter blur softens bright bleed
+   but does not guarantee contrast; keep the alphas. */
+:root {
+  --ytx-dark-rgb: 26 26 26;
+}
+
+/* Classic Red is the only theme, so these are base values, not an override:
+   #ff0000 pure - borders/focus/scrollbar; #ff4444 soft - heading/label text;
+   #cc0000 dark - filled controls (checkbox, pressed close). A care-mode border
+   is this pure red at 0.35 on every surface, so a mode switch changes only a
+   hue and a plate, never the presence, width or strength of an edge. */
+
+/* Fixed 70vw, not shrink-to-fit: each row must be wider than its text plus its
+   toggle for space-between to pin the toggle to the right edge. Fixed 70vh so
+   the panel does not resize between tabs - the pages scroll inside it. */
+.ytx-ui-container {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 70vw;
+  height: 70vh;
+  color: #ffffff;
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 4.44vh;
+  -webkit-font-smoothing: antialiased;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background-color: rgba(var(--ytx-dark-rgb), 0.95);
+  backdrop-filter: blur(0.8vh) saturate(1.1);
+  border: 0.09vh solid #3f3f3f;
+  border-radius: 1.5vh;
+  transition:
+    opacity 150ms ease,
+    transform 150ms ease;
+}
+
+/* Keeps the centering transform in every pose so the slide-up scale reads as
+   an entrance, not a drift. */
+.ytx-ui-container.collapse-start {
+  opacity: 0;
+  transform: translate(-50%, calc(-50% + 1.5vh)) scale(0.985);
+  pointer-events: none;
+}
+
+.ytx-ui-container.collapse-end {
+  opacity: 1;
+  transform: translate(-50%, -50%);
+}
+
+.ytx-ui-container::before {
+  display: none !important;
+}
+
+.ytx-ui-container > * {
+  position: relative;
+  z-index: 1;
+}
+
+.ytx-ui-container h1 {
+  margin: 0;
+  padding: 1.5vh 3vh 1.1vh;
+  text-align: center;
+  font-size: 3.89vh;
+  font-weight: 700;
+  border-bottom: 0.09vh solid #3f3f3f;
+  color: #ff4444;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* Shared resting border for the two small controls; hover/checked/focus
+   overrides below restate border-color. */
+.ytx-close-btn,
+.ytx-ui-container input[type='checkbox'] {
+  border: 0.19vh solid #767676;
+}
+
+.ytx-close-btn {
+  position: absolute;
+  top: 0.9vh;
+  right: 1.2vh;
+  z-index: 2;
+  width: 3.4vh;
+  height: 3.4vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #2a2a2a;
+  color: #ff4444;
+  border-radius: 50%;
+  font-size: 2vh;
+  font-weight: bold;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease,
+    transform 150ms ease;
+  /* Without inherit the glyph resolves against the host document's font. */
+  font-family: inherit;
+}
+
+/* Pointer feedback; a remote uses :focus only. Only border-color moves - the
+   button is a fixed 3.4vh border-box, so a width change would push the glyph
+   off centre. */
+.ytx-close-btn:hover {
+  background: rgba(255, 0, 0, 0.15);
+  border-color: #ff0000;
+  color: #ffffff;
+}
+
+/* After :hover so the equal-specificity pressed state wins; #cc0000 is the
+   filled-control tier. */
+.ytx-close-btn:active {
+  background: #cc0000;
+  color: #ffffff;
+  transform: scale(0.92);
+}
+
+.ytx-close-btn:focus {
+  outline: 0.19vh solid #ff0000;
+  outline-offset: 0.19vh;
+  color: #ffffff;
+}
+
+.ytx-ui-container > div.ytx-settings-page {
+  /* Reserves room for the absolute .ytx-ui-version footer; 2.2vh let the last
+     row overlap it, so 4.5vh clears it with a gap to spare. */
+  padding: 0 3vh 4.5vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  flex: 1;
+  min-height: 0;
+  /* Pages swap display:none <-> block on tab change, so this restarts on every
+     flip - the tab-switch fade needs no JS. */
+  animation: ytx-page-in 150ms ease;
+}
+
+@keyframes ytx-page-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.6vh);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.ytx-ui-container > div::-webkit-scrollbar {
+  width: 0.75vh;
+}
+
+.ytx-ui-container > div::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.ytx-ui-container > div::-webkit-scrollbar-thumb {
+  background: #ff0000;
+  border-radius: 0.4vh;
+}
+
+.ytx-ui-container input[type='checkbox'] {
+  /* Declared, not inherited: the panel lives in YouTube's document, and losing
+     border-box would widen the checkbox column 0.38vh and misalign the rows. */
+  box-sizing: border-box;
+  width: 1.85vh;
+  height: 1.85vh;
+  margin: 0 1.1vh 0 0;
+  appearance: none;
+  -webkit-appearance: none;
+  background: #2a2a2a;
+  border-radius: 0.4vh;
+  position: relative;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease;
+}
+
+.ytx-ui-container input[type='checkbox']:checked {
+  background: #cc0000;
+  border-color: #ff0000;
+}
+
+.ytx-ui-container input[type='checkbox']:checked::after {
+  content: '✓';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #ffffff;
+  font-size: 1.3vh;
+  font-weight: bold;
+}
+
+.ytx-ui-container input[type='checkbox']:focus {
+  outline: 0.19vh solid #ff0000;
+  outline-offset: 0.19vh;
+  border-color: #ff0000;
+}
+
+.ytx-ui-container label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 2.5vh;
+  font-weight: 400;
+  cursor: pointer;
+  border-radius: 0.75vh;
+  box-shadow: 0 0 0 2px transparent;
+  transition:
+    background-color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+/* space-between pins the toggle to the right edge (its base 1.1vh margin is
+   dropped below); text must stay the first child, as createConfigCheckbox()
+   builds the row. */
+.ytx-ui-container label .label-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex: 1;
+  font-size: 2.1vh;
+}
+
+.ytx-ui-container .label-content input[type='checkbox'] {
+  margin-right: 0;
+}
+
+.ytx-ui-container .ytx-cycle-row:focus,
+.ytx-ui-container label:focus-within {
+  background: rgba(255, 0, 0, 0.18);
+  box-shadow: 0 0 0 0.19vh #ff0000;
+  outline: none;
+}
+
+.ytx-notification-container {
+  position: fixed;
+  top: 1.85vh;
+  right: 1.85vh;
+  /* 16px at 1080p, deliberate: matches YouTube's own toast scale. Same for the section note. */
+  font-size: 1.48vh;
+  z-index: 1200;
+  max-width: 37vh;
+}
+
+/* These rules paint the toast's border: showNotification() only sets an inline
+   border-color when a caller passes a colour, and none does. The 0.37vh left
+   border is the accent bar and must stay opaque - the care rules restore it
+   after setting the translucent hairline. */
+.ytx-notification-container .message {
+  background: rgba(0, 0, 0, 0.75);
+  border: 0.09vh solid rgba(255, 0, 0, 0.35);
+  color: #ffffff;
+  -webkit-font-smoothing: antialiased;
+  padding: 1.5vh 1.85vh;
+  margin-bottom: 1.1vh;
+  border-radius: 1.1vh;
+  box-shadow: 0 0.2vh 0.6vh rgba(0, 0, 0, 0.35);
+  transition:
+    opacity 150ms ease,
+    transform 150ms ease;
+  opacity: 1;
+  transform: translateX(0);
+  border-left: 0.37vh solid #ff0000;
+  font-weight: 400;
+  line-height: 1.4;
+  overflow-wrap: break-word;
+}
+
+.ytx-notification-container .message-hidden {
+  opacity: 0;
+  transform: translateX(1.85vh);
+}
+
+/* Border width must match the base .ytx-ui-container 0.09vh: a wider one shifts
+   every row out of line with care mode off. Both modes share one 0.35 hairline
+   and differ only in plate; the red accent stays - it is the theme. */
+.ytx-ui-container.oled-care,
+.ytx-ui-container.qned-care {
+  border: 0.09vh solid rgba(255, 0, 0, 0.35);
+}
+
+/* Each checkbox plate matches its panel background, so the control reads as a
+   hole in the panel rather than a chip sitting on it. */
+.ytx-ui-container.oled-care,
+.ytx-ui-container.oled-care input[type='checkbox'] {
+  background: #000000;
+}
+
+.ytx-ui-container.qned-care,
+.ytx-ui-container.qned-care input[type='checkbox'] {
+  background: rgba(20, 20, 20, 0.95);
+}
+
+.ytx-ui-container.oled-care input[type='checkbox'],
+.ytx-ui-container.qned-care input[type='checkbox'] {
+  border-color: #767676;
+}
+
+/* Fill and border must differ: left at #555555 both would vanish into each
+   other, so the border is restated lighter (#666666, the neutral ramp). */
+.ytx-ui-container.oled-care input[type='checkbox']:checked,
+.ytx-ui-container.qned-care input[type='checkbox']:checked {
+  background: #555555;
+  border-color: #666666;
+}
+
+/* The plate is lifted: over OLED's true black a matching scrim composites to
+   nothing. border-color sets all four sides, so border-left-color must follow
+   it to restore the opaque accent bar - reversing the two fades the bar. */
+.ytx-notification-container.oled-care .message,
+.ytx-notification-container.qned-care .message {
+  background: rgba(42, 42, 42, 0.75);
+  border-color: rgba(255, 0, 0, 0.35);
+  border-left-color: #ff0000;
+  box-shadow: none;
+  color: #eeeeee;
+}
+
+.ytx-ui-container.qned-care .ytx-tab-btn {
+  color: #a0a0a0;
+}
+
+/* Tab Menu */
+.ytx-tab-menu {
+  display: flex;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.2);
+  border-bottom: 0.19vh solid #3f3f3f;
+  padding: 0.5vh 1vh;
+  flex-shrink: 0;
+  margin-bottom: 1vh;
+}
+
+.ytx-tab-btn {
+  flex: 1;
+  margin: 0 0.5vh;
+  background: transparent;
+  border: none;
+  color: #b5b5b5;
+  font-size: 2.1vh;
+  font-weight: 700;
+  padding: 1vh 2vh;
+  border-radius: 0.75vh;
+  cursor: pointer;
+  outline: none;
+  transition:
+    background-color 150ms ease,
+    color 150ms ease,
+    box-shadow 150ms ease;
+  font-family: inherit;
+}
+
+.ytx-tab-btn.active {
+  color: #ff4444;
+  background: rgba(255, 0, 0, 0.15);
+}
+
+.ytx-tab-btn:focus {
+  background: rgba(255, 0, 0, 0.3);
+  box-shadow: 0 0 0 0.19vh #ff0000;
+  color: #ffffff;
+}
+
+/* Cycle Controls */
+.ytx-cycle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  border-radius: 0.75vh;
+  font-size: 2.5vh;
+  box-shadow: 0 0 0 2px transparent;
+  transition:
+    background-color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.ytx-cycle-label {
+  color: #eeeeee;
+  font-size: 2.1vh;
+  font-weight: 400;
+}
+
+.ytx-cycle-value {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex: 1 1 auto;
+  min-width: 0;
+  color: #ffffff;
+}
+
+.ytx-cycle-value > * {
+  margin-left: 1.1vh;
+}
+
+.ytx-cycle-value > *:first-child {
+  margin-left: 0;
+}
+
+.ytx-cycle-value .arrow-btn {
+  color: #ff4444;
+  font-weight: bold;
+  font-size: 2.22vh;
+  user-select: none;
+}
+
+.ytx-cycle-value .current-value {
+  min-width: 14vh;
+  /* The row is nowrap and the panel clips rather than scrolls, so an unbounded
+     label would spill into the arrows; max-width + ellipsis caps it. */
+  max-width: 22vh;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: center;
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+/* Applied panel-wide, not per-page: recalcDensity() flags the container from
+   whichever tab is active, and each page recomputes on its own activation. */
+.ytx-ui-container.ytx-panel-compact label {
+  padding-top: 0.75vh;
+  padding-bottom: 0.75vh;
+  margin-bottom: 0.1vh;
+}
+
+.ytx-ui-container.ytx-panel-compact .ytx-settings-section {
+  margin-bottom: 0.6vh;
+}
+
+.ytx-ui-container.ytx-panel-compact .ytx-settings-section > .section-title {
+  margin-top: 0.9vh;
+  margin-bottom: 0.35vh;
+}
+
+/* Settings section layout. Chrome lives here rather than in createSection()'s
+   inline styles, so the panel retunes from one place. Columns are a
+   per-section opt-in: `ytx-grid` plus a `ytx-grid-2`/`-3` count (layout.js).
+
+   Grid, not flexbox: the webOS 6 / Chrome 79 floor predates flex `gap`
+   (Chrome 84) but not grid (Chrome 57), so tracks and spans must be grid. */
+
+.ytx-settings-section {
+  margin: 1vh 0 0.5vh;
+  padding: 0 1vh 0.5vh;
+  border: 0.19vh solid #3f3f3f;
+  border-radius: 0.6vh;
+}
+
+.ytx-settings-section > .section-title {
+  color: #b5b5b5;
+  font-size: 2.6vh;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.05vh;
+  margin: 0.6vh 0 0.5vh;
+}
+
+/* Attribution beside a section title: resets the title's uppercase/bold/colour
+   so it reads as a quiet caption. */
+.ytx-settings-section > .section-title .section-title-note {
+  margin-left: 1vh;
+  color: #a0a0a0;
+  font-size: 1.48vh;
+  font-weight: normal;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+/* `minmax(0, 1fr)`, not a bare `1fr`: a bare track's automatic min-content
+   minimum lets a long label widen its cell and break the pairing; zeroing it
+   lets cells shrink and labels wrap. The single-column rows' negative bleed
+   margins are cancelled inside a section below, so they cannot push a cell out. */
+.ytx-ui-container .ytx-grid {
+  display: grid;
+  align-items: stretch;
+  /* Column only - vertical rhythm comes from the row margin. The gap must clear
+     the toggle-to-label inset, or a box reads as belonging to the previous cell. */
+  column-gap: 2.5vh;
+}
+
+/* recalcDensity() flags width overflow: three columns drop to two, then one. */
+.ytx-ui-container .ytx-grid-2,
+.ytx-ui-container.ytx-grid-col-2 .ytx-grid-3 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.ytx-ui-container .ytx-grid-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+/* Cycle rows span every track: their value column is variable-width, and a
+   single cell would crowd the arrows. */
+.ytx-ui-container .ytx-grid > .section-title,
+.ytx-ui-container .ytx-grid > .ytx-cycle-row {
+  grid-column: 1 / -1;
+}
+
+.ytx-ui-container .ytx-grid > label {
+  min-width: 0;
+}
+
+/* Toggle-first (`[ ] Label`) so each box precedes the label it controls and
+   proximity cannot misattribute it to the previous cell. flex-start top-aligns
+   the box with a wrapped label's first line, and the checkbox's global
+   margin-right: 0 is restored here to keep the 1.1vh toggle-to-label inset. */
+.ytx-ui-container .ytx-grid > label .label-content {
+  flex-direction: row-reverse;
+  justify-content: flex-end;
+  align-items: flex-start;
+}
+
+.ytx-ui-container .ytx-grid > label .label-content input[type='checkbox'] {
+  margin-right: 1.1vh;
+}
+
+/* Stacking un-mirrors the row so it reads label-then-toggle like the rest. */
+.ytx-ui-container.ytx-grid-stack .ytx-grid {
+  grid-template-columns: 1fr;
+}
+
+.ytx-ui-container.ytx-grid-stack .ytx-grid > label .label-content {
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.ytx-ui-container.ytx-grid-stack
+  .ytx-grid
+  > label
+  .label-content
+  input[type='checkbox'] {
+  margin-right: 0;
+}
+
+/* Every row type - checkbox and cycle alike - is measured by this one rule, so
+   padding, line-height and the bleed margin cannot drift between them. */
+
+.ytx-ui-container label,
+.ytx-ui-container .ytx-cycle-row {
+  box-sizing: border-box;
+  padding: 1vh 0.75vh;
+  margin: 0 -0.75vh 0.2vh;
+  line-height: 1.1;
+  /* Pins the row height against children that bring their own box - the cycle
+     arrows and the value column both do. */
+  min-height: 2.75vh;
+}
+
+/* Inside a section the bleed margin is not wanted: the section already pads
+   horizontally, and bleeding past it misaligned the columns. */
+.ytx-settings-section label,
+.ytx-settings-section .ytx-cycle-row {
+  margin: 0 0 0.2vh;
+}
+
+/* On-screen entry point (the "YT-X" badge). */
+.ytx-ui-badge {
+  position: fixed;
+  left: 4.375vw;
+  top: 95.65vh;
+  transform: translateX(-50%);
+  z-index: 1100;
+  padding: 0.3em 0.7em;
+  font-size: 0.8rem;
+  line-height: 1.2;
+  color: #ffffff;
+  -webkit-font-smoothing: antialiased;
+  background: rgba(var(--ytx-dark-rgb), 0.72);
+  backdrop-filter: blur(0.8vh) saturate(1.1);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 999px;
+  opacity: 0.85;
+  cursor: pointer;
+  transition:
+    opacity 150ms ease,
+    background-color 150ms ease,
+    color 150ms ease;
+}
+
+.ytx-ui-badge:hover,
+.ytx-ui-badge:focus {
+  opacity: 1;
+  color: #ffffff;
+  /* Double ring: white inner edge against the dark plate, dark outer edge
+     against the plate, so the indicator reads over white video as well as
+     black. A single white outline vanishes on a bright frame. */
+  outline: 3px solid #ffffff;
+  outline-offset: 1px;
+  box-shadow:
+    0 0 0 1px #ffffff,
+    0 0 0 5px rgba(0, 0, 0, 0.8);
+}
+
+.ytx-ui-badge-hidden {
+  display: none;
+}
+
+/* Pointer-only mode: the badge fades with pointer activity; the panel-open
+   display:none rule still wins, since display:none beats opacity. */
+.ytx-ui-badge.ytx-badge-pointer-mode {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.ytx-ui-badge.ytx-badge-pointer-mode.ytx-badge-visible {
+  opacity: 0.85;
+  pointer-events: auto;
+}
+
+.ytx-sponsorblock-segment-container {
+  top: 0%;
+  height: 100%;
+  width: 100%;
+  pointer-events: none;
+  position: absolute;
+  overflow: hidden;
+}
+
+/* Fix: progress bar w/ chapter markers uses a different layout */
+[idomkey='player-bar-renderer']
+  :not([idomkey='slider'])
+  .ytx-sponsorblock-segment-container {
+  top: 0.28vh;
+  height: 75%;
+}
+
+/* Expand to overflow progress bar when focused */
+[idomkey='progress-bar'].zylon-focus .ytx-sponsorblock-segment-container {
+  top: -12%;
+  height: 124%;
+}
+
+.ytx-sponsorblock-segment {
+  opacity: 0.6;
+  height: 100%;
+  width: 100%;
+  position: absolute;
+  border-radius: 9001px;
+}
+
+/* Allow overlay segments to overflow */
+[idomkey='slider'],
+[idomkey='progress-bar'] {
+  overflow: unset !important;
+}
+
+.ytx-ui-version {
+  position: absolute;
+  right: 2rem;
+  bottom: 0.5rem;
+  color: #a0a0a0;
+  font-size: 1.48vh;
+}

@@ -1,5 +1,4 @@
-import './tv-specs';
-import { extractLaunchParams, handleLaunch } from './utils';
+import { extractLaunchParams, handleLaunch } from './core/utils';
 
 function main() {
   const params = extractLaunchParams();

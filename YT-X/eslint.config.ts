@@ -121,6 +121,7 @@ const configs = [
     // script/import sinks, so it would misfire on the Node tools' runtime
     // `import()` of built modules.
     rules: {
+      'no-console': 'error',
       'no-unsanitized/method': 'error',
       'no-unsanitized/property': 'error'
     }

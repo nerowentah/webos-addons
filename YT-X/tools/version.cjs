@@ -122,10 +122,7 @@ if (require.main === module) {
 }
 
 module.exports = {
-  getGitShortSha,
-  getBuildNumber,
   getVersion,
   getVersionInfo,
-  getRepository,
-  getOwner
+  getRepository
 };

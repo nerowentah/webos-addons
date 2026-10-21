@@ -1,0 +1,75 @@
+/* Playback scrim: a translucent wash plus a bottom gradient that keeps the
+   title band legible, tinted with the shared --ytx-dark-rgb token (ui.css) so
+   it matches the panel and follows the OLED/QNED theme. The 0.6 bottom stop
+   keeps white title/metadata text at ~5.7:1 worst case (WCAG AA, above the
+   0.55 floor in ui.css) while the video still reads through; blur softens
+   bright frames. Raise the alphas if the video still looks too bright. */
+.ytLrWatchDefaultShadow,
+[idomkey='shadow'] {
+  display: block !important;
+  height: 100% !important;
+  pointer-events: none !important;
+  position: absolute !important;
+  width: 100% !important;
+  background-image: linear-gradient(
+    to bottom,
+    rgba(var(--ytx-dark-rgb), 0) 0,
+    rgba(var(--ytx-dark-rgb), 0.12) 45%,
+    rgba(var(--ytx-dark-rgb), 0.6) 90%
+  ) !important;
+  background-color: rgba(var(--ytx-dark-rgb), 0.1) !important;
+  backdrop-filter: blur(0.8vh) saturate(1.1);
+}
+
+.ytLrWatchDefault2025Shadow {
+  background-color: rgba(var(--ytx-dark-rgb), 0.12) !important;
+}
+
+/* Watch-band override: YouTube (or the care theme) paints an opaque surface
+   behind title/artist/views/date. Make it translucent; the class is applied
+   by ui.js only on the watch page. 0.6 keeps white text >=4.5:1 worst case
+   (ui.css floors); blur softens bright video. */
+.ytx-watch-band-translucent {
+  background-color: rgba(var(--ytx-dark-rgb), 0.6) !important;
+  background-image: none !important;
+  backdrop-filter: blur(0.8vh) saturate(1.1);
+}
+
+/* Fixes shorts thumbnails. The solid bottom band keeps the metadata text at AA
+   contrast (~5.7:1 on white); the transparent top leaves the thumbnail visible.
+   z-index stays on the class alone: the attribute-matched header never had it. */
+.ytLrTileHeaderRendererShorts {
+  z-index: -1;
+}
+
+ytlr-tile-renderer[style*='width: 12.75rem; height: 21.25rem;']
+  ytlr-tile-header-renderer,
+.ytLrTileHeaderRendererShorts {
+  background: linear-gradient(
+    to top,
+    rgba(0, 0, 0, 0.85) 0%,
+    rgba(0, 0, 0, 0.85) 40%,
+    rgba(0, 0, 0, 0) 100%
+  ) !important;
+}
+
+/* Move stats-for-nerds UI to the left so it's not blocked by the settings panel */
+.iLKnN .html5-video-info-panel {
+  right: 40rem !important;
+  top: 12rem !important;
+}
+
+/* The inline hover preview never renders on this panel (LG's hardware video
+ * plane does not composite it), so the tile would go black; previews.js holds
+ * the paired audio teardown. */
+.fade-out-during-inline {
+  opacity: 1 !important;
+  visibility: visible !important;
+  transition: none !important;
+}
+
+/* Hide the "offer" surface, where this build renders its subscription upsells
+ * (Premium trials, upgrade prompts) when one is actually served. */
+ytlr-offer-button-list-renderer {
+  display: none !important;
+}
