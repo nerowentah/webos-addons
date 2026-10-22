@@ -1,5 +1,5 @@
 import { configRead, configAddChangeListener } from '../../config/config.js';
-import { showNotification } from '../../ui/notifications.js';
+import { showNotification } from '../../ui/notifications';
 import { NOTIFICATIONS } from '../../config/ui-text.js';
 import { addTVSpecsChangeListener, getTVSpecs } from '../../platform/tv-specs';
 import {

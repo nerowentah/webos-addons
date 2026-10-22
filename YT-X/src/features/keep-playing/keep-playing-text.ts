@@ -5,11 +5,11 @@ const DIALOG_TEXT_RE =
 const CONFIRM_LABEL_RE = /^(?:yes|continue|keep watching|resume|ok)/i;
 
 /** True when `text` looks like the inactivity "continue watching" prompt. */
-export function matchesContinueWatchingText(text) {
+export function matchesContinueWatchingText(text: unknown): boolean {
   return typeof text === 'string' && DIALOG_TEXT_RE.test(text);
 }
 
 /** True when `label` is an affirmative control of that prompt. */
-export function isConfirmLabel(label) {
+export function isConfirmLabel(label: unknown): boolean {
   return typeof label === 'string' && CONFIRM_LABEL_RE.test(label.trim());
 }

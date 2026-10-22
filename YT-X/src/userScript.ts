@@ -23,7 +23,7 @@ import './features/playback/video-quality';
 import './youtube/mods/lang-settings-fix';
 import './features/adblock/remove-endscreen';
 import './features/playback/force-codec.js';
-import './features/playback/previews.js';
+import './features/playback/previews';
 import './features/keep-playing/keep-playing.js';
 import './youtube/hooks';
 import './platform/block-webos-cast';

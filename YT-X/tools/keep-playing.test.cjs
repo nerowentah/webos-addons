@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Unit tests for the "Video paused. Continue watching?" text matchers
-// (src/features/keep-playing/keep-playing-text.js). Run with `npm test` (node --test). The module
+// (src/features/keep-playing/keep-playing-text.ts). Run with `npm test` (node --test). The module
 // path is built at runtime so this file does not statically import from src/.
 
 const test = require('node:test');
@@ -15,7 +15,7 @@ const textHref = pathToFileURL(
     'src',
     'features',
     'keep-playing',
-    'keep-playing-text.js'
+    'keep-playing-text.ts'
   )
 ).href;
 
