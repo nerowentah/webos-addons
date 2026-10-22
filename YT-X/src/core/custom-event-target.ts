@@ -23,61 +23,63 @@ export const TypedCustomEvent = CustomEvent as {
   prototype: BaseTypedEvent<EventTarget, CustomEvent<unknown>, string>;
 };
 
-// Sentinel bound: event maps may be any user-defined interface shape.
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
-interface EmptyEventMap {}
-
+// Event maps may be any user-defined interface shape (which, unlike a Record
+// bound, need no index signature), so the bound is just "an object".
 type EventMapValue<
-  T extends EmptyEventMap,
+  T extends object,
   K extends keyof T & string
 > = T[K] extends Event ? T[K] : never;
 
-interface EventListener<
+/** Any event the map describes, tagged with its own name so `type` and payload cannot disagree. */
+type DispatchableEvent<T extends object> = {
+  [K in keyof T & string]: EventMapValue<T, K> & { readonly type: K };
+}[keyof T & string];
+
+interface TypedEventListener<
   Self extends EventTarget,
-  T extends EmptyEventMap,
+  T extends object,
   EventName extends keyof T
 > {
   (this: Self, evt: T[EventName] & TypedEvent<Self, EventName>): void;
 }
 
-interface EventListenerObject<
+// Per the DOM, handleEvent is invoked with `this` bound to the listener object itself, not the target.
+interface TypedEventListenerObject<
   Self extends EventTarget,
-  T extends EmptyEventMap,
+  T extends object,
   EventName extends keyof T
 > {
-  handleEvent: EventListener<Self, T, EventName>;
+  handleEvent(evt: T[EventName] & TypedEvent<Self, EventName>): void;
 }
 
-type EventListenerArg<
+type TypedEventListenerArg<
   Self extends EventTarget,
-  T extends EmptyEventMap,
+  T extends object,
   EventName extends keyof T
 > =
-  | EventListener<Self, T, EventName>
-  | EventListenerObject<Self, T, EventName>
+  | TypedEventListener<Self, T, EventName>
+  | TypedEventListenerObject<Self, T, EventName>
   | null;
 
-interface CustomEventTarget<T extends EmptyEventMap> {
+interface CustomEventTarget<T extends object> {
   addEventListener<K extends keyof T & string>(
     type: K,
-    callback: EventListenerArg<this, T, K>,
+    callback: TypedEventListenerArg<this, T, K>,
     options?: boolean | AddEventListenerOptions
   ): void;
 
   removeEventListener<K extends keyof T & string>(
     type: K,
-    callback: EventListenerArg<this, T, K>,
+    callback: TypedEventListenerArg<this, T, K>,
     options?: boolean | EventListenerOptions
   ): void;
 
-  dispatchEvent<K extends keyof T & string>(
-    event: EventMapValue<T, K>
-  ): boolean;
+  dispatchEvent(event: DispatchableEvent<T>): boolean;
 }
 
 export const CustomEventTarget = EventTarget as {
-  new <T extends EmptyEventMap>(): CustomEventTarget<T>;
-  prototype: CustomEventTarget<EmptyEventMap>;
+  new <T extends object>(): CustomEventTarget<T>;
+  prototype: CustomEventTarget<object>;
 };
 
 export type EventMapOf<T> =

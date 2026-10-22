@@ -3,6 +3,10 @@
   "compilerOptions": {
     "types": ["node"],
     "checkJs": true,
+    // The tools run natively under Node (type stripping), which needs the .ts
+    // extension on relative imports and only supports erasable syntax.
+    "allowImportingTsExtensions": true,
+    "erasableSyntaxOnly": true,
 
     "module": "NodeNext",
 

@@ -33,7 +33,7 @@ function makeConfig(api) {
           method: 'usage-pure',
           version: corejspureVersion,
           // Pure polyfills would rewrite JSON.parse/stringify into imports,
-          // bypassing the hooks in src/youtube/hooks and src/features/adblock/adblock.js.
+          // bypassing the hooks in src/youtube/hooks and src/features/adblock/adblock.ts.
           exclude: ['es.json.parse', 'esnext.json.parse']
         }
       ]

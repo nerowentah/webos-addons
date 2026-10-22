@@ -1,7 +1,7 @@
 import TerserPlugin from 'terser-webpack-plugin';
 import webpack from 'webpack';
 import { basename } from 'node:path';
-import { getVersionInfo } from './tools/version.cjs';
+import { getVersionInfo } from './tools/version.ts';
 
 const { version, gitSha, owner } = getVersionInfo();
 
@@ -109,7 +109,7 @@ const makeConfig = (env) => [
     },
 
     entry: {
-      index: './src/index.js',
+      index: './src/index.ts',
       userScript: {
         import: './src/userScript',
         filename: 'webOSUserScripts/[name].js'

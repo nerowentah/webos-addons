@@ -2,10 +2,13 @@ import { waitForChildAdd } from '../../core/utils';
 
 import type { YTPlayer } from './yt-api';
 
+const PLAYER_WAIT_MS = 30_000;
+
 /** document.querySelector, but waits for the element to be added if absent. */
 async function requireElement<E extends typeof Element>(
   cssSelectors: string,
-  expected: E
+  expected: E,
+  signal?: AbortSignal
 ): Promise<InstanceType<E>> {
   const alreadyPresent = document.querySelector(cssSelectors);
   if (alreadyPresent) {
@@ -16,10 +19,11 @@ async function requireElement<E extends typeof Element>(
   }
 
   const result = await waitForChildAdd(
-    document.body,
+    document.documentElement,
     (node): node is Element =>
       node instanceof Element && node.matches(cssSelectors),
-    true
+    true,
+    signal
   );
 
   if (!(result instanceof expected)) throw new Error();
@@ -27,14 +31,35 @@ async function requireElement<E extends typeof Element>(
 }
 
 let player: YTPlayer | null = null;
+let pending: Promise<YTPlayer> | null = null;
 
-export async function getPlayer(): Promise<YTPlayer> {
-  if (player) return player;
+/**
+ * The page's player, waiting for it to mount; rejects (and disconnects its observer) after PLAYER_WAIT_MS, or when `signal` aborts. Concurrent callers share one wait; a failed wait can be retried.
+ */
+export function getPlayer(signal?: AbortSignal): Promise<YTPlayer> {
+  if (player) return Promise.resolve(player);
+  if (pending) return pending;
 
-  player = (await requireElement(
+  const controller = new AbortController();
+  const timer = setTimeout(
+    () => controller.abort(new Error('Timed out waiting for the player')),
+    PLAYER_WAIT_MS
+  );
+  const onOuterAbort = () => controller.abort(signal?.reason);
+  if (signal?.aborted) onOuterAbort();
+  else signal?.addEventListener('abort', onOuterAbort, { once: true });
+
+  const attempt = requireElement(
     '.html5-video-player',
-    HTMLElement
-  )) as YTPlayer;
-
-  return player;
+    HTMLElement,
+    controller.signal
+  )
+    .then((el) => (player = el as YTPlayer))
+    .finally(() => {
+      clearTimeout(timer);
+      signal?.removeEventListener('abort', onOuterAbort);
+      pending = null;
+    });
+  pending = attempt;
+  return attempt;
 }

@@ -22,7 +22,7 @@ const configs = [
   regexpPlugin.configs['flat/recommended'],
 
   // TypeScript: parser + TS-aware rules for *.ts/*.mts/*.cts. Re-scoped so the
-  // JS files keep exactly their pre-TS lint rules.
+  // few remaining JS files (the webpack/babel build bootstrap) keep the core rules.
   ...tseslint.configs.recommended.map((config) => ({
     ...(config as Linter.Config),
     files: tsFiles
