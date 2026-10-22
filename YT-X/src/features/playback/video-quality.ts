@@ -4,7 +4,8 @@ import type { EventMapOf, PlayerManager } from '../../youtube/player_api';
 import { showNotification } from '../../ui/ui';
 import { NOTIFICATIONS } from '../../config/ui-text';
 
-const playerManager = await getPlayerManager();
+// A page without a player (the wait times out) just goes without these features.
+const playerManager = await getPlayerManager().catch(() => null);
 
 function shouldForce() {
   return configRead('forceHighResVideo');
@@ -102,5 +103,5 @@ function showQualityOnStart(this: PlayerManager) {
   }, QUALITY_TOAST_DELAY_MS);
 }
 
-playerManager.addEventListener('newVideo', handleNewVideo);
-playerManager.addEventListener('playbackStart', showQualityOnStart);
+playerManager?.addEventListener('newVideo', handleNewVideo);
+playerManager?.addEventListener('playbackStart', showQualityOnStart);

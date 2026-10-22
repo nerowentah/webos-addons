@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Unit test for the settings-grid column rule (src/core/layout.js). Run with
+// Unit test for the settings-grid column rule (src/core/layout.ts). Run with
 // `npm test` (node --test). The module path is built at runtime so this file
 // does not statically import from src/ (which would pull it into the tooling
 // tsconfig project).
@@ -10,7 +10,7 @@ const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 
 const layoutHref = pathToFileURL(
-  path.join(__dirname, '..', 'src', 'core', 'layout.js')
+  path.join(__dirname, '..', 'src', 'core', 'layout.ts')
 ).href;
 
 test('gridColumns uses two columns below the threshold', async () => {

@@ -1,9 +1,9 @@
-import { handleLaunch } from './core/utils';
+import { handleRelaunch } from './core/utils';
 
 document.addEventListener(
   'webOSRelaunch',
   (evt) => {
-    handleLaunch(evt.detail);
+    handleRelaunch(evt.detail);
   },
   true
 );

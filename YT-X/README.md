@@ -55,9 +55,11 @@ Both upstream projects are licensed GPL-3.0, which this project matches (see
 ### Interface
 
 - Panel Care Mode with per-panel profiles: OLED-Care (true black UI) and
-  QNED MiniLED-Care (dark comfort UI)
-- Panel Care Mode defaults to Auto, which reads the panel type from the app's
-  user agent and applies the matching profile; unclassified panels fall back to
+  QNED MiniLED-Care (dark comfort UI). Off uses the neutral translucent
+  QNED-style plate while leaving YouTube's page surfaces untouched
+- Panel Care Mode defaults to Auto, which reads the model string from the app's
+  user agent (the only signal when `webOS.deviceInfo` is unavailable) and
+  applies the matching profile; unclassified panels fall back to
   Off, and the manual setting always overrides detection
 - Classic Red is the only UI theme
 - Fix multiline titles
@@ -234,6 +236,14 @@ Note: `dialAppName` is what registers the app with the TV's DIAL service
 (`com.webos.service.dial`), the only way the mobile YouTube app discovers the
 TV. Do not remove it — without it, the TV disappears from the phone's cast
 list entirely.
+
+### Video is not blurred behind translucent plates
+
+webOS renders `<video>` on a separate native/hardware plane. CSS
+`backdrop-filter` cannot sample it, so the translucent playback plates rely on
+their alpha background; the blur affects DOM content only. Do not add
+`transform`, `filter` or `will-change` to `<video>` or its ancestors to try to
+blur the video: that breaks native pass-through and can hurt playback.
 
 ---
 

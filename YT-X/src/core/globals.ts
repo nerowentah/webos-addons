@@ -1,4 +1,12 @@
-type webOSLaunchParams = Record<string, unknown>;
+import type { LaunchParams } from './launch-url';
+
+/** Detail of the `ytx-page-update` window event (core/utils.ts). */
+export interface PageUpdateDetail {
+  isWatch: boolean;
+  isShorts: boolean;
+  isAccountSelector: boolean;
+  isSearch: boolean;
+}
 
 /**
  * Device info from the platform-injected `webOS` API; only the members this app reads are declared, and webos-device.ts probes both the documented callback shape and the community object shape at runtime.
@@ -71,15 +79,25 @@ interface WebOSApi {
 
 declare global {
   interface Window {
-    launchParams?: webOSLaunchParams;
+    /** JSON string injected by the platform at launch; may be absent or malformed. */
+    launchParams?: string;
     webOS?: WebOSApi;
+  }
+
+  interface WindowEventMap {
+    'ytx-page-update': CustomEvent<PageUpdateDetail>;
   }
 
   interface Document {
     addEventListener(
       eventName: 'webOSRelaunch',
-      listener: (evt: CustomEvent<webOSLaunchParams>) => void,
-      useCapture?: boolean
+      listener: (evt: CustomEvent<LaunchParams>) => void,
+      options?: boolean | AddEventListenerOptions
+    ): void;
+    removeEventListener(
+      eventName: 'webOSRelaunch',
+      listener: (evt: CustomEvent<LaunchParams>) => void,
+      options?: boolean | EventListenerOptions
     ): void;
   }
 }

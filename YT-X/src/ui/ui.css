@@ -1,13 +1,23 @@
-/* Shared dark plate hue (panel, badge, playback scrim); the OLED/QNED theme
-   rules in ui.js override it.
+/* Shared dark plate hue and panel alpha (panel, badge, playback scrim). Off and
+   QNED share the neutral translucent base; html.oled-theme-active (ui.js)
+   overrides both to true black. Comma form: rgba() rejects space-separated
+   channels in a var().
 
    WCAG AA alpha floors: over a worst-case white backdrop a translucent dark
    plate keeps 4.5:1 only if its alpha stays at or above the text's floor -
    #fff 0.55, #b5b5b5 0.70, #a0a0a0 0.75, #ff4444 0.90 (so red text belongs on
-   the 0.95 panel, never the badge). backdrop-filter blur softens bright bleed
-   but does not guarantee contrast; keep the alphas. */
+   the 0.95 panel, never the badge). backdrop-filter is DOM-only on webOS and
+   does not guarantee contrast; keep the alphas.
+
+   Off/QNED use 20,20,20 / 0.95; OLED overrides to 0,0,0 / 1. --ytx-backdrop
+   is a web-compositor effect only: webOS renders <video> on a separate
+   native/hardware plane, so the blur cannot sample live video. The alpha
+   background is the actual video treatment. Never add transform, filter or
+   will-change to <video> or its ancestors to force blur sampling. */
 :root {
-  --ytx-dark-rgb: 26 26 26;
+  --ytx-dark-rgb: 20, 20, 20;
+  --ytx-panel-alpha: 0.95;
+  --ytx-backdrop: blur(0.8vh) saturate(1.1);
 }
 
 /* Classic Red is the only theme, so these are base values, not an override:
@@ -35,8 +45,8 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background-color: rgba(var(--ytx-dark-rgb), 0.95);
-  backdrop-filter: blur(0.8vh) saturate(1.1);
+  background-color: rgba(var(--ytx-dark-rgb), var(--ytx-panel-alpha));
+  backdrop-filter: var(--ytx-backdrop, blur(0.8vh) saturate(1.1));
   border: 0.09vh solid #3f3f3f;
   border-radius: 1.5vh;
   transition:
@@ -174,6 +184,8 @@
   border-radius: 0.4vh;
 }
 
+/* The checkbox plate shares the panel's background tokens, so the control reads
+   as a hole in the panel rather than a chip sitting on it. */
 .ytx-ui-container input[type='checkbox'] {
   /* Declared, not inherited: the panel lives in YouTube's document, and losing
      border-box would widen the checkbox column 0.38vh and misalign the rows. */
@@ -183,7 +195,7 @@
   margin: 0 1.1vh 0 0;
   appearance: none;
   -webkit-appearance: none;
-  background: #2a2a2a;
+  background: rgba(var(--ytx-dark-rgb), var(--ytx-panel-alpha));
   border-radius: 0.4vh;
   position: relative;
   cursor: pointer;
@@ -296,23 +308,6 @@
 .ytx-ui-container.oled-care,
 .ytx-ui-container.qned-care {
   border: 0.09vh solid rgba(255, 0, 0, 0.35);
-}
-
-/* Each checkbox plate matches its panel background, so the control reads as a
-   hole in the panel rather than a chip sitting on it. */
-.ytx-ui-container.oled-care,
-.ytx-ui-container.oled-care input[type='checkbox'] {
-  background: #000000;
-}
-
-.ytx-ui-container.qned-care,
-.ytx-ui-container.qned-care input[type='checkbox'] {
-  background: rgba(20, 20, 20, 0.95);
-}
-
-.ytx-ui-container.oled-care input[type='checkbox'],
-.ytx-ui-container.qned-care input[type='checkbox'] {
-  border-color: #767676;
 }
 
 /* Fill and border must differ: left at #555555 both would vanish into each
@@ -587,7 +582,7 @@
   color: #ffffff;
   -webkit-font-smoothing: antialiased;
   background: rgba(var(--ytx-dark-rgb), 0.72);
-  backdrop-filter: blur(0.8vh) saturate(1.1);
+  backdrop-filter: var(--ytx-backdrop, blur(0.8vh) saturate(1.1));
   border: 1px solid rgba(255, 255, 255, 0.25);
   border-radius: 999px;
   opacity: 0.85;

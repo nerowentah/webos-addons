@@ -17,7 +17,7 @@ import {
   showNotification as notificationsShowNotification,
   setNotificationPanelCare
 } from './notifications.js';
-import { isWatchPage, REMOTE_KEYS, SYNTHETIC_KEY_FLAG } from '../core/utils.js';
+import { REMOTE_KEYS, SYNTHETIC_KEY_FLAG } from '../core/utils.js';
 import { gridColumns } from '../core/layout.js';
 import { PANEL } from '../config/ui-text.js';
 
@@ -304,7 +304,7 @@ function createOptionsPanel() {
         if (
           e.key === 'Escape' ||
           e.key === 'Back' ||
-          e.keyCode === REMOTE_KEYS.BACK.code ||
+          e.keyCode === REMOTE_KEYS.BACK.keyCode ||
           e.code === 'Backspace'
         ) {
           e.preventDefault();
@@ -788,10 +788,10 @@ function findSpatialNeighbor(current, list, direction) {
 }
 
 const NAV_DIRECTIONS = {
-  [REMOTE_KEYS.UP.code]: 'ArrowUp',
-  [REMOTE_KEYS.DOWN.code]: 'ArrowDown',
-  [REMOTE_KEYS.LEFT.code]: 'ArrowLeft',
-  [REMOTE_KEYS.RIGHT.code]: 'ArrowRight'
+  [REMOTE_KEYS.UP.keyCode]: 'ArrowUp',
+  [REMOTE_KEYS.DOWN.keyCode]: 'ArrowDown',
+  [REMOTE_KEYS.LEFT.keyCode]: 'ArrowLeft',
+  [REMOTE_KEYS.RIGHT.keyCode]: 'ArrowRight'
 };
 
 const isHorizontal = (direction) =>
@@ -811,7 +811,7 @@ function handlePanelNavKey(evt) {
   // focus has escaped the panel, and it is consumed so YouTube's own back
   // handling cannot navigate the page out from under an open panel. webOS
   // reports the key as keyCode 461; `key` is not stable across engines.
-  if (evt.keyCode === REMOTE_KEYS.BACK.code) {
+  if (evt.keyCode === REMOTE_KEYS.BACK.keyCode) {
     consume(evt);
     showOptionsPanel(false);
     return;
@@ -854,7 +854,7 @@ function handlePanelNavKey(evt) {
   }
 
   // Checkboxes do not toggle on Enter natively, so the click is issued here and the default suppressed to avoid a second activation.
-  if (evt.keyCode === REMOTE_KEYS.ENTER.code && inPanel) {
+  if (evt.keyCode === REMOTE_KEYS.ENTER.keyCode && inPanel) {
     if (focused.matches(PANEL_FOCUSABLE_SELECTOR)) {
       consume(evt);
       focused.click();
@@ -930,10 +930,10 @@ document.addEventListener('cursorStateChange', (evt) => {
   if (evt.detail && evt.detail.visibility === false) hidePointerBadge();
 });
 const ARROW_KEY_CODE = new Set([
-  REMOTE_KEYS.LEFT.code,
-  REMOTE_KEYS.UP.code,
-  REMOTE_KEYS.RIGHT.code,
-  REMOTE_KEYS.DOWN.code
+  REMOTE_KEYS.LEFT.keyCode,
+  REMOTE_KEYS.UP.keyCode,
+  REMOTE_KEYS.RIGHT.keyCode,
+  REMOTE_KEYS.DOWN.keyCode
 ]);
 window.addEventListener(
   'keydown',
@@ -946,57 +946,6 @@ window.addEventListener(
 window.addEventListener('ytx-page-update', (evt) => {
   if (evt.detail.isWatch || evt.detail.isShorts) hidePointerBadge();
 });
-
-// Watch-band translucency: walk up from the playback scrim and make any
-// opaque ancestor (YouTube's solid metadata surface or a care-theme plate)
-// translucent. Re-run on nav; the class is stripped off the watch page.
-const WATCH_BAND_CANDIDATES = '.p0DeOc, .Jx9xPc, .k82tDb';
-const WATCH_BAND_CLASS = 'ytx-watch-band-translucent';
-// getComputedStyle reports a solid colour as rgb(...) with no alpha channel.
-const isOpaqueColor = (color) => {
-  if (!color.startsWith('rgb')) return false;
-  const alpha = color.split(',')[3];
-  return alpha === undefined || parseFloat(alpha) >= 0.9;
-};
-let watchBandFrame = 0;
-function applyWatchBandTranslucency() {
-  const scrim =
-    document.querySelector("[idomkey='shadow']") ||
-    document.querySelector('.ytLrWatchDefaultShadow') ||
-    document.querySelector('.ytLrWatchDefault2025Shadow');
-  const active = scrim?.isConnected && isWatchPage();
-  if (!active) {
-    document.querySelectorAll(`.${WATCH_BAND_CLASS}`).forEach((el) => {
-      el.classList.remove(WATCH_BAND_CLASS);
-    });
-    return;
-  }
-  let el = scrim.parentElement;
-  for (let depth = 0; el && depth < 6; depth++, el = el.parentElement) {
-    if (el.classList.contains(WATCH_BAND_CLASS)) continue;
-    if (
-      el.matches(WATCH_BAND_CANDIDATES) ||
-      isOpaqueColor(getComputedStyle(el).backgroundColor)
-    ) {
-      el.classList.add(WATCH_BAND_CLASS);
-    }
-  }
-}
-// Transition/animation events fire in bursts; coalesce them to one pass per frame.
-function scheduleWatchBandTranslucency() {
-  if (watchBandFrame) return;
-  watchBandFrame = requestAnimationFrame(() => {
-    watchBandFrame = 0;
-    applyWatchBandTranslucency();
-  });
-}
-window.addEventListener('ytx-page-update', applyWatchBandTranslucency);
-['transitionend', 'animationend'].forEach((evt) => {
-  document.addEventListener(evt, scheduleWatchBandTranslucency, {
-    passive: true
-  });
-});
-applyWatchBandTranslucency();
 
 function initGlobalStyles() {
   // Toggles live on <html> because YouTube rewrites body.className on tab
@@ -1022,45 +971,43 @@ function initGlobalStyles() {
     html.ytx-hide-logo ytlr-redux-connect-ytlr-logo-entity,
     html.ytx-hide-logo ytlr-logo-entity { visibility: hidden !important; }
 
-    html.oled-theme-active { --ytx-dark-rgb: 0 0 0; }
-    html.qned-theme-active { --ytx-dark-rgb: 20 20 20; }
+    html.oled-theme-active { --ytx-dark-rgb: 0, 0, 0; --ytx-panel-alpha: 1; --ytx-page-bg: #000; }
+    html.qned-theme-active { --ytx-page-bg: #141414; }
 
     html.oled-theme-active #container,
+    html.qned-theme-active #container,
     html.oled-theme-active .ytLrGuideResponseMask,
+    html.qned-theme-active .ytLrGuideResponseMask,
     html.oled-theme-active .geClSe,
+    html.qned-theme-active .geClSe,
     html.oled-theme-active .hsdF6b,
+    html.qned-theme-active .hsdF6b,
     html.oled-theme-active .ytLrAnimatedOverlayContainer,
+    html.qned-theme-active .ytLrAnimatedOverlayContainer,
     html.oled-theme-active .ZghAqf,
+    html.qned-theme-active .ZghAqf,
     html.oled-theme-active .RAE3Re .AmQJbe,
+    html.qned-theme-active .RAE3Re .AmQJbe,
     html.oled-theme-active .tVp1L,
+    html.qned-theme-active .tVp1L,
     html.oled-theme-active .DnwJH,
+    html.qned-theme-active .DnwJH,
     html.oled-theme-active .qRdzpd.stQChb .TYE3Ed,
-    html.oled-theme-active .k82tDb { background-color: #000 !important; }
+    html.qned-theme-active .qRdzpd.stQChb .TYE3Ed,
+    html.oled-theme-active .k82tDb,
+    html.qned-theme-active .k82tDb,
+    html.oled-theme-active .Jx9xPc,
+    html.qned-theme-active .Jx9xPc,
+    html.oled-theme-active .p0DeOc,
+    html.qned-theme-active .p0DeOc,
+    html.oled-theme-active ytlr-surface-page,
+    html.qned-theme-active ytlr-surface-page { background-color: var(--ytx-page-bg) !important; }
     html.oled-theme-active .ytLrGuideResponseGradient { display: none; }
     html.oled-theme-active .iha0pc { color: #000 !important; }
-    html.oled-theme-active .Jx9xPc { background-color: #000 !important; }
-    html.oled-theme-active .p0DeOc { background-color: #000 !important; background-image: none !important; }
+    html.oled-theme-active .p0DeOc { background-image: none !important; }
+    html.oled-theme-active ytlr-surface-page { background-image: none !important; }
     html.oled-theme-active ytlr-player-focus-ring { border: 0.375rem solid rgb(200, 200, 200) !important; }
-    html.oled-theme-active ytlr-surface-page { background-image: none !important; background-color: #000 !important; }
-
-    html.qned-theme-active #container,
-    html.qned-theme-active .ytLrGuideResponseMask,
-    html.qned-theme-active .geClSe,
-    html.qned-theme-active .hsdF6b,
-    html.qned-theme-active .ytLrAnimatedOverlayContainer,
-    html.qned-theme-active .ZghAqf,
-    html.qned-theme-active .RAE3Re .AmQJbe,
-    html.qned-theme-active .tVp1L,
-    html.qned-theme-active .DnwJH,
-    html.qned-theme-active .qRdzpd.stQChb .TYE3Ed,
-    html.qned-theme-active .k82tDb { background-color: #141414 !important; }
-    html.qned-theme-active .Jx9xPc { background-color: #141414 !important; }
-    html.qned-theme-active .p0DeOc { background-color: #141414 !important; }
     html.qned-theme-active ytlr-player-focus-ring { border: 0.375rem solid rgb(160, 160, 160) !important; }
-    html.qned-theme-active ytlr-surface-page { background-color: #141414 !important; }
-
-    html.oled-theme-active .ytx-watch-band-translucent { background-color: rgba(0, 0, 0, 0.6) !important; }
-    html.qned-theme-active .ytx-watch-band-translucent { background-color: rgba(20, 20, 20, 0.6) !important; }
 
     html.ytx-fix-titles .SK1srf .WVWtef,
     html.ytx-fix-titles .SK1srf .niS3yd {
