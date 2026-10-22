@@ -57,7 +57,7 @@ function walk(node, cap, where) {
 }
 
 async function main() {
-  const modulePath = path.join(ROOT, 'src', 'config', 'ui-text.js');
+  const modulePath = path.join(ROOT, 'src', 'config', 'ui-text.ts');
   const mod = await import(pathToFileURL(modulePath).href);
   const {
     MAX_UI_TEXT,

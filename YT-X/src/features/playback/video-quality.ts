@@ -25,7 +25,9 @@ function notifyPlaybackQuality(this: PlayerManager) {
   const selected = player.getPlaybackQualityLabel();
   const max = getMaxQualityLabel(player);
 
-  showNotification(NOTIFICATIONS.selectedMax(selected, max), 3000);
+  if (max !== undefined) {
+    showNotification(NOTIFICATIONS.selectedMax(selected, max), 3000);
+  }
 
   this.removeEventListener('playbackStart', notifyPlaybackQuality);
 }

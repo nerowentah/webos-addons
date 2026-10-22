@@ -1,3 +1,5 @@
+import type { ConfigKey } from './config';
+
 // Central registry of user-visible strings; kept DOM/config-free for the plain-Node
 // check. Caps: MAX_LABEL_TEXT (28) fits a 3-column cell, MAX_UI_TEXT (40) the rest.
 export const MAX_UI_TEXT = 40;
@@ -44,7 +46,7 @@ export const UI_LABELS = {
   enableSponsorBlockFiller: 'Skip Tangents',
   enableSponsorBlockHook: 'Skip Hook',
   enableSponsorBlockHighlight: 'Skip to Highlight'
-};
+} satisfies Record<ConfigKey, string>;
 
 /** Options-panel chrome. */
 export const PANEL = {
@@ -82,13 +84,15 @@ export const SPONSOR_POPUP = {
   }
 };
 
-// Toast templates; interpolated values are unbound, so notifications.js clamps them on device.
+// Toast templates; interpolated values are unbound, so notifications.ts clamps them on device.
 export const NOTIFICATIONS = {
-  codecReload: (mode) => `Codec: ${mode} — reload to apply`,
+  codecReload: (mode: string) => `Codec: ${mode} — reload to apply`,
   codecUnavailable: 'Codec unavailable — staying on Auto',
-  skipping: (name) => `Skipping ${name}`,
-  muted: (name) => `Muted ${name} segment`,
-  sponsorNew: (n) => `SponsorBlock: ${n} new segment${n === 1 ? '' : 's'}`,
-  playingIn: (label) => `Playing in ${label}`,
-  selectedMax: (selected, max) => `${selected} selected (Max ${max})`
+  skipping: (name: string) => `Skipping ${name}`,
+  muted: (name: string) => `Muted ${name} segment`,
+  sponsorNew: (n: number) =>
+    `SponsorBlock: ${n} new segment${n === 1 ? '' : 's'}`,
+  playingIn: (label: string) => `Playing in ${label}`,
+  selectedMax: (selected: string, max: string) =>
+    `${selected} selected (Max ${max})`
 };
