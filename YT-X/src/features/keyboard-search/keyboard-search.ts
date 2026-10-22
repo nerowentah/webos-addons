@@ -1,9 +1,5 @@
-import { configRead } from '../../config/config.js';
-import {
-  isSearchPage,
-  COLOR_CODE_MAP,
-  SYNTHETIC_KEY_FLAG
-} from '../../core/utils.js';
+import { configRead } from '../../config/config';
+import { isSearchPage, isSyntheticKey, COLOR_CODE_MAP } from '../../core/utils';
 
 /**
  * Types in Search with a USB/Bluetooth keyboard by pressing the on-screen
@@ -37,7 +33,7 @@ const BACKSPACE_ICON = /backspace|delete|erase/i;
 const SEARCH_ICON = /search|magnif/i;
 
 // US layout, only for engines without KeyboardEvent.key (Chrome < 51).
-const PUNCTUATION = {
+const PUNCTUATION: Record<number, string> = {
   186: ';',
   187: '=',
   188: ',',
@@ -54,94 +50,110 @@ const KEY_BACKSPACE = 8;
 const KEY_ENTER = 13;
 
 // 'unknown' until the first character settles it: 'native' (YouTube types by itself), 'osk' (we press on-screen keys) or 'none' (nothing worked).
-let mode = 'unknown';
+type Mode = 'unknown' | 'native' | 'osk' | 'none';
+
+/** The first character(s) typed while the mode is undecided, queued until YouTube's reaction is known. */
+interface Probe {
+  before: string | null;
+  chars: string[];
+  timer: ReturnType<typeof setTimeout> | null;
+}
+
+let mode: Mode = 'unknown';
 let pressStrategy = 0;
 let lastTypedAt = 0;
 let typedCount = 0;
-let probe = null;
-const swallowedKeyUps = [];
+let probe: Probe | null = null;
+const swallowedKeyUps: number[] = [];
 
-function isVisible(el) {
-  if (!el || !el.isConnected) return false;
+function isVisible(el: Element): boolean {
+  if (!el.isConnected) return false;
   const r = el.getBoundingClientRect();
   return r.width > 0 && r.height > 0;
 }
 
-function onScreenKeys() {
-  let keys = Array.prototype.slice.call(
-    document.querySelectorAll(KEY_SELECTOR)
-  );
+function onScreenKeys(): HTMLElement[] {
+  let keys = Array.from(document.querySelectorAll<HTMLElement>(KEY_SELECTOR));
   if (keys.length === 0) {
     // Class-named keys: keep the outermost element of each key, not its label.
-    keys = Array.prototype.slice
-      .call(document.querySelectorAll(KEY_CLASS_SELECTOR))
-      .filter(
-        (el) =>
-          !el.parentElement || !el.parentElement.closest(KEY_CLASS_SELECTOR)
-      );
+    keys = Array.from(
+      document.querySelectorAll<HTMLElement>(KEY_CLASS_SELECTOR)
+    ).filter(
+      (el) => !el.parentElement || !el.parentElement.closest(KEY_CLASS_SELECTOR)
+    );
   }
   return keys.filter(isVisible);
 }
 
-function labelOf(el) {
+function labelOf(el: Element): string {
   return (el.getAttribute('aria-label') || el.textContent || '')
     .replace(/\s+/g, ' ')
     .trim();
 }
 
-function iconClassesOf(el) {
+function iconClassesOf(el: Element): string {
   let names = typeof el.className === 'string' ? el.className : '';
-  const inner = el.querySelectorAll('[class]');
-  for (let i = 0; i < inner.length; i++) {
-    const c = inner[i].getAttribute('class');
+  for (const inner of el.querySelectorAll('[class]')) {
+    const c = inner.getAttribute('class');
     if (c) names += ' ' + c;
   }
   return names;
 }
 
-function findKey(ch) {
+function findKey(ch: string): HTMLElement | null {
   const keys = onScreenKeys();
   if (ch === ' ') return findSpecialKey(keys, SPACE_LABEL, SPACE_ICON);
   const wanted = ch.toLowerCase();
-  for (let i = 0; i < keys.length; i++) {
-    const label = labelOf(keys[i]);
-    if (label.length === 1 && label.toLowerCase() === wanted) return keys[i];
+  for (const key of keys) {
+    const label = labelOf(key);
+    if (label.length === 1 && label.toLowerCase() === wanted) return key;
   }
   return null;
 }
 
-function findSpecialKey(keys, labelPattern, iconPattern) {
-  for (let i = 0; i < keys.length; i++) {
-    if (labelPattern.test(labelOf(keys[i]))) return keys[i];
+function findSpecialKey(
+  keys: readonly HTMLElement[],
+  labelPattern: RegExp,
+  iconPattern: RegExp
+): HTMLElement | null {
+  for (const key of keys) {
+    if (labelPattern.test(labelOf(key))) return key;
   }
   // Icon-only keys: no text of their own, the icon's class names the job.
-  for (let i = 0; i < keys.length; i++) {
+  for (const key of keys) {
     if (
-      (keys[i].textContent || '').trim() === '' &&
-      iconPattern.test(iconClassesOf(keys[i]))
+      (key.textContent || '').trim() === '' &&
+      iconPattern.test(iconClassesOf(key))
     )
-      return keys[i];
+      return key;
   }
   return null;
 }
 
-function queryText() {
-  for (let i = 0; i < QUERY_SELECTORS.length; i++) {
-    const el = document.querySelector(QUERY_SELECTORS[i]);
+function queryText(): string | null {
+  for (const selector of QUERY_SELECTORS) {
+    const el = document.querySelector(selector);
     if (!el) continue;
-    const input = el.querySelector('input, textarea');
+    const input = el.querySelector<HTMLInputElement | HTMLTextAreaElement>(
+      'input, textarea'
+    );
     return input ? input.value : el.textContent || '';
   }
   return null;
 }
 
-function centreOf(el) {
+interface Point {
+  clientX: number;
+  clientY: number;
+}
+
+function centreOf(el: Element): Point {
   const r = el.getBoundingClientRect();
   return { clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 };
 }
 
-function dispatchMouse(el, type, at) {
-  let evt;
+function dispatchMouse(el: Element, type: string, at: Point): void {
+  let evt: MouseEvent;
   try {
     evt = new MouseEvent(type, {
       bubbles: true,
@@ -176,7 +188,7 @@ function dispatchMouse(el, type, at) {
 }
 
 // Ways of pressing an on-screen key, tried in order until one changes the query; the working one is kept.
-const PRESS_STRATEGIES = [
+const PRESS_STRATEGIES: readonly ((el: HTMLElement) => void)[] = [
   function click(el) {
     el.click();
   },
@@ -203,24 +215,25 @@ const PRESS_STRATEGIES = [
   }
 ];
 
-function press(el, strategy) {
+function press(el: HTMLElement, strategy: number): boolean {
   try {
-    PRESS_STRATEGIES[strategy](el);
+    const run = PRESS_STRATEGIES[strategy];
+    if (!run) return false;
+    run(el);
     return true;
   } catch {
     return false;
   }
 }
 
-function swallow(evt) {
+function swallow(evt: KeyboardEvent): void {
   evt.preventDefault();
   evt.stopImmediatePropagation();
   // YouTube may act on the keyup too; it gets neither half.
-  if (swallowedKeyUps.indexOf(evt.keyCode) === -1)
-    swallowedKeyUps.push(evt.keyCode);
+  if (!swallowedKeyUps.includes(evt.keyCode)) swallowedKeyUps.push(evt.keyCode);
 }
 
-function printableChar(evt) {
+function printableChar(evt: KeyboardEvent): string | null {
   if (evt.ctrlKey || evt.altKey || evt.metaKey) return null;
   const code = evt.keyCode;
   if (COLOR_CODE_MAP.has(code)) return null;
@@ -231,22 +244,26 @@ function printableChar(evt) {
   if (code >= 65 && code <= 90) return String.fromCharCode(code + 32);
   if (code >= 48 && code <= 57 && !evt.shiftKey) return String(code - 48);
   if (code === 32) return ' ';
-  return PUNCTUATION[code] || null;
+  return PUNCTUATION[code] ?? null;
 }
 
-function isDigit(ch) {
+function isDigit(ch: string): boolean {
   return ch >= '0' && ch <= '9';
 }
 
-function inOwnTerritory(target) {
-  if (!target || target.nodeType !== 1) return false;
+function inOwnTerritory(target: EventTarget | null): boolean {
+  if (!(target instanceof Element)) return false;
   const tag = target.tagName;
-  if (tag === 'INPUT' || tag === 'TEXTAREA' || target.isContentEditable)
+  if (
+    tag === 'INPUT' ||
+    tag === 'TEXTAREA' ||
+    (target instanceof HTMLElement && target.isContentEditable)
+  )
     return true;
-  return !!(target.closest && target.closest('.ytx-ui-container'));
+  return target.closest('.ytx-ui-container') !== null;
 }
 
-function resetSession() {
+function resetSession(): void {
   if (probe && probe.timer) clearTimeout(probe.timer);
   probe = null;
   lastTypedAt = 0;
@@ -257,16 +274,17 @@ function resetSession() {
 }
 
 /** Types characters on the on-screen keyboard, with the press that works. */
-function typeOnScreen(chars) {
-  for (let i = 0; i < chars.length; i++) {
-    const key = findKey(chars[i]);
+function typeOnScreen(chars: readonly string[]): void {
+  for (const ch of chars) {
+    const key = findKey(ch);
     if (key && press(key, pressStrategy)) typedCount++;
   }
 }
 
 /** The probe character went to YouTube; if the query did not change, find a press strategy that does, then type everything queued meanwhile. */
-function settleProbe() {
+function settleProbe(): void {
   const p = probe;
+  if (!p) return;
   p.timer = null;
   const now = queryText();
   if (now !== p.before) {
@@ -278,13 +296,14 @@ function settleProbe() {
   tryStrategy(p, 0);
 }
 
-function tryStrategy(p, strategy) {
+function tryStrategy(p: Probe, strategy: number): void {
   if (probe !== p) return;
   if (!isSearchPage()) {
     probe = null;
     return;
   }
-  const key = findKey(p.chars[0]);
+  const first = p.chars[0];
+  const key = first === undefined ? null : findKey(first);
   if (!key) {
     // No key to press for it (keyboard not shown, another layout or script); drop that character and decide on the next one.
     p.chars.shift();
@@ -315,8 +334,8 @@ function tryStrategy(p, strategy) {
   }, SETTLE_MS);
 }
 
-function onKeyDown(evt) {
-  if (evt.isTrusted === false || evt[SYNTHETIC_KEY_FLAG]) return;
+function onKeyDown(evt: KeyboardEvent): void {
+  if (isSyntheticKey(evt)) return;
   if (mode === 'none' || !isSearchPage() || !configRead('keyboardSearch'))
     return;
   if (inOwnTerritory(evt.target) || inOwnTerritory(document.activeElement))
@@ -376,12 +395,13 @@ function onKeyDown(evt) {
   }
   const before = queryText();
   if (before === null) return; // nothing to watch: no way to tell, so no touching
-  probe = { before, chars: [ch], timer: null };
-  probe.timer = setTimeout(settleProbe, SETTLE_MS);
+  const next: Probe = { before, chars: [ch], timer: null };
+  next.timer = setTimeout(settleProbe, SETTLE_MS);
+  probe = next;
 }
 
-function onKeyUp(evt) {
-  if (evt.isTrusted === false || evt[SYNTHETIC_KEY_FLAG]) return;
+function onKeyUp(evt: KeyboardEvent): void {
+  if (isSyntheticKey(evt)) return;
   const i = swallowedKeyUps.indexOf(evt.keyCode);
   if (i === -1) return;
   swallowedKeyUps.splice(i, 1);
@@ -393,5 +413,5 @@ function onKeyUp(evt) {
 window.addEventListener('keydown', onKeyDown, true);
 window.addEventListener('keyup', onKeyUp, true);
 window.addEventListener('ytx-page-update', (evt) => {
-  if (!evt || !evt.detail || !evt.detail.isSearch) resetSession();
+  if (!evt.detail.isSearch) resetSession();
 });

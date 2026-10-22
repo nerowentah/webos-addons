@@ -1,6 +1,12 @@
-/* eslint no-redeclare: 0 */
 import { configRead } from '../../config/config';
 import { registerParseProcessor } from '../../youtube/hooks/json-parse';
+import {
+  isArray,
+  isContainer,
+  isRecord,
+  readText,
+  type JsonObject
+} from '../../youtube/json';
 
 /**
  * Remove members-only videos at the JSON layer. Unit of removal is the whole
@@ -30,8 +36,8 @@ const SHELF_KEYS = new Set([
 /** Racks removed whole on any members-only video; gridRenderer is absent on purpose, since a grid can be a channel's whole catalogue. */
 const RACK_KEYS = new Set(['shelfRenderer', 'horizontalListRenderer']);
 
-function isRack(item) {
-  if (item === null || typeof item !== 'object') return false;
+function isRack(item: unknown): boolean {
+  if (!isRecord(item)) return false;
   for (const key of Object.keys(item)) {
     if (RACK_KEYS.has(key)) return true;
   }
@@ -41,7 +47,7 @@ function isRack(item) {
 const TILE_KEY_RE = /(?:Renderer|ViewModel)$/;
 
 /** Lists this filter emptied, so a shelf is deleted only when we emptied it — never one YouTube served empty. */
-let emptiedLists = new Set();
+let emptiedLists = new Set<unknown[]>();
 
 /** Every marker the scrub can act on, as raw text: MEMBERS_ONLY style values and the word "member(s)" in a heading. A payload without any is not walked. */
 const MEMBERS_TEXT_RE = /MEMBERS_ONLY|\bmembers?\b/i;
@@ -59,28 +65,30 @@ registerParseProcessor((r, text) => {
   scrubMembersOnly(r, 0);
 });
 
-function hasMembersOnlyMarker(node, depth) {
-  if (node === null || typeof node !== 'object') return false;
+function hasMembersOnlyMarker(node: unknown, depth: number): boolean {
+  if (!isContainer(node)) return false;
   if (depth > MAX_MARKER_DEPTH) return false;
 
-  if (hasMarkerValue(node)) return true;
-
-  if (Array.isArray(node)) {
+  if (isArray(node)) {
     for (const item of node) {
       if (hasMembersOnlyMarker(item, depth + 1)) return true;
     }
     return false;
   }
 
+  if (hasMarkerValue(node as JsonObject)) return true;
+
   for (const key in node) {
     if (SKIP_KEYS.has(key)) continue;
-    if (hasMembersOnlyMarker(node[key], depth + 1)) return true;
+    if (hasMembersOnlyMarker((node as JsonObject)[key], depth + 1)) {
+      return true;
+    }
   }
 
   return false;
 }
 
-function hasMarkerValue(node) {
+function hasMarkerValue(node: JsonObject): boolean {
   for (const key of ['style', 'badgeStyle']) {
     const value = node[key];
     if (typeof value === 'string' && value.includes('MEMBERS_ONLY')) {
@@ -91,49 +99,43 @@ function hasMarkerValue(node) {
 }
 
 /** Members-only by its own heading alone: a deep text search would match a tile inside the section and take unrelated content with it. */
-function isMembersOnlySection(renderer) {
-  const title = readText(renderer.title);
+function isMembersOnlySection(renderer: JsonObject): boolean {
+  const title = readText(renderer['title']);
   if (title !== '' && SECTION_TITLE_RE.test(title)) return true;
 
-  const subtitle = readText(renderer.subtitle);
+  const subtitle = readText(renderer['subtitle']);
   return subtitle !== '' && SECTION_SUBTITLE_RE.test(subtitle);
-}
-
-function readText(text) {
-  if (text === null || typeof text !== 'object') return '';
-  if (typeof text.simpleText === 'string') return text.simpleText;
-  if (!Array.isArray(text.runs)) return '';
-  return text.runs.map((run) => run?.text ?? '').join('');
 }
 
 /**
  * Drops members-only items at any depth, plus emptied shelves; recursion is
- * post-order (not adblock.js's stack) so the emptied check runs after scrubbing.
+ * post-order (not adblock.ts's stack) so the emptied check runs after scrubbing.
  */
-function scrubMembersOnly(node, depth) {
-  if (node === null || typeof node !== 'object') return [];
+function scrubMembersOnly(node: unknown, depth: number): string[] {
+  if (!isContainer(node)) return [];
   if (depth > MAX_SCRUB_DEPTH) return [];
 
-  if (Array.isArray(node)) {
+  if (isArray(node)) {
     return filterList(node, depth);
   }
 
-  const removed = [];
+  const record = node as JsonObject;
+  const removed: string[] = [];
 
-  for (const key of Object.keys(node)) {
+  for (const key of Object.keys(record)) {
     if (SKIP_KEYS.has(key)) continue;
 
-    const value = node[key];
-    if (value === null || typeof value !== 'object') continue;
+    const value = record[key];
+    if (!isContainer(value)) continue;
 
-    if (SHELF_KEYS.has(key) && isMembersOnlySection(value)) {
-      delete node[key];
+    if (SHELF_KEYS.has(key) && isMembersOnlySection(value as JsonObject)) {
+      delete record[key];
       removed.push(key);
       continue;
     }
 
     if (RACK_KEYS.has(key) && hasMembersOnlyMarker(value, 0)) {
-      delete node[key];
+      delete record[key];
       removed.push(key);
       continue;
     }
@@ -144,7 +146,7 @@ function scrubMembersOnly(node, depth) {
 
     // Checked after the descent, so a child shelf just deleted counts as gone.
     if (SHELF_KEYS.has(key) && isStrandedShelf(value)) {
-      delete node[key];
+      delete record[key];
       removed.push(key);
     }
   }
@@ -156,16 +158,16 @@ function scrubMembersOnly(node, depth) {
  * A heading-owning block, not a tile: descending rather than deleting is what
  * keeps a mixed shelf intact; the key match must stay exact, not a suffix test.
  */
-function isListContainer(item) {
-  if (item === null || typeof item !== 'object') return false;
+function isListContainer(item: unknown): item is JsonObject {
+  if (!isRecord(item)) return false;
   for (const key of Object.keys(item)) {
     if (SHELF_KEYS.has(key)) return true;
   }
   return false;
 }
 
-function filterList(list, depth) {
-  const removed = [];
+function filterList(list: unknown[], depth: number): string[] {
+  const removed: string[] = [];
 
   // Reverse order so splice does not shift the indices still to be walked.
   for (let i = list.length - 1; i >= 0; i -= 1) {
@@ -196,16 +198,16 @@ function filterList(list, depth) {
 }
 
 /** True only when every list under it was emptied by us — never a shelf YouTube served empty or holding tiles we do not touch. */
-function isStrandedShelf(renderer) {
+function isStrandedShelf(renderer: unknown): boolean {
   let sawEmptiedList = false;
   let hasSurvivor = false;
 
-  const walk = (node, depth) => {
+  const walk = (node: unknown, depth: number): void => {
     if (hasSurvivor) return;
-    if (node === null || typeof node !== 'object') return;
+    if (!isContainer(node)) return;
     if (depth > MAX_SCRUB_DEPTH) return;
 
-    if (Array.isArray(node)) {
+    if (isArray(node)) {
       if (emptiedLists.has(node)) {
         sawEmptiedList = true;
       } else if (node.length > 0) {
@@ -216,7 +218,7 @@ function isStrandedShelf(renderer) {
 
     for (const key in node) {
       if (SKIP_KEYS.has(key)) continue;
-      walk(node[key], depth + 1);
+      walk((node as JsonObject)[key], depth + 1);
     }
   };
 
@@ -225,8 +227,8 @@ function isStrandedShelf(renderer) {
   return sawEmptiedList && !hasSurvivor;
 }
 
-function describeItem(item) {
-  if (item === null || typeof item !== 'object') return 'item';
+function describeItem(item: unknown): string {
+  if (!isRecord(item)) return 'item';
 
   for (const key of Object.keys(item)) {
     if (TILE_KEY_RE.test(key)) return key;
