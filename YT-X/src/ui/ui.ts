@@ -10,6 +10,7 @@ import {
   type ConfigValues
 } from '../config/config';
 import './ui.css';
+import './theme.css';
 import {
   addTVSpecsChangeListener,
   refreshUIScale,
@@ -1016,76 +1017,10 @@ window.addEventListener('ytx-page-update', (evt) => {
   if (evt.detail.isWatch || evt.detail.isShorts) hidePointerBadge();
 });
 
-function initGlobalStyles(): void {
+function initGlobalToggles(): void {
   // Toggles live on <html> because YouTube rewrites body.className on tab
   // navigation; not gated on .app-quality-root, which applyUIFixes() strips.
-  const style = createElement('style');
-  style.textContent = `
-    /* Disable Animations. Scoped to YouTube's own app root, so the settings
-       panel and notifications (all on <body>) keep theirs. Near-zero
-       durations rather than "none": a transitionend or animationend that
-       YouTube waits for still fires, just at once. */
-    html.ytx-no-animations ytlr-app,
-    html.ytx-no-animations ytlr-app *,
-    html.ytx-no-animations ytlr-app *:before,
-    html.ytx-no-animations ytlr-app *:after {
-      transition-duration: 0.01ms !important;
-      transition-delay: 0s !important;
-      animation-duration: 0.01ms !important;
-      animation-delay: 0s !important;
-      animation-iteration-count: 1 !important;
-      scroll-behavior: auto !important;
-    }
-
-    html.ytx-hide-logo ytlr-redux-connect-ytlr-logo-entity,
-    html.ytx-hide-logo ytlr-logo-entity { visibility: hidden !important; }
-
-    html.oled-theme-active { --ytx-dark-rgb: 0, 0, 0; --ytx-panel-alpha: 1; --ytx-page-bg: #000; }
-    html.qned-theme-active { --ytx-page-bg: #141414; }
-
-    html.oled-theme-active #container,
-    html.qned-theme-active #container,
-    html.oled-theme-active .ytLrGuideResponseMask,
-    html.qned-theme-active .ytLrGuideResponseMask,
-    html.oled-theme-active .geClSe,
-    html.qned-theme-active .geClSe,
-    html.oled-theme-active .hsdF6b,
-    html.qned-theme-active .hsdF6b,
-    html.oled-theme-active .ytLrAnimatedOverlayContainer,
-    html.qned-theme-active .ytLrAnimatedOverlayContainer,
-    html.oled-theme-active .ZghAqf,
-    html.qned-theme-active .ZghAqf,
-    html.oled-theme-active .RAE3Re .AmQJbe,
-    html.qned-theme-active .RAE3Re .AmQJbe,
-    html.oled-theme-active .tVp1L,
-    html.qned-theme-active .tVp1L,
-    html.oled-theme-active .DnwJH,
-    html.qned-theme-active .DnwJH,
-    html.oled-theme-active .qRdzpd.stQChb .TYE3Ed,
-    html.qned-theme-active .qRdzpd.stQChb .TYE3Ed,
-    html.oled-theme-active .k82tDb,
-    html.qned-theme-active .k82tDb,
-    html.oled-theme-active .Jx9xPc,
-    html.qned-theme-active .Jx9xPc,
-    html.oled-theme-active .p0DeOc,
-    html.qned-theme-active .p0DeOc,
-    html.oled-theme-active ytlr-surface-page,
-    html.qned-theme-active ytlr-surface-page { background-color: var(--ytx-page-bg) !important; }
-    html.oled-theme-active .ytLrGuideResponseGradient { display: none; }
-    html.oled-theme-active .iha0pc { color: #000 !important; }
-    html.oled-theme-active .p0DeOc { background-image: none !important; }
-    html.oled-theme-active ytlr-surface-page { background-image: none !important; }
-    html.oled-theme-active ytlr-player-focus-ring { border: 0.375rem solid rgb(200, 200, 200) !important; }
-    html.qned-theme-active ytlr-player-focus-ring { border: 0.375rem solid rgb(160, 160, 160) !important; }
-
-    html.ytx-fix-titles .SK1srf .WVWtef,
-    html.ytx-fix-titles .SK1srf .niS3yd {
-        padding-bottom: 0.37vh !important;
-        padding-top: 0.37vh !important;
-    }
-  `;
-  document.head.appendChild(style);
-
+  // The rules they switch are in theme.css.
   const syncClass = (cls: string, key: BoolKey) =>
     document.documentElement.classList.toggle(cls, configRead(key));
   const CLASS_KEYS: Readonly<Record<string, BoolKey>> = {
@@ -1120,7 +1055,7 @@ function applyPanelCareMode(mode: PanelCareMode): void {
   document.documentElement.classList.toggle('qned-theme-active', isQned);
 }
 
-initGlobalStyles();
+initGlobalToggles();
 
 applyPanelCareMode(configRead('panelCareMode'));
 configAddChangeListener('panelCareMode', (evt) =>
