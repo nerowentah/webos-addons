@@ -1,4 +1,9 @@
 import { migrateStoredConfig } from './migrate';
+import {
+  createConfigStore,
+  type ConfigChangeDetail as StoreChangeDetail,
+  type ConfigStore
+} from './config-store';
 import { UI_LABELS } from './ui-text';
 import type { PanelCareMode } from '../platform/panel-type';
 
@@ -84,71 +89,31 @@ export type BoolKey = {
   [K in ConfigKey]: ConfigValues[K] extends boolean ? K : never;
 }[ConfigKey];
 
-export interface ConfigChangeDetail<K extends ConfigKey = ConfigKey> {
-  key: K;
-  newValue: ConfigValues[K];
-  oldValue: ConfigValues[K];
-}
+export type ConfigChangeDetail<K extends ConfigKey = ConfigKey> =
+  StoreChangeDetail<ConfigValues, K>;
 
 export type ConfigChangeListener<K extends ConfigKey = ConfigKey> = (
   evt: CustomEvent<ConfigChangeDetail<K>>
 ) => void;
-
-const configKeys = Object.keys(defaultConfig) as ConfigKey[];
-
-const configFrags = Object.fromEntries(
-  configKeys.map((key) => [key, new DocumentFragment()])
-) as Record<ConfigKey, DocumentFragment>;
-
-/** What localStorage holds: the known options (plus the untyped migration marker). */
-type StoredConfig = Partial<ConfigValues>;
 
 const enumValues: Partial<Record<ConfigKey, readonly string[]>> = {
   panelCareMode: Object.keys(panelCareModes),
   forceVideoCodec: Object.keys(videoCodecModes)
 };
 
-function isValidValue(key: ConfigKey, value: unknown): boolean {
-  if (typeof value !== typeof defaultConfig[key]) return false;
-  const allowed = enumValues[key];
-  return allowed === undefined || allowed.includes(value as string);
-}
-
-function loadStoredConfig(): StoredConfig | null {
-  const storage = window.localStorage.getItem(CONFIG_KEY);
-
-  if (storage === null) {
-    return null;
-  }
-
-  try {
-    const migrated = migrateStoredConfig(JSON.parse(storage));
-    if (migrated === null) return null;
-
-    // A hand-edited or downgraded value of the wrong type would break the panel; fall back to the default instead.
-    for (const key of configKeys) {
-      if (migrated[key] !== undefined && !isValidValue(key, migrated[key])) {
-        delete migrated[key];
-      }
-    }
-
-    // Checked above: every known key holds a value of its declared type.
-    return migrated;
-  } catch {
-    return null;
-  }
-}
-
-// Use defaultConfig as a prototype so writes to localConfig don't change it.
-const localConfig: StoredConfig =
-  loadStoredConfig() ?? (Object.create(defaultConfig) as StoredConfig);
-
-function configExists(key: string): key is ConfigKey {
-  return Object.hasOwn(defaultConfig, key);
-}
+// Created on first use so importing this module touches neither window nor storage.
+let store: ConfigStore<ConfigValues> | undefined;
+const getStore = (): ConfigStore<ConfigValues> =>
+  (store ??= createConfigStore<ConfigValues>({
+    defaults: defaultConfig,
+    enumValues,
+    storageKey: CONFIG_KEY,
+    storage: window.localStorage,
+    migrate: (raw) => migrateStoredConfig(raw) as Partial<ConfigValues> | null
+  }));
 
 export function configGetDesc(key: ConfigKey): string {
-  if (!configExists(key)) {
+  if (!Object.hasOwn(defaultConfig, key)) {
     throw new Error('tried to get desc for unknown config key: ' + String(key));
   }
 
@@ -156,35 +121,14 @@ export function configGetDesc(key: ConfigKey): string {
 }
 
 export function configRead<K extends ConfigKey>(key: K): ConfigValues[K] {
-  if (!configExists(key)) {
-    throw new Error('tried to read unknown config key: ' + String(key));
-  }
-
-  const stored: ConfigValues[K] | undefined = localConfig[key];
-  if (stored !== undefined) return stored;
-
-  localConfig[key] = defaultConfig[key];
-  return defaultConfig[key];
+  return getStore().read(key);
 }
 
 export function configWrite<K extends ConfigKey>(
   key: K,
   value: ConfigValues[K]
 ): void {
-  if (!configExists(key)) {
-    throw new Error('tried to write unknown config key: ' + String(key));
-  }
-
-  const oldValue: ConfigValues[K] = localConfig[key] ?? defaultConfig[key];
-
-  localConfig[key] = value;
-  window.localStorage[CONFIG_KEY] = JSON.stringify(localConfig);
-
-  configFrags[key].dispatchEvent(
-    new CustomEvent<ConfigChangeDetail<K>>('ytxConfigChange', {
-      detail: { key, newValue: value, oldValue }
-    })
-  );
+  getStore().write(key, value);
 }
 
 /** Add a listener for changes in the value of a specified config option. */
@@ -192,10 +136,7 @@ export function configAddChangeListener<K extends ConfigKey>(
   key: K,
   callback: ConfigChangeListener<K>
 ): void {
-  configFrags[key].addEventListener(
-    'ytxConfigChange',
-    callback as EventListener
-  );
+  getStore().addChangeListener(key, callback);
 }
 
 /** Remove a listener added with configAddChangeListener. */
@@ -203,8 +144,5 @@ export function configRemoveChangeListener<K extends ConfigKey>(
   key: K,
   callback: ConfigChangeListener<K>
 ): void {
-  configFrags[key].removeEventListener(
-    'ytxConfigChange',
-    callback as EventListener
-  );
+  getStore().removeChangeListener(key, callback);
 }
