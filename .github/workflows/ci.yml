@@ -68,6 +68,11 @@ jobs:
       - name: Build and verify
         run: npm run verify
 
+      # The opt-in 1280x720 package is a separate webpack build; prove it
+      # compiles and passes the same compatibility gates.
+      - name: Build and verify (720p)
+        run: npm run build:hd && npm run test:compat
+
       - name: Lint
         run: npm run lint
 
