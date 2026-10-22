@@ -483,7 +483,8 @@ JSON.parse = function (
   reviver?: Parameters<typeof JSON.parse>[1]
 ) {
   if (!filtersEnabled && !loadRowsAhead && !thumbnailHookRequired()) {
-    return origParse.call(this, text, reviver);
+    const plain: unknown = origParse.call(this, text, reviver);
+    return plain;
   }
 
   // Blanked in the text, in one pass, before the parse.

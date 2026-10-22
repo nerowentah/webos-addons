@@ -1,7 +1,7 @@
 import assert from 'node:assert';
 
 import eslintJs from '@eslint/js';
-import type { ESLint, Linter } from 'eslint';
+import type { Linter } from 'eslint';
 import { defineConfig } from 'eslint/config';
 import stylistic from '@stylistic/eslint-plugin';
 import prettierConfig from 'eslint-config-prettier/flat';
@@ -23,15 +23,14 @@ const configs = [
 
   // TypeScript: parser + TS-aware rules, scoped to TS files (flat config lints
   // nothing else by default).
-  ...tseslint.configs.recommended.map((config) => ({
+  ...tseslint.configs.recommendedTypeChecked.map((config) => ({
     ...(config as Linter.Config),
     files: tsFiles
   })),
 
   {
     plugins: {
-      // Cast needed due to type mismatch even though this is the recommended way to use the plugin.
-      '@stylistic': stylistic as ESLint.Plugin,
+      '@stylistic': stylistic,
       'no-unsanitized': noUnsanitized
     },
 
@@ -43,12 +42,17 @@ const configs = [
     languageOptions: {
       sourceType: defaultSourceType,
       parserOptions: {
+        projectService: true,
         ecmaVersion: 2025,
         ecmaFeatures: { impliedStrict: true }
       },
       globals: { ...globals.nodeBuiltin }
     },
 
+    // eslint-plugin-security is deliberately not used: detect-object-injection
+    // fires on every computed key, and dynamic JSON keys are this codebase's
+    // core idiom (payload scrubbing, path lookups). Its Node-specific rules
+    // would only apply to tools/. Don't re-add it without revisiting that.
     rules: {
       'no-var': 'error',
       'no-await-in-loop': 'error',
@@ -101,6 +105,32 @@ const configs = [
     rules: {
       'no-unused-vars': 'off',
       'no-useless-constructor': 'off',
+      '@typescript-eslint/no-explicit-any': 'error',
+      // Off: typescript-eslint analyses with TS 6 while tsc -b runs TS 7, and
+      // the two disagree on which casts are no-ops (removing them breaks tsc).
+      '@typescript-eslint/no-unnecessary-type-assertion': 'off',
+
+      // Cherry-picked from strictTypeChecked rather than adopting the preset:
+      // - no-dynamic-delete (off): deleting payload keys is how adblock and
+      //   members-only filtering work.
+      // - prefer-nullish-coalescing (off): empty-string fallbacks are
+      //   deliberate (`segmentColors[category] || '#0072ff'`).
+      // - no-unnecessary-condition (off): defensive checks against untyped
+      //   YouTube internals look "unnecessary" to the types.
+      // - no-deprecated (off): KeyboardEvent.keyCode is the only reliable key
+      //   signal on Chrome 79 TV remotes.
+      // - restrict-template-expressions / no-confusing-void-expression: style.
+      '@typescript-eslint/no-non-null-assertion': 'error',
+      '@typescript-eslint/no-unnecessary-boolean-literal-compare': 'error',
+      '@typescript-eslint/no-unnecessary-type-arguments': 'error',
+      '@typescript-eslint/no-meaningless-void-operator': 'error',
+      '@typescript-eslint/use-unknown-in-catch-callback-variable': 'error',
+      // AbortSignal.reason is typed `any` and is already a DOMException by
+      // default; forwarding it unchanged is the point.
+      '@typescript-eslint/prefer-promise-reject-errors': [
+        'error',
+        { allowThrowingAny: true, allowThrowingUnknown: true }
+      ],
       '@typescript-eslint/no-unused-vars': [
         'error',
         {
@@ -110,6 +140,16 @@ const configs = [
           caughtErrors: 'none'
         }
       ]
+    }
+  },
+
+  {
+    // node:test's test()/describe() return promises the runner collects, and
+    // assert.* is routinely used unbound; neither is a defect in tests.
+    files: ['**/*.test.ts'],
+    rules: {
+      '@typescript-eslint/no-floating-promises': 'off',
+      '@typescript-eslint/unbound-method': 'off'
     }
   },
 

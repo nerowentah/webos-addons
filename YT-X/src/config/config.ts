@@ -146,7 +146,7 @@ function loadStoredConfig(): StoredConfig | null {
     }
 
     // Checked above: every known key holds a value of its declared type.
-    return migrated as StoredConfig;
+    return migrated;
   } catch {
     return null;
   }
@@ -162,7 +162,7 @@ function configExists(key: string): key is ConfigKey {
 
 export function configGetDesc(key: ConfigKey): string {
   if (!configExists(key)) {
-    throw new Error('tried to get desc for unknown config key: ' + key);
+    throw new Error('tried to get desc for unknown config key: ' + String(key));
   }
 
   return UI_LABELS[key];
@@ -170,7 +170,7 @@ export function configGetDesc(key: ConfigKey): string {
 
 export function configRead<K extends ConfigKey>(key: K): ConfigValues[K] {
   if (!configExists(key)) {
-    throw new Error('tried to read unknown config key: ' + key);
+    throw new Error('tried to read unknown config key: ' + String(key));
   }
 
   const stored: ConfigValues[K] | undefined = localConfig[key];
@@ -185,7 +185,7 @@ export function configWrite<K extends ConfigKey>(
   value: ConfigValues[K]
 ): void {
   if (!configExists(key)) {
-    throw new Error('tried to write unknown config key: ' + key);
+    throw new Error('tried to write unknown config key: ' + String(key));
   }
 
   const oldValue: ConfigValues[K] = localConfig[key] ?? defaultConfig[key];

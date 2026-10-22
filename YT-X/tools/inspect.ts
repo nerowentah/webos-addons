@@ -116,7 +116,7 @@ export async function connect({
       STARTUP_TIMEOUT_MS
     );
     const onData = (buf: Buffer) => {
-      out += buf;
+      out += buf.toString();
       const m = /(?:127\.0\.0\.1|localhost):(\d{2,5})/.exec(out);
       if (m) {
         clearTimeout(timer);
@@ -164,7 +164,11 @@ export async function connectToWebSocket(
       else waiting.resolve(msg.result);
     } else if (msg.method === 'Runtime.consoleAPICalled') {
       const text = (msg.params?.args ?? [])
-        .map((a) => a.value ?? a.description)
+        .map((a) =>
+          typeof a.value === 'string'
+            ? a.value
+            : (a.description ?? JSON.stringify(a.value) ?? '')
+        )
         .join(' ');
       log.push(`console.${msg.params?.type}: ${text}`);
     } else if (msg.method === 'Runtime.exceptionThrown') {

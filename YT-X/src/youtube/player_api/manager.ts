@@ -66,7 +66,7 @@ class PlayerManager
 
     if (diff.isPlaying) {
       this.dispatchEvent(
-        new TypedCustomEvent<'playbackStart', undefined>('playbackStart')
+        new TypedCustomEvent<'playbackStart'>('playbackStart')
       );
     }
   };

@@ -78,6 +78,8 @@ function narrowing(): boolean {
 /** Ask the platform, through the untouched probe, whether a codec is real here. */
 function platformSupports(codec: Codec): boolean {
   const mse = typeof MediaSource !== 'undefined' ? MediaSource : undefined;
+  // Deliberately detached: it is always invoked via .call(MediaSource, ...).
+  // eslint-disable-next-line @typescript-eslint/unbound-method
   const test = origIsTypeSupported ?? mse?.isTypeSupported ?? null;
 
   // No MSE to ask: assume yes rather than blocking the user on a probe we cannot run; the never-empty guards still apply.
@@ -152,6 +154,8 @@ function installHooks(): void {
     typeof MediaSource !== 'undefined' &&
     typeof MediaSource.isTypeSupported === 'function'
   ) {
+    // Wrapped natives are re-invoked with .call(this, ...).
+    // eslint-disable-next-line @typescript-eslint/unbound-method
     const original = MediaSource.isTypeSupported;
     origIsTypeSupported = original;
     MediaSource.isTypeSupported = function (this: unknown, type: string) {
@@ -167,6 +171,7 @@ function installHooks(): void {
 
   // Element-level form of the same question.
   if (typeof HTMLMediaElement !== 'undefined') {
+    // eslint-disable-next-line @typescript-eslint/unbound-method
     const original = HTMLMediaElement.prototype.canPlayType;
     HTMLMediaElement.prototype.canPlayType = function (
       this: HTMLMediaElement,
@@ -188,7 +193,8 @@ function installHooks(): void {
     reviver?: Parameters<typeof JSON.parse>[1]
   ) {
     if (mode === 'auto' || typeof text !== 'string' || text.length < 1000) {
-      return parse.call(this, text, reviver);
+      const plain: unknown = parse.call(this, text, reviver);
+      return plain;
     }
 
     const out: unknown = parse.call(this, text, reviver);

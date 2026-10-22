@@ -38,7 +38,11 @@ runCli(async () => {
     }
     /* eslint-enable no-await-in-loop */
     const base = await diagnostics(session);
-    check(base.appRendered === true, 'app rendered (ytlr-app)');
+    check(
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-boolean-literal-compare -- device data: absent must not read as true
+      base.appRendered === true,
+      'app rendered (ytlr-app)'
+    );
     check(
       base.visibility === 'visible',
       `app is in the foreground (${base.visibility}); run ares-launch if hidden`
@@ -83,6 +87,7 @@ runCli(async () => {
     await click(session, '.ytx-ui-badge');
     const opened = await diagnostics(session);
     check(
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-boolean-literal-compare -- device data: absent must not read as true
       opened.settingsOverlayOpen === true,
       'badge opens the settings overlay'
     );
@@ -90,6 +95,7 @@ runCli(async () => {
     await press(session, 'back');
     const afterOpenBack = await diagnostics(session);
     check(
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-boolean-literal-compare -- device data: absent must not read as closed
       afterOpenBack.settingsOverlayOpen === false,
       'Back closes the settings overlay'
     );
@@ -103,6 +109,7 @@ runCli(async () => {
     await press(session, 'back');
     const afterBack = await diagnostics(session);
     check(
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-boolean-literal-compare -- device data: absent must not read as closed
       afterBack.settingsOverlayOpen === false,
       'Back leaves overlay closed'
     );

@@ -76,7 +76,7 @@ export const SYNTHETIC_KEY_FLAG: unique symbol = Symbol.for(
 /** Whether `evt` was produced by `sendKey` rather than a real press. */
 export function isSyntheticKey(evt: Event): boolean {
   return (
-    evt.isTrusted === false ||
+    !evt.isTrusted ||
     (evt as unknown as Record<symbol, unknown>)[SYNTHETIC_KEY_FLAG] === true
   );
 }

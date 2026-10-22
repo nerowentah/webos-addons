@@ -685,6 +685,8 @@ function animatePanelIn(panel: HTMLElement): void {
   cancelPanelAnimation();
   panel.classList.remove('collapse-start', 'collapse-end');
   panel.classList.add('collapse-start');
+  // Forced reflow; `void` marks the read as intentional.
+  // eslint-disable-next-line @typescript-eslint/no-meaningless-void-operator
   void panel.offsetWidth;
   panelEntranceRaf = requestAnimationFrame(() => {
     panelEntranceRaf = null;
