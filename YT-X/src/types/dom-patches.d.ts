@@ -13,3 +13,14 @@ interface YtComponentInstance {
 interface HTMLElement {
   __instance?: YtComponentInstance;
 }
+
+/** The SponsorBlock session for the current /watch page; a window property because a module-level `let` misbehaved on Chromium 38. */
+interface SponsorBlockSession {
+  videoID: string;
+  init(): Promise<void>;
+  destroy(): void;
+}
+
+interface Window {
+  sponsorblock: SponsorBlockSession | null;
+}

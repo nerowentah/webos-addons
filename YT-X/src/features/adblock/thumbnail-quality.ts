@@ -1,4 +1,12 @@
-/** Rewrites thumbnail URLs inside adblock.js's JSON.parse hook so the app is only handed the high-quality URL. maxresdefault does not exist for every video and YouTube answers a miss with a small grey placeholder rather than a 404 (see PLACEHOLDER_MAX_BYTES), hence the verification queue: only rungs known to exist or probe-confirmed are emitted, always as `/vi/` JPEG (`vi_webp` coverage is per-video and nothing in the response advertises it). */
+/** Rewrites thumbnail URLs inside adblock.ts's JSON.parse hook so the app is only handed the high-quality URL. maxresdefault does not exist for every video and YouTube answers a miss with a small grey placeholder rather than a 404 (see PLACEHOLDER_MAX_BYTES), hence the verification queue: only rungs known to exist or probe-confirmed are emitted, always as `/vi/` JPEG (`vi_webp` coverage is per-video and nothing in the response advertises it). */
+import {
+  getByPath,
+  isArray,
+  isContainer,
+  isRecord,
+  type JsonObject
+} from '../../youtube/json';
+import type { ResponseType } from './response-type';
 
 const ENABLE_LIVE_PROMOTION = true;
 
@@ -12,7 +20,7 @@ const PROBE_IDLE_DELAY = 1200;
 const PROBE_URGENT_BURST = 4;
 // Remote arrow keys are the other scroll signal; also pauses promotions, which write a background-image mid-row-animation. Covers the remote's key-repeat interval with margin.
 const NAV_PAUSE_MS = 350;
-const NAV_KEY_CODES = { 37: true, 38: true, 39: true, 40: true };
+const NAV_KEY_CODES: ReadonlySet<number> = new Set([37, 38, 39, 40]);
 // Probes for rendered tiles skip the idle gate: an on-screen grey box is the whole reason verification exists.
 const PROBE_VISIBLE_BURST = 6;
 // The rendered set only changes as fast as the user scrolls; sampling it costs a document-wide selector match.
@@ -42,7 +50,7 @@ const SCAN_MAX_NODES = 6000;
 const SCAN_MAX_DEPTH = 16;
 
 // Quality ladder, worst to best; the index is the rank stored in the cache. hqdefault exists for every video ever; maxresdefault only when the source was >= 720p; hq720/maxres are both 1280x720 16:9 for most uploads; sd/mq/hq defaults are 4:3 letterboxed.
-const QUALITY_NAMES = [
+const QUALITY_NAMES: readonly string[] = [
   'default',
   'mqdefault',
   'hqdefault',
@@ -50,28 +58,29 @@ const QUALITY_NAMES = [
   'hq720',
   'maxresdefault'
 ];
-const RANK = {
-  default: 0,
-  mqdefault: 1,
-  hqdefault: 2,
-  sddefault: 3,
-  hq720: 4,
-  maxresdefault: 5
-};
+
+/** The rank of a ladder rung's name, or undefined for any other basename. */
+function rankOf(name: string): number | undefined {
+  const rank = QUALITY_NAMES.indexOf(name);
+  return rank === -1 ? undefined : rank;
+}
 
 /** The rung that is always present. Nothing is ever emitted below this. */
-const FLOOR_RANK = RANK.hqdefault;
+const FLOOR_RANK = QUALITY_NAMES.indexOf('hqdefault');
 
 /** Rungs generated for every video ever uploaded. Above this needs proof. */
-const GUARANTEED_RANK = RANK.hqdefault;
+const GUARANTEED_RANK = QUALITY_NAMES.indexOf('hqdefault');
 
 /** The best rung emitted or probed for. A single rung, deliberately: maxresdefault and hq720 are both 1280x720 for most uploads, so probing the second rung doubled verification traffic to distinguish identical-size files. A miss falls straight to the guaranteed floor. */
-const usefulRank = RANK.maxresdefault;
+const usefulRank = QUALITY_NAMES.indexOf('maxresdefault');
 
 // A probe that learned nothing (timeout/network error), unlike a miss: a missing rung is answered with a 404 or a tiny grey placeholder, which a HEAD reads and an image loads.
 const UNKNOWN = 'unknown';
 
-// Anchored so it cannot match mid-string; `\w+` on the basename so A/B-test variants (hqdefault_custom_2) are captured then rejected by the RANK lookup rather than rewritten to a name with no custom-variant equivalent.
+/** true/false: the URL exists or not; UNKNOWN: timed out or errored; null: a HEAD could not tell. */
+type ProbeAnswer = boolean | typeof UNKNOWN | null;
+
+// Anchored so it cannot match mid-string; `\w+` on the basename so A/B-test variants (hqdefault_custom_2) are captured then rejected by the rank lookup rather than rewritten to a name with no custom-variant equivalent.
 const THUMB_URL_RE =
   /^https?:\/\/i\.ytimg\.com\/vi(?:_webp)?\/([\w-]+)\/(\w+)\.(?:jpg|jpeg|webp|png)/;
 const THUMB_IN_CSS_RE = /i\.ytimg\.com\/vi(?:_webp)?\/([\w-]+)\//;
@@ -82,50 +91,61 @@ const DOM_SELECTOR =
 const enabled = true;
 
 /** videoId -> verified rank. Survives navigation and restarts. */
-const qualityCache = new Map();
+const qualityCache = new Map<string, number>();
 /** 'safe' only: session floor from a probe that learned nothing; kept out of the saved cache so the next session asks again. */
-const unconfirmed = new Set();
+const unconfirmed = new Set<string>();
 /** Insertion-ordered probe backlog of videoIds. */
-const probeQueue = new Set();
+const probeQueue = new Set<string>();
 // The videos the current parse queued; deferProbes() makes them the latest parse and empties it.
-const queuedByParse = [];
+const queuedByParse: string[] = [];
 // The latest parse's queued videos: the only ones the urgent budget is spent on, so a parse never pays for earlier backlogs.
-const latestParse = new Set();
+const latestParse = new Set<string>();
 /** Every videoId enqueued this session (one attempt each); evictions from the verification cache allow a re-probe. */
-const probeAttempted = new Set();
-const pendingPromotions = new Map();
-const promotionAttempts = new Map();
+const probeAttempted = new Set<string>();
+const pendingPromotions = new Map<string, number>();
+const promotionAttempts = new Map<string, number>();
 /** videoId -> the thumbnail entry objects we wrote an unverified URL into. These are the app's own objects (JSON.parse handed it the same references), so a correction is written back into the model and a tile that has not rendered yet never becomes grey; the DOM sweep only needs to cover tiles already on screen. */
-const pendingEntries = new Map();
+const pendingEntries = new Map<string, JsonObject[]>();
 /** videoId -> highest rank already known good, so corrections cannot regress. */
-const provenFloor = new Map();
+const provenFloor = new Map<string, number>();
+
+type Timer = ReturnType<typeof setTimeout>;
 
 let activeProbes = 0;
-let saveTimer = null;
-let promoteTimer = null;
-let probePump = null;
-let probeTimer = null;
+let saveTimer: Timer | null = null;
+let promoteTimer: Timer | null = null;
+let probePump: number | null = null;
+let probeTimer: Timer | null = null;
 // Monotonic clock: a wall clock set back (the TV syncing time) would otherwise stretch the idle gate.
 let lastParseAt = -Infinity;
 let lastNavAt = -Infinity;
 // Bumped when the verification cache is reset (mode change across rungs): a probe in flight against the old ladder must not write into the new.
-let probeGeneration = 0;
+const probeGeneration = 0;
 let urgentLeft = 0;
 let visibleBudget = 0;
-let visibleSample = null;
+let visibleSample: Set<string> | null = null;
 let visibleSampleAt = 0;
 
-const now = () => window.performance.now();
+const now = (): number => window.performance.now();
 
-const idle = (cb) => window.requestIdleCallback(cb, { timeout: 500 });
+const idle = (cb: () => void): number =>
+  window.requestIdleCallback(cb, { timeout: 500 });
 
 /** Sets `key`, dropping the oldest entry at `limit`; returns the dropped key, or null. */
-function capSet(map, key, value, limit) {
-  let evicted = null;
+function capSet<K, V>(
+  map: Map<K, V>,
+  key: K,
+  value: V,
+  limit: number
+): K | null {
+  let evicted: K | null = null;
   // Only a new key makes room: overwriting one must not cost another video.
   if (map.size >= limit && !map.has(key)) {
-    evicted = map.keys().next().value;
-    map.delete(evicted);
+    const oldest = map.keys().next();
+    if (!oldest.done) {
+      evicted = oldest.value;
+      map.delete(oldest.value);
+    }
   }
   map.set(key, value);
   return evicted;
@@ -133,12 +153,12 @@ function capSet(map, key, value, limit) {
 
 // Compact "id:rank,id:rank" rather than JSON: parses with one split on startup and avoids the hooked JSON.stringify entirely.
 
-function capMarker() {
+function capMarker(): string {
   return usefulRank + 'r' + CACHE_REVISION;
 }
 
 /** Forgets the stored answers and records the ladder the next ones are measured against. */
-function dropStoredCache() {
+function dropStoredCache(): void {
   try {
     window.localStorage.removeItem(CACHE_KEY);
     window.localStorage.setItem(CACHE_CAP_KEY, capMarker());
@@ -147,7 +167,7 @@ function dropStoredCache() {
   }
 }
 
-function loadCache() {
+function loadCache(): void {
   try {
     // The cache is only valid against the ladder/revision that wrote it; any other marker means every stored answer is suspect - drop once, start over.
     if (window.localStorage.getItem(CACHE_CAP_KEY) !== capMarker()) {
@@ -156,9 +176,7 @@ function loadCache() {
     }
     const raw = window.localStorage.getItem(CACHE_KEY);
     if (!raw) return;
-    const parts = raw.split(',');
-    for (let i = 0; i < parts.length; i++) {
-      const entry = parts[i];
+    for (const entry of raw.split(',')) {
       const sep = entry.lastIndexOf(':');
       if (sep < 1) continue;
       const rank = +entry.slice(sep + 1);
@@ -170,10 +188,10 @@ function loadCache() {
   }
 }
 
-function saveCache() {
+function saveCache(): void {
   saveTimer = null;
   try {
-    const out = [];
+    const out: string[] = [];
     // Map iteration is insertion-ordered, so dropping from the front evicts the oldest entries.
     let skip = qualityCache.size - CACHE_LIMIT;
     qualityCache.forEach((rank, id) => {
@@ -187,30 +205,32 @@ function saveCache() {
   }
 }
 
-function scheduleSave() {
+function scheduleSave(): void {
   if (saveTimer) return;
   saveTimer = setTimeout(saveCache, CACHE_SAVE_DEBOUNCE);
 }
 
 /** Build a thumbnail URL in the `/vi/` family, the only one whose hqdefault floor is guaranteed. */
-function buildUrl(videoId, name) {
+function buildUrl(videoId: string, rank: number): string {
+  const name = QUALITY_NAMES[rank] ?? QUALITY_NAMES[FLOOR_RANK];
   return 'https://i.ytimg.com/vi/' + videoId + '/' + name + '.jpg';
 }
 
-/** Resolve one thumbnail URL to its upgraded form, or null to leave it alone. Emits the useful rung clamped to the safe ceiling (what is known to exist, from this response or a cached probe); when useful exceeds safe a probe is scheduled and the better rung lands on a later parse, so the tile is correct meanwhile rather than grey. Entry width/height are left alone; the app sizes tiles from them. */
-function upgradeEntry(entry, proven) {
-  const url = entry.url;
+/** Resolve one thumbnail URL to its upgraded form; returns 1 when the entry was rewritten, else 0. Emits the useful rung clamped to the safe ceiling (what is known to exist, from this response or a cached probe); when useful exceeds safe a probe is scheduled and the better rung lands on a later parse, so the tile is correct meanwhile rather than grey. Entry width/height are left alone; the app sizes tiles from them. */
+function upgradeEntry(entry: JsonObject, proven: number | undefined): number {
+  const url = entry['url'];
   // Cheap rejection first: almost every string in a response is not a URL.
-  if (typeof url !== 'string' || url.charCodeAt(0) !== 104 /* h */) return null;
-  if (url.indexOf('i.ytimg.com/vi') === -1) return null;
+  if (typeof url !== 'string' || url.charCodeAt(0) !== 104 /* h */) return 0;
+  if (url.indexOf('i.ytimg.com/vi') === -1) return 0;
 
   const match = THUMB_URL_RE.exec(url);
-  if (!match) return null;
+  const videoId = match?.[1];
+  const basename = match?.[2];
+  if (videoId === undefined || basename === undefined) return 0;
 
-  const videoId = match[1];
-  const currentRank = RANK[match[2]];
+  const currentRank = rankOf(basename);
   // Unknown basename (A/B custom variant, storyboard, something new): no safe mapping, leave as sent.
-  if (currentRank === undefined) return null;
+  if (currentRank === undefined) return 0;
 
   const verified = qualityCache.get(videoId);
 
@@ -234,22 +254,24 @@ function upgradeEntry(entry, proven) {
   if (unresolved) scheduleProbe(videoId);
 
   // Above the guarantee we rely on per-family proof (a probe verified the exact URL it fetched); at or below it we rely on hqdefault always existing, which is a `/vi/` guarantee only.
-  const next = buildUrl(videoId, QUALITY_NAMES[target]);
+  const next = buildUrl(videoId, target);
   // Tracked even when the URL stays as sent: the probe's answer still has to be written back into this entry.
   if (unresolved) trackPending(videoId, entry, ceilingBeforeMode);
   if (next === url) return 0;
-  entry.url = next;
+  entry['url'] = next;
   return 1;
 }
 
 /** Remember an entry we gambled on, capped so a long session cannot grow it unboundedly; eviction only costs that entry the write-back, the DOM sweep still covers it. */
-function trackPending(videoId, entry, floor) {
+function trackPending(videoId: string, entry: JsonObject, floor: number): void {
   let entries = pendingEntries.get(videoId);
   if (!entries) {
     if (pendingEntries.size >= PENDING_LIMIT) {
-      const oldest = pendingEntries.keys().next().value;
-      pendingEntries.delete(oldest);
-      provenFloor.delete(oldest);
+      const oldest = pendingEntries.keys().next();
+      if (!oldest.done) {
+        pendingEntries.delete(oldest.value);
+        provenFloor.delete(oldest.value);
+      }
     }
     entries = [];
     pendingEntries.set(videoId, entries);
@@ -261,26 +283,25 @@ function trackPending(videoId, entry, floor) {
 }
 
 /** Rewrite every URL in a thumbnail container in place. Handles both `{ thumbnails: [...] }` (tileRenderer and friends) and `{ sources: [...] }` (the newer *ViewModel schema). */
-function upgradeContainer(container) {
-  if (!container) return 0;
-  const list = container.thumbnails || container.sources;
-  if (!Array.isArray(list) || list.length === 0) return 0;
+function upgradeContainer(container: unknown): number {
+  if (!isRecord(container)) return 0;
+  const list = container['thumbnails'] || container['sources'];
+  if (!isArray(list) || list.length === 0) return 0;
 
   // The highest rung YouTube itself put in this container is an existence proof for that derivative - free verification (e.g. hq720 on the watch page, emittable without a probe).
   let proven = GUARANTEED_RANK;
-  for (let i = 0; i < list.length; i++) {
-    const entry = list[i];
-    if (!entry || typeof entry.url !== 'string') continue;
-    const m = THUMB_URL_RE.exec(entry.url);
-    const r = m ? RANK[m[2]] : undefined;
+  for (const entry of list) {
+    if (!isRecord(entry) || typeof entry['url'] !== 'string') continue;
+    const m = THUMB_URL_RE.exec(entry['url']);
+    const basename = m?.[2];
+    const r = basename === undefined ? undefined : rankOf(basename);
     if (r !== undefined && r > proven) proven = r;
   }
 
   let changed = 0;
-  for (let i = 0; i < list.length; i++) {
-    const entry = list[i];
-    if (!entry) continue;
-    if (typeof entry.url !== 'string') continue;
+  for (const entry of list) {
+    if (!isRecord(entry)) continue;
+    if (typeof entry['url'] !== 'string') continue;
     changed += upgradeEntry(entry, proven);
   }
   return changed;
@@ -288,70 +309,93 @@ function upgradeContainer(container) {
 
 // Everything below is O(1) per item: no recursion, no searching. Shapes seen in real home/continuation/watch responses, plus the legacy renderers kept as cheap insurance.
 
-function upgradeItem(item) {
-  if (!item || typeof item !== 'object') return 0;
+function upgradeItem(item: unknown): number {
+  if (!isRecord(item)) return 0;
   let changed = 0;
 
   // A watch-page playlist row wraps the tile one level deeper.
   const tile =
-    item.tileRenderer ||
-    item.playlistPanelVideoWrapperRenderer?.primaryRenderer?.tileRenderer;
+    item['tileRenderer'] ||
+    getByPath(item, [
+      'playlistPanelVideoWrapperRenderer',
+      'primaryRenderer',
+      'tileRenderer'
+    ]);
 
   if (tile) {
-    const header = tile.header?.tileHeaderRenderer;
-    changed += upgradeContainer(header?.thumbnail);
-    changed += upgradeContainer(header?.thumbnailViewModel?.image);
+    const header = getByPath(tile, ['header', 'tileHeaderRenderer']);
+    changed += upgradeContainer(getByPath(header, ['thumbnail']));
+    changed += upgradeContainer(
+      getByPath(header, ['thumbnailViewModel', 'image'])
+    );
     // The long-press menu carries a copy of the same URL; rewriting it keeps both pointing at one file so opening the menu is an HTTP cache hit.
     changed += upgradeContainer(
-      tile.onLongPressCommand?.showMenuCommand?.thumbnail
+      getByPath(tile, ['onLongPressCommand', 'showMenuCommand', 'thumbnail'])
     );
     return changed;
   }
 
-  changed += upgradeContainer(item.previewButtonRenderer?.thumbnail);
-  changed += upgradeContainer(item.pivotVideoRenderer?.thumbnail);
   changed += upgradeContainer(
-    item.lockupViewModel?.contentImage?.thumbnailViewModel?.image
+    getByPath(item, ['previewButtonRenderer', 'thumbnail'])
+  );
+  changed += upgradeContainer(
+    getByPath(item, ['pivotVideoRenderer', 'thumbnail'])
+  );
+  changed += upgradeContainer(
+    getByPath(item, [
+      'lockupViewModel',
+      'contentImage',
+      'thumbnailViewModel',
+      'image'
+    ])
   );
   // Legacy renderers — not produced by current tvhtml5 builds, but free.
-  changed += upgradeContainer(item.gridVideoRenderer?.thumbnail);
-  changed += upgradeContainer(item.compactVideoRenderer?.thumbnail);
-  changed += upgradeContainer(item.videoRenderer?.thumbnail);
+  changed += upgradeContainer(
+    getByPath(item, ['gridVideoRenderer', 'thumbnail'])
+  );
+  changed += upgradeContainer(
+    getByPath(item, ['compactVideoRenderer', 'thumbnail'])
+  );
+  changed += upgradeContainer(getByPath(item, ['videoRenderer', 'thumbnail']));
   return changed;
 }
 
-function upgradeItems(items) {
-  if (!Array.isArray(items)) return 0;
+function upgradeItems(items: unknown): number {
+  if (!isArray(items)) return 0;
   let changed = 0;
-  for (let i = 0; i < items.length; i++) changed += upgradeItem(items[i]);
+  for (const item of items) changed += upgradeItem(item);
   return changed;
 }
 
-function upgradeSectionList(contents) {
-  if (!Array.isArray(contents)) return 0;
+function upgradeSectionList(contents: unknown): number {
+  if (!isArray(contents)) return 0;
   let changed = 0;
 
-  for (let i = 0; i < contents.length; i++) {
-    const section = contents[i];
-    if (!section) continue;
+  for (const section of contents) {
+    if (!isRecord(section)) continue;
 
-    const shelf = section.shelfRenderer;
+    const shelf = section['shelfRenderer'];
     if (shelf) {
-      const content = shelf.content;
-      if (content) {
-        changed += upgradeItems(content.horizontalListRenderer?.items);
-        changed += upgradeItems(content.gridRenderer?.items);
-        changed += upgradeItems(content.expandedShelfContentsRenderer?.items);
-      }
+      changed += upgradeItems(
+        getByPath(shelf, ['content', 'horizontalListRenderer', 'items'])
+      );
+      changed += upgradeItems(
+        getByPath(shelf, ['content', 'gridRenderer', 'items'])
+      );
+      changed += upgradeItems(
+        getByPath(shelf, ['content', 'expandedShelfContentsRenderer', 'items'])
+      );
       continue;
     }
 
-    if (section.gridRenderer) {
-      changed += upgradeItems(section.gridRenderer.items);
+    if (section['gridRenderer']) {
+      changed += upgradeItems(getByPath(section, ['gridRenderer', 'items']));
       continue;
     }
-    if (section.horizontalListRenderer) {
-      changed += upgradeItems(section.horizontalListRenderer.items);
+    if (section['horizontalListRenderer']) {
+      changed += upgradeItems(
+        getByPath(section, ['horizontalListRenderer', 'items'])
+      );
       continue;
     }
     // Search interleaves bare items among the shelves.
@@ -360,16 +404,7 @@ function upgradeSectionList(contents) {
   return changed;
 }
 
-function getByPath(obj, parts) {
-  let current = obj;
-  for (let i = 0; i < parts.length; i++) {
-    if (current == null) return undefined;
-    current = current[parts[i]];
-  }
-  return current;
-}
-
-// Paths mirror RESPONSE_TYPE_SIGNATURES in adblock.js so both engines agree on where a given response keeps its content.
+// Paths mirror RESPONSE_TYPE_SIGNATURES in response-type.ts so both engines agree on where a given response keeps its content.
 
 const P = {
   HOME: [
@@ -422,67 +457,81 @@ const P = {
   CURRENT_THUMB: ['currentVideoThumbnail'],
   MICROFORMAT: ['microformat', 'playerMicroformatRenderer', 'thumbnail'],
   VIDEO_DETAILS: ['videoDetails', 'thumbnail']
-};
+} as const;
 
-function upgradeAutoplaySets(sets) {
-  if (!Array.isArray(sets)) return 0;
+function upgradeAutoplaySets(sets: unknown): number {
+  if (!isArray(sets)) return 0;
   let changed = 0;
-  for (let i = 0; i < sets.length; i++) {
-    const item =
-      sets[i]?.nextVideoRenderer?.autoplayVideoWrapperRenderer
-        ?.primaryEndpointRenderer?.autoplayEndpointRenderer?.item;
+  for (const set of sets) {
+    const item = getByPath(set, [
+      'nextVideoRenderer',
+      'autoplayVideoWrapperRenderer',
+      'primaryEndpointRenderer',
+      'autoplayEndpointRenderer',
+      'item'
+    ]);
     if (item) changed += upgradeItem(item);
   }
   return changed;
 }
 
-function upgradeAutoplay(autoplay) {
+function upgradeAutoplay(autoplay: unknown): number {
   if (!autoplay) return 0;
   let changed = 0;
-  changed += upgradeAutoplaySets(autoplay.sets);
-  changed += upgradeAutoplaySets(autoplay.modifiedSets);
+  changed += upgradeAutoplaySets(getByPath(autoplay, ['sets']));
+  changed += upgradeAutoplaySets(getByPath(autoplay, ['modifiedSets']));
   changed += upgradeContainer(
-    autoplay.replayVideoRenderer?.pivotVideoRenderer?.thumbnail
+    getByPath(autoplay, [
+      'replayVideoRenderer',
+      'pivotVideoRenderer',
+      'thumbnail'
+    ])
   );
   return changed;
 }
 
-function upgradeBrowseTabs(sections) {
-  if (!Array.isArray(sections)) return 0;
+function upgradeBrowseTabs(sections: unknown): number {
+  if (!isArray(sections)) return 0;
   let changed = 0;
-  for (let i = 0; i < sections.length; i++) {
-    const tabs = sections[i]?.tvSecondaryNavSectionRenderer?.tabs;
-    if (!Array.isArray(tabs)) continue;
-    for (let j = 0; j < tabs.length; j++) {
-      const content = tabs[j]?.tabRenderer?.content;
+  for (const section of sections) {
+    const tabs = getByPath(section, ['tvSecondaryNavSectionRenderer', 'tabs']);
+    if (!isArray(tabs)) continue;
+    for (const tab of tabs) {
+      const content = getByPath(tab, ['tabRenderer', 'content']);
       if (!content) continue;
-      changed += upgradeSectionList(content.sectionListRenderer?.contents);
       changed += upgradeSectionList(
-        content.tvSurfaceContentRenderer?.content?.sectionListRenderer?.contents
+        getByPath(content, ['sectionListRenderer', 'contents'])
+      );
+      changed += upgradeSectionList(
+        getByPath(content, [
+          'tvSurfaceContentRenderer',
+          'content',
+          'sectionListRenderer',
+          'contents'
+        ])
       );
     }
   }
   return changed;
 }
 
-function upgradeActions(actions) {
-  if (!Array.isArray(actions)) return 0;
+function upgradeActions(actions: unknown): number {
+  if (!isArray(actions)) return 0;
   let changed = 0;
-  for (let i = 0; i < actions.length; i++) {
-    const action = actions[i];
+  for (const action of actions) {
     if (!action) continue;
     changed += upgradeItems(
-      action.reloadContinuationItemsCommand?.continuationItems
+      getByPath(action, ['reloadContinuationItemsCommand', 'continuationItems'])
     );
     changed += upgradeItems(
-      action.appendContinuationItemsAction?.continuationItems
+      getByPath(action, ['appendContinuationItemsAction', 'continuationItems'])
     );
   }
   return changed;
 }
 
 /** Continuation payloads, in all four shapes. Called for every response, not only responseType 'CONTINUATION': a shelf continuation under the playing video keeps `contents.singleColumnWatchNextResults` attached and detectResponseType() checks NEXT before CONTINUATION, so the response is typed NEXT while its thumbnails live under `continuationContents.sectionListContinuation`. */
-function upgradeContinuation(data) {
+function upgradeContinuation(data: JsonObject): number {
   let changed = 0;
   changed += upgradeSectionList(getByPath(data, P.CONT_SECTION));
   changed += upgradeSectionList(getByPath(data, P.CONT_TVSURFACE));
@@ -492,58 +541,66 @@ function upgradeContinuation(data) {
 }
 
 // Continuations that carry no video thumbnails; live chat polls every few seconds while a stream plays, and a scan of each would cost up to SCAN_MAX_NODES for nothing.
-const NO_THUMBNAIL_CONTINUATIONS = {
-  liveChatContinuation: true,
-  commentRepliesContinuation: true,
-  commentSectionContinuation: true
-};
+const NO_THUMBNAIL_CONTINUATIONS: ReadonlySet<string> = new Set([
+  'liveChatContinuation',
+  'commentRepliesContinuation',
+  'commentSectionContinuation'
+]);
 
-function isThumbnailFreeContinuation(contents) {
-  if (!contents || typeof contents !== 'object') return false;
+function isThumbnailFreeContinuation(contents: unknown): boolean {
+  if (!isContainer(contents)) return false;
   let any = false;
   for (const key in contents) {
-    if (!NO_THUMBNAIL_CONTINUATIONS[key]) return false;
+    if (!NO_THUMBNAIL_CONTINUATIONS.has(key)) return false;
     any = true;
   }
   return any;
 }
 
 /** Last-resort bounded walk, used only when the schema paths produced nothing - keeps the module working through an InnerTube reshuffle instead of silently doing nothing, without putting a full traversal on the hot path. */
-function scanForThumbnails(root) {
-  if (!root || typeof root !== 'object') return 0;
-  const queue = [root, 0];
+function scanForThumbnails(root: unknown): number {
+  if (!isContainer(root)) return 0;
+  const nodes: unknown[] = [root];
+  const depths: number[] = [0];
   let index = 0;
   let visited = 0;
   let changed = 0;
 
-  while (index < queue.length) {
+  while (index < nodes.length) {
     if (++visited > SCAN_MAX_NODES) break;
-    const node = queue[index++];
-    const depth = queue[index++];
-    if (!node || typeof node !== 'object' || depth > SCAN_MAX_DEPTH) continue;
+    const node = nodes[index];
+    const depth = depths[index] ?? 0;
+    index++;
+    if (!isContainer(node) || depth > SCAN_MAX_DEPTH) continue;
 
-    if (Array.isArray(node.thumbnails) || Array.isArray(node.sources))
+    const record = node as JsonObject;
+    if (isArray(record['thumbnails']) || isArray(record['sources']))
       changed += upgradeContainer(node);
 
     const nextDepth = depth + 1;
-    for (const key in node) {
-      const value = node[key];
-      if (value && typeof value === 'object') queue.push(value, nextDepth);
+    for (const key in record) {
+      const value = record[key];
+      if (isContainer(value)) {
+        nodes.push(value);
+        depths.push(nextDepth);
+      }
     }
   }
   return changed;
 }
 
-/** Entry point called from adblock.js's JSON.parse hook. `responseType` is the type adblock already detected, so this costs no extra detection pass. */
-export function upgradeResponseThumbnails(data, responseType) {
-  if (!enabled || !data || typeof data !== 'object' || Array.isArray(data))
-    return 0;
+/** Entry point called from adblock.ts's JSON.parse hook. `responseType` is the type adblock already detected, so this costs no extra detection pass. */
+export function upgradeResponseThumbnails(
+  data: unknown,
+  responseType: ResponseType | null
+): number {
+  if (!enabled || !isRecord(data)) return 0;
 
   // Stamped on every parse, including ones that rewrite nothing: an empty continuation is still evidence the surface is moving, and drainProbes() reads this to decide whether the app has gone quiet.
   lastParseAt = now();
 
   // Checked before the switch: any response type can carry a continuation alongside its own contents, and the type it gets classified as depends on whichever signature detectResponseType() happens to test first.
-  let changed = data.continuationContents ? upgradeContinuation(data) : 0;
+  let changed = data['continuationContents'] ? upgradeContinuation(data) : 0;
   let scanned = false;
 
   switch (responseType) {
@@ -558,16 +615,16 @@ export function upgradeResponseThumbnails(data, responseType) {
       break;
     case 'CONTINUATION':
       // Already handled above; a live chat or comment poll carries no video thumbnails and must not fall through to the scan.
-      if (isThumbnailFreeContinuation(data.continuationContents))
+      if (isThumbnailFreeContinuation(data['continuationContents']))
         return changed;
       break;
     case 'SHORTS_SEQUENCE':
-      changed += upgradeItems(data.entries);
+      changed += upgradeItems(data['entries']);
       break;
     case 'ACTION':
       // A body can carry both lists, and the second is not a fallback.
-      changed += upgradeActions(data.onResponseReceivedActions);
-      changed += upgradeActions(data.onResponseReceivedEndpoints);
+      changed += upgradeActions(data['onResponseReceivedActions']);
+      changed += upgradeActions(data['onResponseReceivedEndpoints']);
       break;
     case 'NEXT':
       changed += upgradeSectionList(getByPath(data, P.PIVOT));
@@ -597,15 +654,15 @@ export function upgradeResponseThumbnails(data, responseType) {
   return changed;
 }
 
-/** Whether adblock.js needs to keep its JSON.parse hook installed for us. */
-export function thumbnailHookRequired() {
+/** Whether adblock.ts needs to keep its JSON.parse hook installed for us. */
+export function thumbnailHookRequired(): boolean {
   return enabled;
 }
 
 /** Whether the URL exists, by a HEAD request: true, false, UNKNOWN (timeout), or null when the HEAD could not tell (no readable Content-Length, or a request error - which is also what a cross-origin 404 without CORS headers looks like), in which case the caller loads the image instead. A grey placeholder answered 200 with a tiny body is missing. */
-function headExists(url) {
-  return new Promise((resolve) => {
-    let xhr;
+function headExists(url: string): Promise<ProbeAnswer> {
+  return new Promise<ProbeAnswer>((resolve) => {
+    let xhr: XMLHttpRequest;
     try {
       xhr = new XMLHttpRequest();
       xhr.open('HEAD', url, true);
@@ -616,7 +673,10 @@ function headExists(url) {
     xhr.timeout = PROBE_TIMEOUT;
     xhr.onload = () => {
       if (xhr.status < 200 || xhr.status >= 300) return resolve(false);
-      const length = parseInt(xhr.getResponseHeader('Content-Length'), 10);
+      const length = parseInt(
+        xhr.getResponseHeader('Content-Length') ?? '',
+        10
+      );
       resolve(isNaN(length) ? null : length > PLACEHOLDER_MAX_BYTES);
     };
     xhr.onerror = () => resolve(null);
@@ -631,9 +691,9 @@ function headExists(url) {
 }
 
 /** Verify by loading the image rather than asking about it. For rendered tiles this resolves out of the browser cache (including the cached 404 whose body is the grey placeholder, caught on its width); also the fallback when a HEAD could not tell, since XHR is subject to CORS and a cross-origin 404 need not carry readable headers. An `error` here is a load that never got an answer, not a miss. This is the same signal the network hooks were being asked for, taken at the layer that actually has it - a CSS background-image load never passes through fetch or XHR. */
-function imageExists(url) {
-  return new Promise((resolve) => {
-    let img;
+function imageExists(url: string): Promise<ProbeAnswer> {
+  return new Promise<ProbeAnswer>((resolve) => {
+    let img: HTMLImageElement;
     try {
       img = new Image();
     } catch {
@@ -641,11 +701,11 @@ function imageExists(url) {
       return;
     }
     let settled = false;
-    let timer = null;
-    const finish = (ok) => {
+    let timer: Timer | null = null;
+    const finish = (ok: ProbeAnswer) => {
       if (settled) return;
       settled = true;
-      clearTimeout(timer);
+      if (timer !== null) clearTimeout(timer);
       img.onload = null;
       img.onerror = null;
       resolve(ok);
@@ -657,7 +717,7 @@ function imageExists(url) {
   });
 }
 
-function scheduleProbe(videoId) {
+function scheduleProbe(videoId: string): void {
   if (!enabled) return;
   if (qualityCache.has(videoId)) return;
   // One attempt per video per session whatever the outcome: the same tiles stream past on every scroll, and re-queueing them turned a settled surface into a permanent trickle of requests. (Only a verification-cache eviction takes a video out again.)
@@ -669,10 +729,13 @@ function scheduleProbe(videoId) {
 }
 
 /** The useful rung if it exists, else the guaranteed floor; null when the probe learned nothing (timeout or network error). */
-async function resolveQuality(videoId, onScreen) {
+async function resolveQuality(
+  videoId: string,
+  onScreen: boolean
+): Promise<number | null> {
   // On screen: the browser already holds the answer, so ask it. Off screen: a HEAD - an <img> there would pull down a full image nobody is looking at.
   const rank = usefulRank;
-  const url = buildUrl(videoId, QUALITY_NAMES[rank]);
+  const url = buildUrl(videoId, rank);
   let exists = await (onScreen ? imageExists : headExists)(url);
   // A HEAD that could not tell: ask the image, never assume.
   if (exists === null) exists = await imageExists(url);
@@ -680,23 +743,27 @@ async function resolveQuality(videoId, onScreen) {
   return exists ? rank : FLOOR_RANK;
 }
 
-function applyCorrection(videoId, rank) {
+function applyCorrection(videoId: string, rank: number): void {
   const entries = pendingEntries.get(videoId);
   if (!entries) return;
   pendingEntries.delete(videoId);
-  const url = buildUrl(videoId, QUALITY_NAMES[rank]);
-  for (let i = 0; i < entries.length; i++) {
-    if (entries[i] && entries[i].url !== url) entries[i].url = url;
+  const url = buildUrl(videoId, rank);
+  for (const entry of entries) {
+    if (entry['url'] !== url) entry['url'] = url;
   }
 }
 
-function settledRank(videoId, resolved) {
+function settledRank(videoId: string, resolved: number): number {
   const floor = provenFloor.get(videoId);
   provenFloor.delete(videoId);
   return floor !== undefined && floor > resolved ? floor : resolved;
 }
 
-function onProbeDone(videoId, rank, generation) {
+function onProbeDone(
+  videoId: string,
+  rank: number | null,
+  generation: number
+): void {
   // Correcting a tile changes what is on screen, so the cached sample is stale.
   visibleSample = null;
   activeProbes--;
@@ -708,8 +775,8 @@ function onProbeDone(videoId, rank, generation) {
   }
 
   // Nothing learned (null): nothing is saved, so the next session asks again; the video is not re-queued this session (probeAttempted), so a flaky network cannot become a retry loop, and the floor holds meanwhile. A miss is an answer, and saved.
-  const unknown = typeof rank !== 'number';
-  const resolved = unknown ? FLOOR_RANK : rank;
+  const unknown = rank === null;
+  const resolved = rank ?? FLOOR_RANK;
   // A video the cache no longer remembers may be probed again when it comes back; the one-attempt rule is for videos that were never answered.
   const evicted = capSet(qualityCache, videoId, resolved, CACHE_LIMIT);
   if (evicted !== null) {
@@ -738,7 +805,7 @@ function onProbeDone(videoId, rank, generation) {
 }
 
 /** Called from the parse. The first videos this parse queued are the top of the response - what the user is looking at - so a small burst of them goes through immediately; everything else waits for the surface to settle. */
-function deferProbes() {
+function deferProbes(): void {
   if (!enabled || probeQueue.size === 0) {
     queuedByParse.length = 0;
     return;
@@ -746,8 +813,7 @@ function deferProbes() {
   // A parse that queued nothing leaves the latest parse and its budget as they are: its head is still the freshest content on screen.
   if (queuedByParse.length > 0) {
     latestParse.clear();
-    for (let i = 0; i < queuedByParse.length; i++)
-      latestParse.add(queuedByParse[i]);
+    for (const id of queuedByParse) latestParse.add(id);
     queuedByParse.length = 0;
     urgentLeft = PROBE_URGENT_BURST;
   }
@@ -757,24 +823,24 @@ function deferProbes() {
 }
 
 /** videoIds the app currently has thumbnails rendered for - a free visibility signal, since the list is virtualised and "has a rendered thumbnail" already means "on or near screen". Deliberately not IntersectionObserver: the virtualised list recycles nodes rapidly, so observing every rendered tile is noisier than reading the already-rendered backgroundImage, which touches no layout. */
-function sampleRenderedIds() {
+function sampleRenderedIds(): Set<string> | null {
   const at = now();
   if (visibleSample && at - visibleSampleAt < VISIBLE_SAMPLE_TTL)
     return visibleSample;
 
-  let nodes;
+  let nodes: NodeListOf<HTMLElement>;
   try {
-    nodes = document.querySelectorAll(DOM_SELECTOR);
+    nodes = document.querySelectorAll<HTMLElement>(DOM_SELECTOR);
   } catch {
     return null;
   }
 
-  const ids = new Set();
-  for (let i = 0; i < nodes.length; i++) {
-    const background = nodes[i].style && nodes[i].style.backgroundImage;
+  const ids = new Set<string>();
+  for (const node of nodes) {
+    const background = node.style?.backgroundImage;
     if (!background) continue;
-    const match = THUMB_IN_CSS_RE.exec(background);
-    if (match) ids.add(match[1]);
+    const id = THUMB_IN_CSS_RE.exec(background)?.[1];
+    if (id !== undefined) ids.add(id);
   }
   // Scrolling new tiles into view is itself a grant of budget; without this, scrolling through already-loaded content (which fetches nothing) would leave on-screen grey boxes waiting behind the idle gate.
   if (visibleSample === null || !sameIds(visibleSample, ids)) {
@@ -786,30 +852,31 @@ function sampleRenderedIds() {
   return ids;
 }
 
-function sameIds(a, b) {
+function sameIds(a: ReadonlySet<string>, b: ReadonlySet<string>): boolean {
   if (a.size !== b.size) return false;
-  const iterator = a.values();
-  let step = iterator.next();
-  while (!step.done) {
-    if (!b.has(step.value)) return false;
-    step = iterator.next();
+  for (const id of a) {
+    if (!b.has(id)) return false;
   }
   return true;
 }
 
-function takeFrom(set, picked, limit) {
-  const iterator = set.values();
-  let step = iterator.next();
-  while (!step.done && picked.length < limit) {
-    const id = step.value;
-    if (probeQueue.has(id) && picked.indexOf(id) === -1) picked.push(id);
-    step = iterator.next();
+function takeFrom(
+  set: ReadonlySet<string>,
+  picked: string[],
+  limit: number
+): void {
+  for (const id of set) {
+    if (picked.length >= limit) break;
+    if (probeQueue.has(id) && !picked.includes(id)) picked.push(id);
   }
 }
 
 /** Up to `limit` queued ids: on-screen ones first, then the latest parse's in the order it queued them, then the head of the queue. Each tier is read from its own small set against the queue, so a pick costs the size of those sets plus `limit`, not a pass over the whole queue. */
-function pickProbeIds(rendered, limit) {
-  const picked = [];
+function pickProbeIds(
+  rendered: ReadonlySet<string> | null,
+  limit: number
+): string[] {
+  const picked: string[] = [];
   if (limit <= 0) return picked;
   if (rendered) takeFrom(rendered, picked, limit);
   if (picked.length < limit) takeFrom(latestParse, picked, limit);
@@ -818,7 +885,7 @@ function pickProbeIds(rendered, limit) {
 }
 
 /** Whether a picked video may go now, spending the budget of its tier: on-screen work first, then the latest parse's head, everything else waits for the surface to settle so it never competes with an active scroll. A tile one tier refuses falls through to the tiers below rather than holding the queue. */
-function admitToTier(videoId, onScreen) {
+function admitToTier(videoId: string, onScreen: boolean): boolean {
   if (onScreen && visibleBudget > 0) {
     visibleBudget--;
     return true;
@@ -830,7 +897,11 @@ function admitToTier(videoId, onScreen) {
   return now() - lastParseAt >= PROBE_IDLE_DELAY;
 }
 
-function startProbe(videoId, onScreen, generation) {
+function startProbe(
+  videoId: string,
+  onScreen: boolean,
+  generation: number
+): void {
   probeQueue.delete(videoId);
   latestParse.delete(videoId);
   if (qualityCache.has(videoId)) return;
@@ -841,7 +912,7 @@ function startProbe(videoId, onScreen, generation) {
   );
 }
 
-function runProbeRound() {
+function runProbeRound(): void {
   probePump = null;
   if (!enabled || document.hidden) return;
 
@@ -863,13 +934,13 @@ function runProbeRound() {
   const generation = probeGeneration;
   const ids = pickProbeIds(rendered, limit);
   let heldByIdle = false;
-  for (let i = 0; i < ids.length; i++) {
-    const onScreen = rendered ? rendered.has(ids[i]) : false;
-    if (!admitToTier(ids[i], onScreen)) {
+  for (const id of ids) {
+    const onScreen = rendered ? rendered.has(id) : false;
+    if (!admitToTier(id, onScreen)) {
       heldByIdle = true;
       continue;
     }
-    startProbe(ids[i], onScreen, generation);
+    startProbe(id, onScreen, generation);
   }
 
   // Whatever the gate held back gets picked up once the surface goes quiet: for the idle gate that is the rest of its delay, not a whole new one.
@@ -881,7 +952,7 @@ function runProbeRound() {
   }
 }
 
-function drainProbes() {
+function drainProbes(): void {
   if (probeTimer) {
     clearTimeout(probeTimer);
     probeTimer = null;
@@ -897,18 +968,18 @@ function drainProbes() {
   probePump = idle(runProbeRound);
 }
 
-function onNavKey(e) {
-  if (NAV_KEY_CODES[e.keyCode]) lastNavAt = now();
+function onNavKey(e: KeyboardEvent): void {
+  if (NAV_KEY_CODES.has(e.keyCode)) lastNavAt = now();
 }
 
-function navPauseLeft() {
+function navPauseLeft(): number {
   const left = NAV_PAUSE_MS - (now() - lastNavAt);
   return left > 0 ? left : 0;
 }
 
 // Live promotion: only runs when verification disagrees with what was already emitted, which after the first session is rare. Batched into one sweep so N corrections cost one querySelectorAll, not N.
 
-function runPromotionSweep() {
+function runPromotionSweep(): void {
   promoteTimer = null;
   if (!enabled || pendingPromotions.size === 0) return;
   if (document.hidden) {
@@ -923,36 +994,35 @@ function runPromotionSweep() {
     return;
   }
 
-  let nodes;
+  let nodes: NodeListOf<HTMLElement>;
   try {
-    nodes = document.querySelectorAll(DOM_SELECTOR);
+    nodes = document.querySelectorAll<HTMLElement>(DOM_SELECTOR);
   } catch {
     pendingPromotions.clear();
     return;
   }
 
-  const applied = new Set();
-  for (let i = 0; i < nodes.length; i++) {
-    const element = nodes[i];
-    const background = element.style && element.style.backgroundImage;
+  const applied = new Set<string>();
+  for (const element of nodes) {
+    const background = element.style?.backgroundImage;
     if (!background) continue;
 
-    const match = THUMB_IN_CSS_RE.exec(background);
-    if (!match) continue;
+    const videoId = THUMB_IN_CSS_RE.exec(background)?.[1];
+    if (videoId === undefined) continue;
 
-    const rank = pendingPromotions.get(match[1]);
+    const rank = pendingPromotions.get(videoId);
     if (rank === undefined) continue;
 
-    const next = buildUrl(match[1], QUALITY_NAMES[rank], rank === FLOOR_RANK);
+    const next = buildUrl(videoId, rank);
     if (background.indexOf(next) !== -1) continue;
 
     // Layered, not replaced: the current image stays visible underneath until the new one has decoded, so a promotion never flashes an empty tile.
     element.style.backgroundImage = 'url("' + next + '"), ' + background;
-    applied.add(match[1]);
+    applied.add(videoId);
   }
 
   // A correction is NOT discarded just because this sweep found no home for it: the list is virtualised, so a probe's tile is often not in the DOM yet. Entries survive a few rounds then expire, bounding the map.
-  pendingPromotions.forEach((rank, videoId) => {
+  pendingPromotions.forEach((_rank, videoId) => {
     const attempts = (promotionAttempts.get(videoId) || 0) + 1;
     if (attempts >= PROMOTION_MAX_ATTEMPTS || applied.has(videoId)) {
       pendingPromotions.delete(videoId);
@@ -966,7 +1036,7 @@ function runPromotionSweep() {
   }
 }
 
-function handleVisibilityChange() {
+function handleVisibilityChange(): void {
   if (document.hidden) {
     // webOS does not reliably fire pagehide when the app is closed from the launcher, so backgrounding is the last dependable moment to persist.
     flushCache();
@@ -975,7 +1045,7 @@ function handleVisibilityChange() {
   }
 }
 
-function flushCache() {
+function flushCache(): void {
   if (saveTimer) {
     clearTimeout(saveTimer);
     saveCache();

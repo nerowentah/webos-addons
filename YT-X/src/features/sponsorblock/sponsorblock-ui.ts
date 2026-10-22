@@ -1,35 +1,44 @@
 import './sponsorblock-ui.css';
 import sponsorBlockIcon from './sponsorblock-icon.png';
-import { segmentColors } from '../../config/config.js';
-import { SPONSOR_POPUP } from '../../config/ui-text.js';
-import { formatTime } from '../../core/format.js';
+import { segmentColors } from '../../config/config';
+import { SPONSOR_POPUP } from '../../config/ui-text';
+import { formatTime } from '../../core/format';
 
 // The quality toast finishes ~7s after playback starts (4s delay + 3s visible).
 const AUTO_SHOW_DELAY_MS = 8000;
 const AUTO_HIDE_MS = 8000;
 
-class SponsorBlockUI {
-  constructor() {
-    this.popup = null;
-    this.hasSegments = false;
-    this.showTimer = null;
-    this.hideTimer = null;
-    this.hasShownOnce = false;
-    this.suppressed = false;
-  }
+/** The slice of a SponsorBlock segment the popup lists. */
+interface PopupSegment {
+  category: string;
+  segment: readonly [number, number];
+}
 
-  getSegmentColor(category) {
+type Timer = ReturnType<typeof setTimeout>;
+
+const categoryNames: Readonly<Record<string, string | undefined>> =
+  SPONSOR_POPUP.categories;
+
+class SponsorBlockUI {
+  popup: HTMLDivElement | null = null;
+  hasSegments = false;
+  showTimer: Timer | null = null;
+  hideTimer: Timer | null = null;
+  hasShownOnce = false;
+  suppressed = false;
+
+  getSegmentColor(category: string): string {
     return segmentColors[category] || '#777';
   }
 
-  getCategoryName(category) {
+  getCategoryName(category: string): string {
     return (
-      SPONSOR_POPUP.categories[category] ||
+      categoryNames[category] ||
       category.charAt(0).toUpperCase() + category.slice(1)
     );
   }
 
-  createPopup() {
+  createPopup(): HTMLDivElement {
     if (this.popup) return this.popup;
 
     const popup = document.createElement('div');
@@ -72,16 +81,17 @@ class SponsorBlockUI {
     return popup;
   }
 
-  updateSegments(segments) {
-    if (!this.popup) this.createPopup();
-    const container = this.popup.querySelector('.sb-list-container');
+  updateSegments(segments: readonly PopupSegment[]): void {
+    const popup = this.createPopup();
+    const container = popup.querySelector('.sb-list-container');
+    if (!container) return;
     container.textContent = '';
 
-    this.hasSegments = segments && segments.length > 0;
+    this.hasSegments = segments.length > 0;
     if (!this.hasSegments) {
       this.clearTimers();
       this.hasShownOnce = false;
-      this.popup.classList.remove('visible');
+      popup.classList.remove('visible');
       return;
     }
 
@@ -99,7 +109,7 @@ class SponsorBlockUI {
       const endTime = formatTime(segment.segment[1]);
       const categoryName = this.getCategoryName(segment.category);
 
-      let timeLabel;
+      let timeLabel: string;
       if (segment.category === 'poi_highlight' || segment.category === 'poi') {
         timeLabel = startTime;
       } else {
@@ -131,15 +141,15 @@ class SponsorBlockUI {
     });
   }
 
-  clearTimers() {
-    clearTimeout(this.showTimer);
-    clearTimeout(this.hideTimer);
+  clearTimers(): void {
+    if (this.showTimer) clearTimeout(this.showTimer);
+    if (this.hideTimer) clearTimeout(this.hideTimer);
     this.showTimer = null;
     this.hideTimer = null;
   }
 
   // Shows the popup once per video, AUTO_SHOW_DELAY_MS after playback starts.
-  scheduleAutoShow() {
+  scheduleAutoShow(): void {
     if (
       this.suppressed ||
       this.showTimer ||
@@ -154,16 +164,16 @@ class SponsorBlockUI {
       if (this.suppressed || this.hasShownOnce || !this.hasSegments) return;
 
       this.hasShownOnce = true;
-      this.popup.classList.add('visible');
+      this.popup?.classList.add('visible');
       this.hideTimer = setTimeout(() => {
         this.hideTimer = null;
-        this.popup.classList.remove('visible');
+        this.popup?.classList.remove('visible');
       }, AUTO_HIDE_MS);
     }, AUTO_SHOW_DELAY_MS);
   }
 
   // Called with the settings-panel state: the popup never shows while it is open.
-  setSuppressed(suppressed) {
+  setSuppressed(suppressed: boolean): void {
     this.suppressed = suppressed;
     if (suppressed) {
       this.clearTimers();

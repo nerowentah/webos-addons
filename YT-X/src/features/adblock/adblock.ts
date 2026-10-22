@@ -1,11 +1,22 @@
-/* eslint no-redeclare: 0 */
-/* global fetch:writable */
-import { configRead, configAddChangeListener } from '../../config/config';
-import { raiseRowsAhead, detectRowsAheadType } from './rows-ahead.js';
+import {
+  configRead,
+  configAddChangeListener,
+  type BoolKey
+} from '../../config/config';
+import {
+  getByPath,
+  isArray,
+  isContainer,
+  isRecord,
+  readText,
+  type JsonObject
+} from '../../youtube/json';
+import { raiseRowsAhead, detectRowsAheadType } from './rows-ahead';
+import { detectResponseType } from './response-type';
 import {
   upgradeResponseThumbnails,
   thumbnailHookRequired
-} from './thumbnail-quality.js';
+} from './thumbnail-quality';
 
 /**
  * Minimal reimplementation of the uBlock Origin rule: https://github.com/uBlockOrigin/uAssets/blob/master/filters/filters.txt. The original only reached the ad surfaces an anonymous session sees; a signed-in account gets additional, differently-named renderers for the same thing, so this drops them by renderer name instead of by response path.
@@ -122,7 +133,7 @@ const SHELF_TITLES_LIVE_GAMES = new Set(['top live games']);
 const SHELF_TITLES_MOST_RELEVANT = new Set(['most relevant']);
 
 /** True if a key names an ad renderer, tolerating the version suffixes YouTube appends (`adSlotRendererFoo`, `displayAdRendererV2`). */
-function isAdKey(key) {
+function isAdKey(key: string): boolean {
   if (AD_RENDERERS.has(key)) return true;
   for (const name of AD_RENDERERS) {
     if (name.length > 8 && key.startsWith(name)) return true;
@@ -142,28 +153,29 @@ const AD_KEY_TEXT_RE = new RegExp(
 /**
  * Walk a response body and drop every ad renderer, at any depth. Explicit-stack rather than recursion: initial-data payloads nest seven or eight levels and a home-page-sized response is large enough that blowing the webview call stack is a real risk. Mutates in place; a seen set guards against non-JSON graphs even though JSON.parse cannot produce cycles.
  */
-function scrubAds(root) {
-  const seen = new Set();
-  const stack = [root];
-  const removedKeys = [];
+function scrubAds(root: object): string[] {
+  const seen = new Set<object>();
+  const stack: unknown[] = [root];
+  const removedKeys: string[] = [];
 
   while (stack.length > 0) {
     const node = stack.pop();
-    if (node === null || typeof node !== 'object') continue;
+    if (!isContainer(node)) continue;
     if (seen.has(node)) continue;
     seen.add(node);
 
-    if (Array.isArray(node)) {
+    if (isArray(node)) {
       // Reverse order so splice does not shift the indices still to be walked.
       for (let i = node.length - 1; i >= 0; i -= 1) {
         const item = node[i];
-        if (item !== null && typeof item === 'object') {
+        if (isContainer(item)) {
           const keys = Object.keys(item);
+          const [first] = keys;
           const isAdWrapper =
-            keys.length > 0 &&
+            first !== undefined &&
             keys.every((k) => isAdKey(k) || k === 'tracking');
           if (isAdWrapper) {
-            removedKeys.push(keys[0]);
+            removedKeys.push(first);
             node.splice(i, 1);
             continue;
           }
@@ -173,52 +185,48 @@ function scrubAds(root) {
       continue;
     }
 
-    for (const key of Object.keys(node)) {
-      const value = node[key];
+    const record = node as JsonObject;
+    for (const key of Object.keys(record)) {
+      const value = record[key];
 
       if (isAdKey(key)) {
-        delete node[key];
+        delete record[key];
         removedKeys.push(key);
         continue;
       }
 
       // A promoted list whose every child is an ad still has a heading; the list itself goes, not just its items.
-      if (
-        value !== null &&
-        typeof value === 'object' &&
-        AD_LIST_OWNERS.has(key)
-      ) {
-        delete node[key];
+      if (isContainer(value) && AD_LIST_OWNERS.has(key)) {
+        delete record[key];
         removedKeys.push(key);
         continue;
       }
 
-      if (value !== null && typeof value === 'object') stack.push(value);
+      if (isContainer(value)) stack.push(value);
     }
   }
 
   return removedKeys;
 }
 
-/** Flatten a YouTube text object to a string. `runs` covers the split variant. */
-function readText(text) {
-  if (text === null || typeof text !== 'object') return '';
-  if (typeof text.simpleText === 'string') return text.simpleText;
-  if (!Array.isArray(text.runs)) return '';
-  return text.runs.map((run) => run?.text ?? '').join('');
-}
-
 /** The shelf heading: the plain title, or the avatar-lockup header variant. */
-function getShelfTitle(shelf) {
-  const title = readText(shelf.title);
+function getShelfTitle(shelf: JsonObject): string {
+  const title = readText(shelf['title']);
   if (title !== '') return title;
-  const lockup = shelf.headerRenderer?.shelfHeaderRenderer?.avatarLockup;
-  return readText(lockup?.avatarLockupRenderer?.title ?? lockup?.title);
+  const lockup = getByPath(shelf, [
+    'headerRenderer',
+    'shelfHeaderRenderer',
+    'avatarLockup'
+  ]);
+  return readText(
+    getByPath(lockup, ['avatarLockupRenderer', 'title']) ??
+      getByPath(lockup, ['title'])
+  );
 }
 
 /** A titled shelf that goes whole, before any per-tile work. */
-function shouldDropShelfByTitle(shelf) {
-  if (shelf === null || typeof shelf !== 'object') return false;
+function shouldDropShelfByTitle(shelf: unknown): boolean {
+  if (!isRecord(shelf)) return false;
   const title = getShelfTitle(shelf);
   if (title === '') return false;
   const key = title.trim().toLowerCase();
@@ -227,7 +235,7 @@ function shouldDropShelfByTitle(shelf) {
 }
 
 /** True if this element is a container, not a leaf tile. */
-function isContainer(item) {
+function isShelfContainer(item: object): boolean {
   for (const key of Object.keys(item)) {
     if (CONTAINER_KEYS.has(key)) return true;
   }
@@ -235,28 +243,31 @@ function isContainer(item) {
 }
 
 /** The per-tile detection: does this subtree carry a wanted badge? */
-function hasWantedBadge(node, mask, depth) {
-  if (node === null || typeof node !== 'object') return false;
+function hasWantedBadge(node: unknown, mask: number, depth: number): boolean {
+  if (!isContainer(node)) return false;
   if (depth > MAX_MARKER_DEPTH) return false;
-  if (hasBadgeValue(node, mask)) return true;
 
-  if (Array.isArray(node)) {
+  if (isArray(node)) {
     for (const item of node) {
       if (hasWantedBadge(item, mask, depth + 1)) return true;
     }
     return false;
   }
 
-  for (const key in node) {
+  const record = node as JsonObject;
+  if (hasBadgeValue(record, mask)) return true;
+
+  for (const key in record) {
     if (SKIP_KEYS.has(key)) continue;
-    if (hasWantedBadge(node[key], mask, depth + 1)) return true;
+    if (hasWantedBadge(record[key], mask, depth + 1)) return true;
   }
   return false;
 }
 
-function hasBadgeValue(node, mask) {
-  if (mask & BADGE_LIVE && node.contentType === CONTENT_TYPE_LIVE) return true;
-  if (mask & BADGE_UPCOMING && node.upcomingEventData !== undefined)
+function hasBadgeValue(node: JsonObject, mask: number): boolean {
+  if (mask & BADGE_LIVE && node['contentType'] === CONTENT_TYPE_LIVE)
+    return true;
+  if (mask & BADGE_UPCOMING && node['upcomingEventData'] !== undefined)
     return true;
 
   for (const prop of ['style', 'badgeStyle']) {
@@ -285,21 +296,24 @@ function hasBadgeValue(node, mask) {
 /**
  * Filters a shelf's content lists in place and reports how many items they held and how many are left, so a shelf this filter emptied can be dropped whole - left in place it renders as a heading over skeleton tiles that never fill.
  */
-function filterShelfLists(shelf, depth) {
-  const content = shelf.content;
-  if (content === null || typeof content !== 'object') {
+function filterShelfLists(
+  shelf: JsonObject,
+  depth: number
+): { had: number; left: number } {
+  const content = shelf['content'];
+  if (!isContainer(content)) {
     return { had: 0, left: 0 };
   }
 
   let had = 0;
   let left = 0;
   const lists = [
-    content.horizontalListRenderer?.items,
-    content.gridRenderer?.items,
-    content.expandedShelfContentsRenderer?.items
+    getByPath(content, ['horizontalListRenderer', 'items']),
+    getByPath(content, ['gridRenderer', 'items']),
+    getByPath(content, ['expandedShelfContentsRenderer', 'items'])
   ];
   for (const list of lists) {
-    if (!Array.isArray(list)) continue;
+    if (!isArray(list)) continue;
     had += list.length;
     scrubList(list, depth + 1);
     left += list.length;
@@ -308,33 +322,37 @@ function filterShelfLists(shelf, depth) {
 }
 
 /** Whether a shelf goes: by title, or because this filter emptied it. */
-function shelfIsDropped(shelf, depth) {
+function shelfIsDropped(shelf: unknown, depth: number): boolean {
   if (shouldDropShelfByTitle(shelf)) return true;
+  if (!isRecord(shelf)) return false;
 
   const { had, left } = filterShelfLists(shelf, depth);
   return had > 0 && left === 0;
 }
 
 /** Filters one item list in place, dropping the tiles it covers. */
-function scrubList(list, depth) {
+function scrubList(list: unknown[], depth: number): void {
   if (depth > MAX_COSMETIC_DEPTH) return;
 
   // Reverse order so splice does not shift indices still to be walked.
   for (let i = list.length - 1; i >= 0; i -= 1) {
     const item = list[i];
-    if (item === null || typeof item !== 'object') continue;
+    if (!isContainer(item)) continue;
 
-    if (item.shelfRenderer) {
-      if (shelfIsDropped(item.shelfRenderer, depth + 1)) {
-        list.splice(i, 1);
+    if (isRecord(item)) {
+      const shelf = item['shelfRenderer'];
+      if (shelf) {
+        if (shelfIsDropped(shelf, depth + 1)) {
+          list.splice(i, 1);
+        }
+        continue;
       }
-      continue;
-    }
 
-    // A container is filtered through, never dropped as a tile.
-    if (isContainer(item)) {
-      sweep(item, depth + 1);
-      continue;
+      // A container is filtered through, never dropped as a tile.
+      if (isShelfContainer(item)) {
+        sweep(item, depth + 1);
+        continue;
+      }
     }
 
     if (cosmeticMask && hasWantedBadge(item, cosmeticMask, 0)) {
@@ -344,23 +362,24 @@ function scrubList(list, depth) {
 }
 
 /** Walks an object/array, filtering every shelf and tile list in place. */
-function sweep(node, depth) {
-  if (node === null || typeof node !== 'object') return;
+function sweep(node: unknown, depth: number): void {
+  if (!isContainer(node)) return;
   if (depth > MAX_COSMETIC_DEPTH) return;
 
-  if (Array.isArray(node)) {
+  if (isArray(node)) {
     scrubList(node, depth);
     return;
   }
 
-  for (const key of Object.keys(node)) {
+  const record = node as JsonObject;
+  for (const key of Object.keys(record)) {
     if (SKIP_KEYS.has(key)) continue;
-    const value = node[key];
-    if (value === null || typeof value !== 'object') continue;
+    const value = record[key];
+    if (!isContainer(value)) continue;
 
     if (key === 'shelfRenderer') {
       if (shelfIsDropped(value, depth)) {
-        delete node[key];
+        delete record[key];
       }
       continue;
     }
@@ -386,16 +405,16 @@ let filtersEnabled = false;
 // Independent of the filters above: rows-ahead edits the parsed body's continuations, not the ad/cosmetic surfaces, so it is its own guard and runs even when every filter is off.
 let loadRowsAhead = false;
 
-function refreshFilters() {
-  enableAdBlock = !!configRead('enableAdBlock');
-  keepPlaybackTracking = !!configRead('keepPlaybackTracking');
-  enableTrackingBlock = !!configRead('enableTrackingBlock');
-  disableAutoCaptions = !!configRead('disableAutoCaptions');
-  removeLiveVideos = !!configRead('removeLiveVideos');
-  removeUpcomingVideos = !!configRead('removeUpcomingVideos');
-  removeTopLiveGames = !!configRead('removeTopLiveGames');
-  removeMostRelevant = !!configRead('removeMostRelevant');
-  loadRowsAhead = !!configRead('loadRowsAhead');
+function refreshFilters(): void {
+  enableAdBlock = configRead('enableAdBlock');
+  keepPlaybackTracking = configRead('keepPlaybackTracking');
+  enableTrackingBlock = configRead('enableTrackingBlock');
+  disableAutoCaptions = configRead('disableAutoCaptions');
+  removeLiveVideos = configRead('removeLiveVideos');
+  removeUpcomingVideos = configRead('removeUpcomingVideos');
+  removeTopLiveGames = configRead('removeTopLiveGames');
+  removeMostRelevant = configRead('removeMostRelevant');
+  loadRowsAhead = configRead('loadRowsAhead');
   cosmeticMask =
     (removeLiveVideos ? BADGE_LIVE : 0) |
     (removeUpcomingVideos ? BADGE_UPCOMING : 0);
@@ -412,7 +431,7 @@ function refreshFilters() {
 }
 
 refreshFilters();
-for (const key of [
+const FILTER_KEYS = [
   'enableAdBlock',
   'keepPlaybackTracking',
   'enableTrackingBlock',
@@ -422,7 +441,8 @@ for (const key of [
   'removeTopLiveGames',
   'removeMostRelevant',
   'loadRowsAhead'
-]) {
+] as const satisfies readonly BoolKey[];
+for (const key of FILTER_KEYS) {
   configAddChangeListener(key, refreshFilters);
 }
 
@@ -433,7 +453,7 @@ const TRACKING_PARAMS_KEY = '"trackingParams"';
 const TRACKING_PARAMS_RE = /"trackingParams"\s*:\s*"[^"\\]*"/g;
 const TRACKING_PARAMS_EMPTY = '"trackingParams":""';
 
-function stripTrackingParams(text) {
+function stripTrackingParams(text: string): string {
   if (text.indexOf(TRACKING_PARAMS_KEY) === -1) return text;
   return text.replace(TRACKING_PARAMS_RE, TRACKING_PARAMS_EMPTY);
 }
@@ -441,130 +461,78 @@ function stripTrackingParams(text) {
 /**
  * Subtitles that switch themselves on: without the default track and with captionsInitialState off, a video starts without subtitles; turning them on by hand still works.
  */
-function captionsOff(holder) {
-  const tracks = holder?.captions?.playerCaptionsTracklistRenderer?.audioTracks;
-  if (!Array.isArray(tracks)) return;
+function captionsOff(holder: unknown): void {
+  const tracks = getByPath(holder, [
+    'captions',
+    'playerCaptionsTracklistRenderer',
+    'audioTracks'
+  ]);
+  if (!isArray(tracks)) return;
 
   for (const track of tracks) {
-    if (track === null || typeof track !== 'object') continue;
-    delete track.defaultCaptionTrackIndex;
-    track.captionsInitialState = 'CAPTIONS_INITIAL_STATE_OFF_RECOMMENDED';
+    if (!isRecord(track)) continue;
+    delete track['defaultCaptionTrackIndex'];
+    track['captionsInitialState'] = 'CAPTIONS_INITIAL_STATE_OFF_RECOMMENDED';
   }
-}
-
-/**
- * Response-shape signatures, tested in order. Keep in sync with the thumbnail rewriter (thumbnail-quality.js); a null result falls back to a bounded scan (correct but more expensive). More specific shapes come first, and SEARCH is excluded from a browse envelope.
- */
-const RESPONSE_TYPE_SIGNATURES = [
-  {
-    type: 'SHORTS_SEQUENCE',
-    detectionPath: ['entries'],
-    matchFn: (data) => Array.isArray(data.entries)
-  },
-  { type: 'PLAYER', detectionPath: ['streamingData'] },
-  { type: 'NEXT', detectionPath: ['contents', 'singleColumnWatchNextResults'] },
-  {
-    type: 'HOME_BROWSE',
-    detectionPath: [
-      'contents',
-      'tvBrowseRenderer',
-      'content',
-      'tvSurfaceContentRenderer'
-    ]
-  },
-  {
-    type: 'BROWSE_TABS',
-    detectionPath: [
-      'contents',
-      'tvBrowseRenderer',
-      'content',
-      'tvSecondaryNavRenderer'
-    ]
-  },
-  {
-    type: 'SEARCH',
-    detectionPath: ['contents', 'sectionListRenderer'],
-    excludePath: ['contents', 'tvBrowseRenderer']
-  },
-  { type: 'CONTINUATION', detectionPath: ['continuationContents'] },
-  { type: 'ACTION', detectionPath: ['onResponseReceivedActions'] },
-  { type: 'ACTION', detectionPath: ['onResponseReceivedEndpoints'] }
-];
-
-function getByPath(obj, parts) {
-  let current = obj;
-  for (let i = 0; i < parts.length; i++) {
-    if (current == null) return undefined;
-    current = current[parts[i]];
-  }
-  return current;
-}
-
-function detectResponseType(data) {
-  for (let i = 0; i < RESPONSE_TYPE_SIGNATURES.length; i++) {
-    const sig = RESPONSE_TYPE_SIGNATURES[i];
-    if (sig.excludePath && getByPath(data, sig.excludePath) !== undefined) {
-      continue;
-    }
-    if (getByPath(data, sig.detectionPath) !== undefined) {
-      if (sig.matchFn && !sig.matchFn(data)) continue;
-      return sig.type;
-    }
-  }
-  return null;
 }
 
 const origParse = JSON.parse;
-JSON.parse = function () {
+JSON.parse = function (
+  this: unknown,
+  text: string,
+  reviver?: Parameters<typeof JSON.parse>[1]
+) {
   if (!filtersEnabled && !loadRowsAhead && !thumbnailHookRequired()) {
-    return origParse.apply(this, arguments);
+    return origParse.call(this, text, reviver);
   }
-
-  let text = arguments[0];
 
   // Blanked in the text, in one pass, before the parse.
-  if (enableTrackingBlock && typeof text === 'string') {
-    text = stripTrackingParams(text);
-  }
+  const source =
+    enableTrackingBlock && typeof text === 'string'
+      ? stripTrackingParams(text)
+      : text;
 
-  const r =
-    arguments.length > 1
-      ? origParse.call(this, text, arguments[1])
-      : origParse.call(this, text);
+  const r: unknown =
+    reviver === undefined
+      ? origParse.call(this, source)
+      : origParse.call(this, source, reviver);
 
-  if (r === null || typeof r !== 'object') {
+  if (!isContainer(r)) {
     return r;
   }
 
   // Rows ahead is independent of the filters, so it runs first; whatever the filters do below leaves the raised continuations in place.
   if (loadRowsAhead) {
-    raiseRowsAhead(r, detectRowsAheadType(r));
+    const rowsAheadType = detectRowsAheadType(r);
+    if (rowsAheadType !== null) raiseRowsAhead(r, rowsAheadType);
   }
 
   if (enableAdBlock) {
-    // Pre-existing envelope deletes, kept explicit because they are certain to appear.
-    if (r.adPlacements) {
-      delete r.adPlacements;
-    }
+    if (isRecord(r)) {
+      // Pre-existing envelope deletes, kept explicit because they are certain to appear.
+      if (r['adPlacements']) {
+        delete r['adPlacements'];
+      }
 
-    if (Array.isArray(r.adSlots)) {
-      delete r.adSlots;
-    }
+      if (isArray(r['adSlots'])) {
+        delete r['adSlots'];
+      }
 
-    if (r.playerAds) {
-      delete r.playerAds;
-    }
+      if (r['playerAds']) {
+        delete r['playerAds'];
+      }
 
-    // Opt-in only: stripping playbackTracking kills watch history and resume, so it is kept unless the user explicitly turns the toggle off. Handled here rather than in AD_RENDERERS because it is not an ad surface.
-    if (!keepPlaybackTracking && r.playbackTracking) {
-      delete r.playbackTracking;
+      // Opt-in only: stripping playbackTracking kills watch history and resume, so it is kept unless the user explicitly turns the toggle off. Handled here rather than in AD_RENDERERS because it is not an ad surface.
+      if (!keepPlaybackTracking && r['playbackTracking']) {
+        delete r['playbackTracking'];
+      }
     }
 
     // Not skipped when a reviver may have renamed keys, or the input is not text.
     if (
-      typeof text !== 'string' ||
-      arguments.length > 1 ||
-      AD_KEY_TEXT_RE.test(text)
+      typeof source !== 'string' ||
+      reviver !== undefined ||
+      AD_KEY_TEXT_RE.test(source)
     ) {
       scrubAds(r);
     }
@@ -572,7 +540,7 @@ JSON.parse = function () {
 
   if (disableAutoCaptions) {
     captionsOff(r);
-    captionsOff(r.playerResponse);
+    captionsOff(getByPath(r, ['playerResponse']));
   }
 
   if (cosmeticEnabled) {

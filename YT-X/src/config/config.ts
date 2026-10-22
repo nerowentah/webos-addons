@@ -12,7 +12,7 @@ export const sponsorblockFallbackAPI = 'https://sponsorblock.inf.re/api';
 export const sponsorblockTimeoutMs = 5000;
 
 /** Fixed SponsorBlock category colors, shared by the progress-bar overlay and the popup so the two surfaces agree; not user-configurable. */
-export const segmentColors = {
+export const segmentColors: Readonly<Record<string, string>> = {
   sponsor: '#00d400',
   intro: '#00ffff',
   outro: '#0202ed',
