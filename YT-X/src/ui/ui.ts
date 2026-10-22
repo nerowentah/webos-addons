@@ -1,21 +1,8 @@
-import {
-  configAddChangeListener,
-  configRead,
-  panelCareModes,
-  type PanelCareMode,
-  type BoolKey
-} from '../config/config';
+import { configRead, panelCareModes, type BoolKey } from '../config/config';
 import './ui.css';
 import './theme.css';
-import {
-  addTVSpecsChangeListener,
-  refreshUIScale,
-  resolvePanelCareMode
-} from '../platform/tv-specs';
-import {
-  showNotification as notificationsShowNotification,
-  setNotificationPanelCare
-} from './notifications';
+import { addTVSpecsChangeListener, refreshUIScale } from '../platform/tv-specs';
+import { showNotification as notificationsShowNotification } from './notifications';
 import { REMOTE_KEYS, isSyntheticKey } from '../core/utils';
 import { PANEL } from '../config/ui-text';
 import { createElement } from './dom';
@@ -28,6 +15,7 @@ import {
 import { animatePanelIn, animatePanelOut } from './panel-animation';
 import { applyUIFixes } from './ui-fixes';
 import { initBadge, setBadgeHidden } from './badge';
+import { applyPanelCareMode, initPanelCare } from './panel-care';
 import { findSpatialNeighbor, type Direction } from './panel-nav';
 import {
   createAlignedCycleControl,
@@ -519,54 +507,7 @@ window.addEventListener('keydown', handlePanelNavKey, true);
 
 initBadge(() => showOptionsPanel(!panelState.visible));
 
-function initGlobalToggles(): void {
-  // Toggles live on <html> because YouTube rewrites body.className on tab
-  // navigation; not gated on .app-quality-root, which applyUIFixes() strips.
-  // The rules they switch are in theme.css.
-  const syncClass = (cls: string, key: BoolKey) =>
-    document.documentElement.classList.toggle(cls, configRead(key));
-  const CLASS_KEYS: Readonly<Record<string, BoolKey>> = {
-    'ytx-hide-logo': 'hideLogo',
-    'ytx-fix-titles': 'fixMultilineTitles',
-    'ytx-no-animations': 'disableAnimations'
-  };
-  for (const [cls, key] of Object.entries(CLASS_KEYS)) {
-    syncClass(cls, key);
-    configAddChangeListener(key, () => syncClass(cls, key));
-  }
-}
-
-/**
- * The care mode to apply, with 'auto' already resolved; everything downstream
- * reads this rather than configRead('panelCareMode'), so the surfaces cannot disagree.
- */
-let resolvedPanelCareMode = resolvePanelCareMode(configRead('panelCareMode'));
-
-function applyPanelCareMode(mode: PanelCareMode): void {
-  resolvedPanelCareMode = resolvePanelCareMode(mode);
-  const isOled = resolvedPanelCareMode === 'oled';
-  const isQned = resolvedPanelCareMode === 'qned';
-
-  if (panelState.panel) {
-    panelState.panel.classList.toggle('oled-care', isOled);
-    panelState.panel.classList.toggle('qned-care', isQned);
-  }
-  setNotificationPanelCare(resolvedPanelCareMode);
-
-  document.documentElement.classList.toggle('oled-theme-active', isOled);
-  document.documentElement.classList.toggle('qned-theme-active', isQned);
-}
-
-initGlobalToggles();
-
-applyPanelCareMode(configRead('panelCareMode'));
-configAddChangeListener('panelCareMode', (evt) =>
-  applyPanelCareMode(evt.detail.newValue)
-);
-
-// 'auto' resolves against the UA model that tv-specs computes at startup, so
-// re-resolve whenever tv-specs updates.
-addTVSpecsChangeListener(() => applyPanelCareMode(configRead('panelCareMode')));
+initPanelCare();
 
 applyUIFixes();
 
