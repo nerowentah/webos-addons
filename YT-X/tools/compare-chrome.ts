@@ -501,7 +501,9 @@ export async function seekAndPause(
     `function (t) {
       const v = document.querySelector('video');
       v.currentTime = t;
-      v.pause();
+      // The prototype method: the app's keep-playing hook swallows an
+      // instance pause() that arrives while the user looks idle.
+      HTMLMediaElement.prototype.pause.call(v);
       return new Promise((resolve) => {
         v.addEventListener('seeked', () => resolve(true), { once: true });
         setTimeout(() => resolve(false), 5000);
