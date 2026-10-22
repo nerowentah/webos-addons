@@ -301,6 +301,9 @@ npm run lint:all # audit, eslint, type-check, prettier
 npm run verify   # production build plus ES compatibility check
 ```
 
+`npm run compare:chrome` is a manual Chrome reference gate; it needs Chrome and
+network access, so it is not part of `lint:all` or `verify`.
+
 `verify` fails if the bundle uses syntax newer than ES2022, and
 `tools/check-syntax-floor.ts` rejects the specific syntax Chrome 79 cannot parse
 (optional chaining, nullish coalescing, logical assignment, static blocks).
@@ -317,6 +320,7 @@ npm run inspect                              # DOM, focus, video and heap diagno
 npm run inspect -- eval "document.querySelectorAll('video').length"
 npm run drive -- "down,down,ok" shot.png     # keys: up down left right ok back red green yellow blue
 npm run verify:device                        # deploy + on-TV checks (manual, not run in CI)
+npm run compare:chrome                        # Chrome TV reference probe (manual, not run in CI)
 ```
 
 Add `-d <device>` to pick a device.
@@ -335,6 +339,42 @@ Limitations:
   so pointer-driven UI goes through `drive`/`verify:device`, which use `Input.*`.
 - If `inspect` reports `"visibility": "hidden"`, the app is backgrounded and input
   is dropped. `npm run launch` brings it forward.
+
+### Chrome TV reference comparison
+
+`npm run compare:chrome` launches Chrome with the YouTube TV URI and the PS4
+Leanback user agent, emulates a 1920x1080 TV viewport, and probes the official
+control bar over CDP. It is a manual reference gate, not part of `npm test` or
+CI. The on-TV probe remains the source of truth for the installed build.
+
+First run:
+
+```sh
+npm run compare:chrome -- --login
+```
+
+Sign in to YouTube TV, select the account, then close Chrome. Later runs reuse
+the dedicated profile:
+
+```sh
+npm run compare:chrome
+npm run compare:chrome -- --attach --port 9222
+npm run compare:chrome -- --chrome "C:\Program Files\Google\Chrome\Application\chrome.exe"
+```
+
+Outputs go to `%TEMP%\ytx-chrome-compare`: `chrome-official.json` and
+`chrome-official.png` (plus a cropped `chrome-official-bar.png`). Pass
+`--tv <file>` with a saved TV snapshot to list soft DIFFs against it.
+
+Limitations:
+
+- Desktop Chrome is not a performance baseline. Chrome timing is recorded for
+  information only; the on-TV p95 latency gate is the acceptance measure.
+- Chrome captures the video surface in screenshots; the TV hardware video plane
+  does not. Do not pixel-diff video content. Compare control-bar DOM values and
+  use cropped UI screenshots for visual review.
+- Chrome may serve a different YouTube build than the TV. Exact colors and radii
+  are reported as DIFF, not failures; only the hard invariants fail the gate.
 
 YT-X is a userscript injected into youtube.com. Do not add a Luna service, a
 local proxy or a custom focus engine: YouTube owns the page, its focus and its

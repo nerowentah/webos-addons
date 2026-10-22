@@ -15,6 +15,7 @@
     "inspect": "node tools/inspect.ts",
     "drive": "node tools/drive.ts",
     "verify:device": "node tools/verify-device.ts",
+    "compare:chrome": "node tools/compare-chrome.ts",
     "manifest": "node tools/gen-manifest.ts youtube.leanback.v4.manifest.json",
     "test": "node --test",
     "test:compat": "es-check && node tools/check-syntax-floor.ts",

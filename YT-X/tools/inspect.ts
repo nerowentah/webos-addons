@@ -135,7 +135,15 @@ export async function connect({
     });
   });
 
-  const ws = new WebSocket(await findTarget(port));
+  return connectToPort(port, () => child.kill());
+}
+
+/** Connect to a DevTools page target by its WebSocket URL. */
+export async function connectToWebSocket(
+  url: string,
+  cleanup?: () => void
+): Promise<Session> {
+  const ws = new WebSocket(url);
   await new Promise((resolve, reject) => {
     ws.onopen = resolve;
     ws.onerror = () => reject(new HarnessError('DevTools socket failed'));
@@ -222,9 +230,17 @@ export async function connect({
     log,
     close() {
       ws.close();
-      child.kill();
+      cleanup?.();
     }
   };
+}
+
+/** Connect to the first page target of a DevTools endpoint on `port`. */
+export function connectToPort(
+  port: number,
+  cleanup?: () => void
+): Promise<Session> {
+  return findTarget(port).then((url) => connectToWebSocket(url, cleanup));
 }
 
 const DIAGNOSTICS = `(() => {
