@@ -1,4 +1,5 @@
 import type { ConfigKey } from './config';
+import type { SegmentCategory } from '../features/sponsorblock/categories';
 
 // Central registry of user-visible strings; kept DOM/config-free for the plain-Node
 // check. Caps: MAX_LABEL_TEXT (28) fits a 3-column cell, MAX_UI_TEXT (40) the rest.
@@ -67,7 +68,11 @@ export const PANEL = {
 };
 
 /** SponsorBlock segment-list popup. */
-export const SPONSOR_POPUP = {
+export const SPONSOR_POPUP: {
+  title: string;
+  subtitle: string;
+  categories: Record<SegmentCategory, string>;
+} = {
   title: 'SponsorBlock',
   subtitle: 'Segments found for this video',
   categories: {

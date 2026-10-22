@@ -12,20 +12,6 @@ export const sponsorblockFallbackAPI = 'https://sponsorblock.inf.re/api';
 // stalls mid-answer must not block the fallback server or the next refresh.
 export const sponsorblockTimeoutMs = 5000;
 
-/** Fixed SponsorBlock category colors, shared by the progress-bar overlay and the popup so the two surfaces agree; not user-configurable. */
-export const segmentColors: Readonly<Record<string, string>> = {
-  sponsor: '#00d400',
-  intro: '#00ffff',
-  outro: '#0202ed',
-  interaction: '#cc00ff',
-  selfpromo: '#ffff00',
-  music_offtopic: '#ff9900',
-  preview: '#008fd6',
-  poi_highlight: '#ff1684',
-  filler: '#7300ff',
-  hook: '#395699'
-};
-
 /** Force Video Codec modes. 'auto' leaves negotiation to the player and server; everything else narrows what the player accepts (see force-codec.ts). 'no_av1' stays separate from 'vp9' so avoiding AV1 does not also exclude other codecs. */
 export const videoCodecModes = {
   auto: 'Auto',

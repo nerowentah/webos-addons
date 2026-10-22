@@ -1,6 +1,6 @@
 import './sponsorblock-ui.css';
 import sponsorBlockIcon from './sponsorblock-icon.png';
-import { segmentColors } from '../../config/config';
+import { categoryInfo } from './categories';
 import { SPONSOR_POPUP } from '../../config/ui-text';
 import { formatTime } from '../../core/format';
 
@@ -28,7 +28,7 @@ class SponsorBlockUI {
   suppressed = false;
 
   getSegmentColor(category: string): string {
-    return segmentColors[category] || '#777';
+    return categoryInfo(category)?.color || '#777';
   }
 
   getCategoryName(category: string): string {

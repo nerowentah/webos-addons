@@ -1,13 +1,12 @@
 import sha256 from 'tiny-sha256';
+import { categoryInfo, SEGMENT_CATEGORIES } from './categories';
 import {
   configAddChangeListener,
   configRead,
   configRemoveChangeListener,
-  segmentColors,
   sponsorblockAPI,
   sponsorblockFallbackAPI,
   sponsorblockTimeoutMs,
-  type BoolKey,
   type ConfigChangeListener,
   type ConfigKey
 } from '../../config/config';
@@ -33,34 +32,10 @@ interface MuteSegment {
 
 type Timer = ReturnType<typeof setTimeout>;
 
-const barTypes: Readonly<Record<string, { name: string } | undefined>> = {
-  sponsor: { name: 'sponsored segment' },
-  intro: { name: 'intro' },
-  outro: { name: 'outro' },
-  interaction: { name: 'interaction reminder' },
-  selfpromo: { name: 'self-promotion' },
-  music_offtopic: { name: 'non-music part' },
-  preview: { name: 'recap or preview' },
-  poi_highlight: { name: 'highlight' },
-  filler: { name: 'tangents/jokes' },
-  hook: { name: 'hook/greetings' }
-};
-
 // The API's category spelling ('music_offtopic' is used internally too, so no
 // mapping back is needed); only categories the settings expose are requested.
 const FETCH_CATEGORIES = encodeURIComponent(
-  JSON.stringify([
-    'sponsor',
-    'intro',
-    'outro',
-    'interaction',
-    'selfpromo',
-    'music_offtopic',
-    'preview',
-    'poi_highlight',
-    'filler',
-    'hook'
-  ])
+  JSON.stringify(SEGMENT_CATEGORIES.map((c) => c.id))
 );
 
 // Both action types, so a `mute` segment can be muted rather than skipped.
@@ -80,25 +55,11 @@ function backoffDelay(checks: number): number {
   return REFRESH_BACKOFF_MS[index] ?? REFRESH_POPULATED_MS;
 }
 
-/** The option that enables skipping each SponsorBlock category. */
-const CATEGORY_CONFIG_KEYS: Readonly<Record<string, BoolKey>> = {
-  sponsor: 'enableSponsorBlockSponsor',
-  intro: 'enableSponsorBlockIntro',
-  outro: 'enableSponsorBlockOutro',
-  interaction: 'enableSponsorBlockInteraction',
-  selfpromo: 'enableSponsorBlockSelfPromo',
-  music_offtopic: 'enableSponsorBlockMusicOfftopic',
-  preview: 'enableSponsorBlockPreview',
-  poi_highlight: 'enableSponsorBlockHighlight',
-  filler: 'enableSponsorBlockFiller',
-  hook: 'enableSponsorBlockHook'
-};
-
-const SEGMENT_CATEGORY_KEYS = Object.values(CATEGORY_CONFIG_KEYS);
+const SEGMENT_CATEGORY_KEYS = SEGMENT_CATEGORIES.map((c) => c.configKey);
 
 // Fixed palette shared with the popup (sponsorblock-ui.ts) so the overlay and popup agree.
 function getSegmentColor(category: string): string {
-  return segmentColors[category] || '#0072ff';
+  return categoryInfo(category)?.color || '#0072ff';
 }
 
 /** Order-independent identity of a segment list, to tell a real change from a re-send. */
@@ -290,7 +251,7 @@ class SponsorBlockHandler {
 
   getSkippableCategories(): string[] {
     const categories: string[] = [];
-    for (const [category, key] of Object.entries(CATEGORY_CONFIG_KEYS)) {
+    for (const { id: category, configKey: key } of SEGMENT_CATEGORIES) {
       if (configRead(key)) categories.push(category);
     }
     return categories;
@@ -319,7 +280,7 @@ class SponsorBlockHandler {
         list.push({
           start: seg.segment[0],
           end: seg.segment[1],
-          name: barTypes[seg.category]?.name || seg.category
+          name: categoryInfo(seg.category)?.skipName || seg.category
         });
       }
     }
@@ -567,7 +528,8 @@ class SponsorBlockHandler {
       }
 
       this.skippedSegmentStarts.add(start);
-      const skipName = barTypes[segment.category]?.name || segment.category;
+      const skipName =
+        categoryInfo(segment.category)?.skipName || segment.category;
       showNotification(NOTIFICATIONS.skipping(skipName));
       video.currentTime = end;
       this.scheduleSkip();
