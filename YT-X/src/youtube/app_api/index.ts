@@ -1,12 +1,6 @@
 // Inspired by TizenTube's resolveCommand hook:
 // https://github.com/reisxd/TizenTube/blob/522f83cc012d5b1c75181b651e084a3afa280323/mods/resolveCommand.js
 
-declare global {
-  interface Window {
-    _yttv?: Record<string, unknown>;
-  }
-}
-
 type ResolveCommandPayload = Record<string, unknown>;
 
 interface ResolveCommand {
