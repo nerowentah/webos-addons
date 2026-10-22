@@ -6,6 +6,9 @@
  */
 export type PanelType = 'oled' | 'qned' | 'lcd' | 'unknown';
 
+/** The stored Panel Care Mode setting; 'auto' defers to the detected panel. */
+export type PanelCareMode = 'auto' | 'off' | 'oled' | 'qned';
+
 /** Groups after a size in an LG part number, e.g. the "C1" in "OLED55C14PUA". */
 const LG_FAMILY_TOKENS = /\d([A-Z]+)\d*/g;
 
@@ -82,7 +85,7 @@ export function parsePanelType(
  * direction rather than a treatment tuned for the wrong panel.
  */
 export function resolvePanelCareMode(
-  stored: string,
+  stored: PanelCareMode,
   panel: PanelType
 ): 'oled' | 'qned' | 'off' {
   if (stored === 'oled' || stored === 'qned' || stored === 'off') return stored;

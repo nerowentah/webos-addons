@@ -14,6 +14,7 @@ import type { WebOSDeviceInfo } from '../core/globals';
 import {
   parsePanelType,
   resolvePanelCareMode as resolveCareMode,
+  type PanelCareMode,
   type PanelType
 } from './panel-type';
 
@@ -285,7 +286,7 @@ export function refreshUIScale(): void {
 
 /** The care mode for this TV: the stored choice, else the detected panel. */
 export function resolvePanelCareMode(
-  stored: string,
+  stored: PanelCareMode,
   panel: PanelType = parsePanelType(
     currentSpecs?.model,
     currentSpecs?.panelOled

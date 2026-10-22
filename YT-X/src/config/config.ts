@@ -1,5 +1,6 @@
 import { migrateStoredConfig } from './migrate';
 import { UI_LABELS } from './ui-text';
+import type { PanelCareMode } from '../platform/panel-type';
 
 const CONFIG_KEY = 'ytx-configuration';
 
@@ -40,13 +41,13 @@ export type VideoCodecMode = keyof typeof videoCodecModes;
  * Panel Care Mode: 'auto' resolves via tv-specs' UA model read (see resolvePanelCareMode); 'oled' is the true-black burn-in treatment, 'qned' a dark-grey, low-contrast UI that limits MiniLED blooming; unknown models resolve to 'off'.
  * Labels must stay this short - they render in the cycle control's one-line, fixed-width value column, where text overflows into the arrows.
  */
-export const panelCareModes = {
+export const panelCareModes: Record<PanelCareMode, string> = {
   auto: 'Auto',
   off: 'Off',
   oled: 'OLED',
   qned: 'QNED'
 };
-export type PanelCareMode = keyof typeof panelCareModes;
+export type { PanelCareMode };
 
 const defaultConfig = {
   enableAdBlock: true,

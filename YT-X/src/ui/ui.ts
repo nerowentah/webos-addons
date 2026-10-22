@@ -4,6 +4,7 @@ import {
   configRead,
   configWrite,
   panelCareModes,
+  type PanelCareMode,
   videoCodecModes,
   type BoolKey,
   type ConfigValues
@@ -72,7 +73,7 @@ interface ElementProps {
   name?: string;
   slot?: string;
   hidden?: boolean;
-  [attribute: string]: unknown;
+  [attribute: `aria-${string}` | `data-${string}`]: string | undefined;
 }
 
 const createElement = <K extends keyof HTMLElementTagNameMap>(
@@ -82,7 +83,7 @@ const createElement = <K extends keyof HTMLElementTagNameMap>(
 ): HTMLElementTagNameMap[K] => {
   const el = document.createElement(tag);
 
-  for (const [key, val] of Object.entries(props)) {
+  for (const [key, val] of Object.entries(props as Record<string, unknown>)) {
     if (key === 'style' && typeof val === 'object' && val !== null) {
       Object.assign(el.style, val);
     } else if (key === 'class') el.className = String(val);
@@ -1104,7 +1105,7 @@ function initGlobalStyles(): void {
  */
 let resolvedPanelCareMode = resolvePanelCareMode(configRead('panelCareMode'));
 
-function applyPanelCareMode(mode: string): void {
+function applyPanelCareMode(mode: PanelCareMode): void {
   resolvedPanelCareMode = resolvePanelCareMode(mode);
   const isOled = resolvedPanelCareMode === 'oled';
   const isQned = resolvedPanelCareMode === 'qned';
