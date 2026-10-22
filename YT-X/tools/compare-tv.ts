@@ -15,9 +15,9 @@ import {
   collectSnapshot,
   DEFAULT_TIME_S,
   seekAndPause,
+  showControls,
   sleep,
-  VIEWPORT,
-  waitFor
+  VIEWPORT
 } from './compare-chrome.ts';
 import { press } from './drive.ts';
 import { connect, HarnessError, runCli } from './inspect.ts';
@@ -42,15 +42,7 @@ async function main(): Promise<void> {
   const session = await connect({ device: values.d });
   try {
     const frame = await seekAndPause(session, timeS, TIMEOUT_MS);
-    const barUp = () =>
-      session.evaluate(
-        "!!document.querySelector('ytlr-player-actions-container')"
-      ) as Promise<boolean>;
-    await waitFor('the control bar', TIMEOUT_MS, async () => {
-      if (await barUp()) return true;
-      await press(session, 'down');
-      return false;
-    });
+    await showControls(session, TIMEOUT_MS, () => press(session, 'down'));
     await sleep(800);
 
     const snapshot = await collectSnapshot(session);

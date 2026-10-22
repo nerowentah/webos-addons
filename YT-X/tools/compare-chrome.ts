@@ -477,6 +477,38 @@ export function collectSnapshot(session: Session): Promise<Snapshot> {
   ) as Promise<Snapshot>;
 }
 
+const CONTROLS_SHOWN = `(() => {
+  const c = document.querySelector('ytlr-player-actions-container');
+  return !!c && !c.classList.contains('zylon-hidden') && c.childElementCount > 0;
+})()`;
+
+/** Wake the player controls with trusted keys until they are actually shown. */
+export async function showControls(
+  session: Session,
+  timeoutMs: number,
+  press: (key: string, code: number) => Promise<void>
+): Promise<void> {
+  await waitFor('the control bar', timeoutMs, async () => {
+    if ((await session.evaluate(CONTROLS_SHOWN)) as boolean) return true;
+    // ArrowDown is harmless on the player and wakes the controls.
+    await press('ArrowDown', 40);
+    return false;
+  });
+}
+
+/** Mirror applyUIFixes(): the app strips .app-quality-root, so the TV never shows its translucent plates. */
+const STRIP_QUALITY_ROOT = `(() => {
+  const cl = document.body.classList;
+  cl.remove('app-quality-root');
+  new MutationObserver(() => {
+    // remove() on an absent class still mutates; guard like the app does.
+    if (cl.contains('app-quality-root')) cl.remove('app-quality-root');
+  }).observe(document.body, {
+    attributes: true,
+    attributeFilter: ['class']
+  });
+})()`;
+
 export interface Frame {
   requestedS: number;
   currentTime: number | null;
@@ -489,32 +521,42 @@ export async function seekAndPause(
   seconds: number,
   timeoutMs: number
 ): Promise<Frame> {
+  // Seeking before playback has really started gets undone by the app's own
+  // source setup, so wait for decoded data and a moving clock first.
   await waitFor(
-    'a seekable <video>',
+    'a playing <video>',
     timeoutMs,
     async () =>
       (await session.evaluate(
-        "(() => { const v = document.querySelector('video'); return !!v && v.readyState >= 1 && Number.isFinite(v.duration); })()"
+        "(() => { const v = document.querySelector('video'); return !!v && v.readyState >= 3 && v.currentTime > 0 && Number.isFinite(v.duration); })()"
       )) as boolean
   );
-  await session.callFunction(
-    `function (t) {
-      const v = document.querySelector('video');
-      v.currentTime = t;
-      // The prototype method: the app's keep-playing hook swallows an
-      // instance pause() that arrives while the user looks idle.
-      HTMLMediaElement.prototype.pause.call(v);
-      return new Promise((resolve) => {
-        v.addEventListener('seeked', () => resolve(true), { once: true });
-        setTimeout(() => resolve(false), 5000);
-      });
-    }`,
-    seconds
-  );
-  await sleep(800);
-  const state = (await session.evaluate(
-    "(() => { const v = document.querySelector('video'); return v && { currentTime: v.currentTime, paused: v.paused }; })()"
-  )) as { currentTime: number; paused: boolean } | null;
+  let state: { currentTime: number; paused: boolean } | null = null;
+  /* eslint-disable no-await-in-loop -- each attempt depends on the last */
+  for (let attempt = 0; attempt < 3; attempt++) {
+    await session.callFunction(
+      `function (t) {
+        const v = document.querySelector('video');
+        v.currentTime = t;
+        // The prototype method: the app's keep-playing hook swallows an
+        // instance pause() that arrives while the user looks idle.
+        HTMLMediaElement.prototype.pause.call(v);
+        return new Promise((resolve) => {
+          v.addEventListener('seeked', () => resolve(true), { once: true });
+          setTimeout(() => resolve(false), 5000);
+        });
+      }`,
+      seconds
+    );
+    await sleep(800);
+    state = (await session.evaluate(
+      "(() => { const v = document.querySelector('video'); return v && { currentTime: v.currentTime, paused: v.paused }; })()"
+    )) as { currentTime: number; paused: boolean } | null;
+    if (state && state.paused && Math.abs(state.currentTime - seconds) <= 2) {
+      break;
+    }
+  }
+  /* eslint-enable no-await-in-loop */
   const frame: Frame = {
     requestedS: seconds,
     currentTime: state?.currentTime ?? null,
@@ -534,7 +576,13 @@ export async function seekAndPause(
 
 async function probe(
   session: Session,
-  opts: { watch: string; timeoutMs: number; out: string; timeS: number }
+  opts: {
+    watch: string;
+    timeoutMs: number;
+    out: string;
+    timeS: number;
+    keepQualityRoot: boolean;
+  }
 ): Promise<{ snapshot: Snapshot; info: Record<string, unknown> }> {
   await session.send('Page.bringToFront');
   await session.send('Emulation.setDeviceMetricsOverride', {
@@ -549,17 +597,12 @@ async function probe(
   await ensureTvLayout(session, opts.timeoutMs);
 
   const started = Date.now();
-  const barUp = () =>
-    session.evaluate(
-      "!!document.querySelector('ytlr-player-actions-container')"
-    ) as Promise<boolean>;
+  if (!opts.keepQualityRoot) await session.evaluate(STRIP_QUALITY_ROOT);
+  const frame = await seekAndPause(session, opts.timeS, opts.timeoutMs);
   try {
-    await waitFor('the control bar', opts.timeoutMs, async () => {
-      if (await barUp()) return true;
-      // Trusted keys wake the controls; ArrowDown is harmless on the player.
-      await pressKey(session, 'ArrowDown', 40);
-      return false;
-    });
+    await showControls(session, opts.timeoutMs, (key, code) =>
+      pressKey(session, key, code)
+    );
   } catch (err) {
     const state = await session.evaluate(
       "({ href: location.href, active: document.activeElement && (document.activeElement.tagName + '.' + document.activeElement.className) })"
@@ -569,9 +612,6 @@ async function probe(
     );
   }
   const barMs = Date.now() - started;
-  const frame = await seekAndPause(session, opts.timeS, opts.timeoutMs);
-  // Paused playback keeps the controls up; make sure they are before probing.
-  await waitFor('the control bar', opts.timeoutMs, barUp);
   await sleep(800);
 
   const snapshot = await collectSnapshot(session);
@@ -632,6 +672,7 @@ const HELP = `usage: node tools/compare-chrome.ts [options]
   --tv <file>      optional TV snapshot JSON to report soft DIFFs against
   --attach         attach to Chrome already listening on --port
   --login          open the profile with the desktop UA to sign in, then wait for you to close it
+  --keep-quality-root  do not strip .app-quality-root (the app strips it; default mirrors that)
   --keep-open      leave Chrome running after the probe
   --timeout <sec>  per-step timeout (default ${DEFAULT_TIMEOUT_S})
   --help`;
@@ -650,6 +691,7 @@ async function main(): Promise<void> {
       attach: { type: 'boolean', default: false },
       login: { type: 'boolean', default: false },
       'keep-open': { type: 'boolean', default: false },
+      'keep-quality-root': { type: 'boolean', default: false },
       timeout: { type: 'string', default: String(DEFAULT_TIMEOUT_S) },
       help: { type: 'boolean', default: false }
     }
@@ -713,7 +755,8 @@ async function main(): Promise<void> {
       watch: values.watch,
       timeoutMs,
       out,
-      timeS
+      timeS,
+      keepQualityRoot: values['keep-quality-root']
     });
     await assertSelectors(session, snapshot);
 
@@ -733,6 +776,7 @@ async function main(): Promise<void> {
           userAgent: TV_UA,
           viewport: VIEWPORT,
           timeS,
+          keepQualityRoot: values['keep-quality-root'],
           snapshot,
           checks,
           diffs,
