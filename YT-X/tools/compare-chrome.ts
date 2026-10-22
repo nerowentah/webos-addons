@@ -4,8 +4,9 @@
  * the official control bar over CDP. Manual gate (needs Chrome and network);
  * not part of `npm test`, `verify` or CI. The on-TV probe stays authoritative.
  *
- *   node tools/compare-chrome.ts --login      sign in once, then close Chrome
+ *   node tools/compare-chrome.ts --login      sign in once (desktop UA), then close Chrome
  *   node tools/compare-chrome.ts              probe and write the report
+ *   node tools/compare-tv.ts                  emit the matching TV snapshot for --tv
  *   node tools/compare-chrome.ts --help
  *
  * Gotchas:
@@ -32,7 +33,11 @@ const TV_UA =
 const DEFAULT_URL = 'https://www.youtube.com/tv';
 const DEFAULT_WATCH =
   'https://www.youtube.com/tv#/watch?v=dQw4w9WgXcQ&list=RDdQw4w9WgXcQ';
+const LOGIN_URL = 'https://www.youtube.com/';
 const DEFAULT_PORT = 9222;
+/** Frame both sides are paused at, so screenshots and styles compare 1:1. */
+export const DEFAULT_TIME_S = 102;
+export const VIEWPORT = { width: 1920, height: 1080 } as const;
 const DEFAULT_TIMEOUT_S = 90;
 
 // --- Pure comparison logic (unit-tested without Chrome) ---------------------
@@ -342,13 +347,15 @@ function launchChrome(opts: {
   port: number;
   profile: string;
   url: string;
+  /** Omit to keep Chrome's own desktop UA (Google sign-in rejects Leanback). */
+  userAgent?: string;
 }): ChildProcess {
   const args = [
     `--remote-debugging-port=${opts.port}`,
     `--user-data-dir=${opts.profile}`,
-    `--user-agent=${TV_UA}`,
+    ...(opts.userAgent ? [`--user-agent=${opts.userAgent}`] : []),
     `--app=${opts.url}`,
-    '--window-size=1920,1080',
+    `--window-size=${VIEWPORT.width},${VIEWPORT.height}`,
     '--window-position=0,0',
     '--autoplay-policy=no-user-gesture-required',
     '--no-first-run',
@@ -358,10 +365,10 @@ function launchChrome(opts: {
   return spawn(opts.chrome, args, { stdio: 'ignore' });
 }
 
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+export const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /* eslint-disable no-await-in-loop -- polling and ordered key events */
-async function waitFor(
+export async function waitFor(
   what: string,
   timeoutMs: number,
   poll: () => Promise<boolean>,
@@ -462,14 +469,74 @@ function cropClip(rect: {
   };
 }
 
+/** Read the probed styles from the page the session is attached to. */
+export function collectSnapshot(session: Session): Promise<Snapshot> {
+  return session.callFunction(
+    `function (selectors) { return (${PROBE_FN})(selectors); }`,
+    PROBE_SELECTORS
+  ) as Promise<Snapshot>;
+}
+
+export interface Frame {
+  requestedS: number;
+  currentTime: number | null;
+  paused: boolean | null;
+}
+
+/** Seek the player to `seconds` and pause, so the probed frame is repeatable. */
+export async function seekAndPause(
+  session: Session,
+  seconds: number,
+  timeoutMs: number
+): Promise<Frame> {
+  await waitFor(
+    'a seekable <video>',
+    timeoutMs,
+    async () =>
+      (await session.evaluate(
+        "(() => { const v = document.querySelector('video'); return !!v && v.readyState >= 1 && Number.isFinite(v.duration); })()"
+      )) as boolean
+  );
+  await session.callFunction(
+    `function (t) {
+      const v = document.querySelector('video');
+      v.currentTime = t;
+      v.pause();
+      return new Promise((resolve) => {
+        v.addEventListener('seeked', () => resolve(true), { once: true });
+        setTimeout(() => resolve(false), 5000);
+      });
+    }`,
+    seconds
+  );
+  await sleep(800);
+  const state = (await session.evaluate(
+    "(() => { const v = document.querySelector('video'); return v && { currentTime: v.currentTime, paused: v.paused }; })()"
+  )) as { currentTime: number; paused: boolean } | null;
+  const frame: Frame = {
+    requestedS: seconds,
+    currentTime: state?.currentTime ?? null,
+    paused: state?.paused ?? null
+  };
+  if (
+    frame.currentTime === null ||
+    Math.abs(frame.currentTime - seconds) > 2 ||
+    frame.paused !== true
+  ) {
+    console.warn(
+      `warning: could not hold the player at ${seconds}s (${JSON.stringify(frame)}); frames will not align.`
+    );
+  }
+  return frame;
+}
+
 async function probe(
   session: Session,
-  opts: { watch: string; timeoutMs: number; out: string }
+  opts: { watch: string; timeoutMs: number; out: string; timeS: number }
 ): Promise<{ snapshot: Snapshot; info: Record<string, unknown> }> {
   await session.send('Page.bringToFront');
   await session.send('Emulation.setDeviceMetricsOverride', {
-    width: 1920,
-    height: 1080,
+    ...VIEWPORT,
     deviceScaleFactor: 1,
     mobile: false
   });
@@ -500,27 +567,12 @@ async function probe(
     );
   }
   const barMs = Date.now() - started;
+  const frame = await seekAndPause(session, opts.timeS, opts.timeoutMs);
+  // Paused playback keeps the controls up; make sure they are before probing.
+  await waitFor('the control bar', opts.timeoutMs, barUp);
   await sleep(800);
 
-  const snapshot = (await session.callFunction(
-    `function (selectors) { return (${PROBE_FN})(selectors); }`,
-    PROBE_SELECTORS
-  )) as Snapshot;
-
-  const video = await session.evaluate(
-    "(() => { const v = document.querySelector('video'); return v && { t0: v.currentTime, paused: v.paused, readyState: v.readyState }; })()"
-  );
-  await sleep(1500);
-  const t1 = (await session.evaluate(
-    "document.querySelector('video')?.currentTime ?? null"
-  )) as number | null;
-  const v0 = video as { t0: number; paused: boolean } | null;
-  const playing = Boolean(v0 && t1 !== null && t1 > v0.t0);
-  if (!playing) {
-    console.warn(
-      'warning: the video is not advancing (DRM or autoplay blocked?). DOM values are still probed; the TV probe is authoritative.'
-    );
-  }
+  const snapshot = await collectSnapshot(session);
 
   const shot = (await session.send('Page.captureScreenshot', {
     format: 'png'
@@ -545,7 +597,7 @@ async function probe(
     snapshot,
     info: {
       controlBarAppearedMs: barMs,
-      videoPlaying: playing,
+      frame,
       note: 'Chrome timing is informational; the on-TV p95 gate is authoritative.'
     }
   };
@@ -573,10 +625,11 @@ const HELP = `usage: node tools/compare-chrome.ts [options]
   --profile <dir>  dedicated profile (default %LOCALAPPDATA%\\ytx-chrome-tv-profile)
   --url <url>      start URL (default ${DEFAULT_URL})
   --watch <url>    watch URL to probe (default: the Rick Astley mix)
+  --time <sec>     seek to this second and pause before probing (default ${DEFAULT_TIME_S})
   --out <dir>      output dir (default %TEMP%\\ytx-chrome-compare)
   --tv <file>      optional TV snapshot JSON to report soft DIFFs against
   --attach         attach to Chrome already listening on --port
-  --login          open the profile to sign in, then wait for you to close it
+  --login          open the profile with the desktop UA to sign in, then wait for you to close it
   --keep-open      leave Chrome running after the probe
   --timeout <sec>  per-step timeout (default ${DEFAULT_TIMEOUT_S})
   --help`;
@@ -589,6 +642,7 @@ async function main(): Promise<void> {
       profile: { type: 'string' },
       url: { type: 'string', default: DEFAULT_URL },
       watch: { type: 'string', default: DEFAULT_WATCH },
+      time: { type: 'string', default: String(DEFAULT_TIME_S) },
       out: { type: 'string' },
       tv: { type: 'string' },
       attach: { type: 'boolean', default: false },
@@ -604,8 +658,12 @@ async function main(): Promise<void> {
   }
   const port = Number(values.port);
   const timeoutMs = Number(values.timeout) * 1000;
+  const timeS = Number(values.time);
   if (!Number.isInteger(port) || !(timeoutMs > 0)) {
     throw new HarnessError('--port and --timeout must be positive numbers');
+  }
+  if (!(timeS >= 0)) {
+    throw new HarnessError('--time must be a number of seconds >= 0');
   }
   const profile =
     values.profile ??
@@ -614,7 +672,7 @@ async function main(): Promise<void> {
       'ytx-chrome-tv-profile'
     );
   const out = values.out ?? join(tmpdir(), 'ytx-chrome-compare');
-  const url = values.url;
+  const url = values.login ? LOGIN_URL : values.url;
 
   let child: ChildProcess | undefined;
   if (!values.attach) {
@@ -627,7 +685,8 @@ async function main(): Promise<void> {
       chrome: findChrome(values.chrome),
       port,
       profile,
-      url
+      url,
+      ...(values.login ? {} : { userAgent: TV_UA })
     });
   } else if (!(await portAnswers(port))) {
     throw new HarnessError(`--attach: nothing is listening on port ${port}`);
@@ -651,7 +710,8 @@ async function main(): Promise<void> {
     const { snapshot, info } = await probe(session, {
       watch: values.watch,
       timeoutMs,
-      out
+      out,
+      timeS
     });
     await assertSelectors(session, snapshot);
 
@@ -666,7 +726,16 @@ async function main(): Promise<void> {
     await writeFile(
       join(out, 'chrome-official.json'),
       JSON.stringify(
-        { uri: url, userAgent: TV_UA, snapshot, checks, diffs, info },
+        {
+          uri: url,
+          userAgent: TV_UA,
+          viewport: VIEWPORT,
+          timeS,
+          snapshot,
+          checks,
+          diffs,
+          info
+        },
         null,
         2
       )

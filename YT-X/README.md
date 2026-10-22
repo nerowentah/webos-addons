@@ -237,11 +237,11 @@ Note: `dialAppName` is what registers the app with the TV's DIAL service
 TV. Do not remove it — without it, the TV disappears from the phone's cast
 list entirely.
 
-### Video is not blurred behind translucent plates
+### Playback plates follow YouTube's own styling
 
-webOS renders `<video>` on a separate native/hardware plane. CSS
-`backdrop-filter` cannot sample it, so the translucent playback plates rely on
-their alpha background; the blur affects DOM content only. Do not add
+The scrim, title plate and action bar are no longer restyled: webOS renders
+`<video>` on a separate native/hardware plane that CSS `backdrop-filter` cannot
+sample, so a translucent plate only ever blurred DOM content. Do not add
 `transform`, `filter` or `will-change` to `<video>` or its ancestors to try to
 blur the video: that breaks native pass-through and can hurt playback.
 
@@ -302,7 +302,10 @@ npm run verify   # production build plus ES compatibility check
 ```
 
 `npm run compare:chrome` is a manual Chrome reference gate; it needs Chrome and
-network access, so it is not part of `lint:all` or `verify`.
+network access, so it is not part of `lint:all` or `verify`. Run it once with
+`--login` (desktop user agent) to sign in; probes then use the PS4 Leanback UA.
+Both `compare:tv` and `compare:chrome` seek to `--time` (default 102 s) and
+pause, so frames line up.
 
 `verify` fails if the bundle uses syntax newer than ES2022, and
 `tools/check-syntax-floor.ts` rejects the specific syntax Chrome 79 cannot parse
@@ -320,7 +323,8 @@ npm run inspect                              # DOM, focus, video and heap diagno
 npm run inspect -- eval "document.querySelectorAll('video').length"
 npm run drive -- "down,down,ok" shot.png     # keys: up down left right ok back red green yellow blue
 npm run verify:device                        # deploy + on-TV checks (manual, not run in CI)
-npm run compare:chrome                        # Chrome TV reference probe (manual, not run in CI)
+npm run compare:tv                            # write the paused-frame TV snapshot (tv.json)
+npm run compare:chrome -- --tv <tv.json>      # Chrome reference probe + DIFFs vs the TV (manual, not run in CI)
 ```
 
 Add `-d <device>` to pick a device.

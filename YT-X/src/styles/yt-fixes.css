@@ -1,59 +1,8 @@
-/* Playback scrim: a translucent wash plus a bottom gradient that keeps the
-   title band legible, tinted with the shared --ytx-dark-rgb token (ui.css) so
-   it matches the panel and follows the active panel-care profile. The 0.6 stop
-   keeps white title/metadata text at ~4.8:1 worst case at the QNED hue (~5.7:1
-   on OLED black; WCAG AA, above the 0.55 floor in ui.css) while the video
-   still reads through. The blur softens DOM content behind the scrim; the
-   video plane is separate and is not blurred, so the alpha keeps contrast.
-   Raise the alphas if the video still looks too bright. */
-.ytLrWatchDefaultShadow,
-[idomkey='shadow'] {
-  display: block !important;
-  height: 100% !important;
-  pointer-events: none !important;
-  position: absolute !important;
-  width: 100% !important;
-  background-image: linear-gradient(
-    to bottom,
-    rgba(var(--ytx-dark-rgb), 0) 0,
-    rgba(var(--ytx-dark-rgb), 0.12) 45%,
-    rgba(var(--ytx-dark-rgb), 0.6) 90%
-  ) !important;
-  background-color: rgba(var(--ytx-dark-rgb), 0.1) !important;
-  backdrop-filter: var(--ytx-backdrop, blur(0.8vh) saturate(1.1));
-}
-
-.ytLrWatchDefault2025Shadow {
-  background-color: rgba(var(--ytx-dark-rgb), 0.12) !important;
-}
-
-/* Title plate + playback action bar: one flat translucent plate recipe.
-   No backdrop-filter here: the video plane is outside the DOM compositor,
-   so the blur only softened DOM content while adding a backdrop layer per
-   button. The 0.6 alpha is what lets the video read through. */
-ytlr-watch-metadata,
-ytlr-watch-default .LeWSF,
-ytlr-player-actions-container yt-button-container.CgA6bd.MIiKQd:not(.lu66D),
-ytlr-player-actions-container .clJQEe {
-  background-color: rgba(var(--ytx-dark-rgb), 0.6) !important;
-  background-image: none !important;
-}
-
 /* YouTube's now-playing overlay is transparent under .app-quality-root.
    applyUIFixes() strips that class, so the fallback rgb(6,6,6) plate covers
    the thumbnail. Restore the official quality-root appearance. */
 ytlr-thumbnail-overlay-now-playing-renderer.P21kJ {
   background-color: transparent !important;
-}
-
-/* Keep hover feedback without reverting to YouTube's opaque gray. The right
-   cluster's icon buttons are transparent at rest inside the translucent pill,
-   so only their hover fill needs the stronger alpha. */
-ytlr-player-actions-container
-  yt-button-container.CgA6bd.MIiKQd:not(.lu66D):hover,
-ytlr-player-actions-container
-  yt-button-container.CgA6bd.XqDMCd:not(.lu66D):hover {
-  background-color: rgba(var(--ytx-dark-rgb), 0.8) !important;
 }
 
 /* Fixes shorts thumbnails. The solid bottom band keeps the metadata text at AA
