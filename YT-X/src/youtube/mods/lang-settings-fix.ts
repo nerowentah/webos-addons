@@ -19,28 +19,30 @@ const hook: ResolveCommandHook = function (resolveCommand, payload, extra) {
   const passthrough = () => resolveCommand(payload, extra);
 
   if (
-    !payload.setClientSettingEndpoint ||
-    typeof payload.setClientSettingEndpoint !== 'object'
+    !payload['setClientSettingEndpoint'] ||
+    typeof payload['setClientSettingEndpoint'] !== 'object'
   )
     return passthrough();
 
-  const setClientSettingEndpoint = payload.setClientSettingEndpoint as Record<
-    string,
-    unknown
-  >;
+  const setClientSettingEndpoint = payload[
+    'setClientSettingEndpoint'
+  ] as Record<string, unknown>;
 
-  if (!Array.isArray(setClientSettingEndpoint.settingDatas))
+  if (!Array.isArray(setClientSettingEndpoint['settingDatas']))
     return passthrough();
 
-  const idx = setClientSettingEndpoint.settingDatas.findIndex(
+  const settingDatas = setClientSettingEndpoint['settingDatas'] as {
+    clientSettingEnum?: { item?: string };
+    stringValue?: string;
+  }[];
+  const idx = settingDatas.findIndex(
     (setting) => setting.clientSettingEnum?.item === 'I18N_LANGUAGE'
   );
 
   if (idx === -1) return resolveCommand(payload, extra);
 
-  const setting = setClientSettingEndpoint.settingDatas[idx];
-
-  const lang = setting.stringValue;
+  // A missing stringValue is coerced to 'undefined' by URLSearchParams, as before.
+  const lang = String(settingDatas[idx]?.stringValue);
   const date = new Date();
   date.setFullYear(date.getFullYear() + 10);
 

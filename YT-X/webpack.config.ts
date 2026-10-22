@@ -26,8 +26,8 @@ function resolveAppResolution(requested: string | undefined): string {
 
 function transformAppInfo(input: Buffer, resolution: string): string {
   const appInfo = JSON.parse(input.toString()) as Record<string, unknown>;
-  appInfo.version = version;
-  appInfo.resolution = resolution;
+  appInfo['version'] = version;
+  appInfo['resolution'] = resolution;
   return JSON.stringify(appInfo, null, 2);
 }
 
@@ -62,7 +62,7 @@ const makeConfig = (env: Record<string, string>): Configuration[] => [
               if (basename(absolutePath) === 'appinfo.json') {
                 return transformAppInfo(
                   input,
-                  resolveAppResolution(env.resolution)
+                  resolveAppResolution(env['resolution'])
                 );
               }
               return input;
@@ -70,7 +70,7 @@ const makeConfig = (env: Record<string, string>): Configuration[] => [
             cache: {
               keys: {
                 version,
-                resolution: resolveAppResolution(env.resolution)
+                resolution: resolveAppResolution(env['resolution'])
               }
             }
           }

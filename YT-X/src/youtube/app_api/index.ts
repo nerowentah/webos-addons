@@ -35,9 +35,8 @@ export class ResolveCommandRegistry {
     }
 
     for (const key of Object.keys(command)) {
-      if (this.#cmds.has(key)) {
-        return this.#cmds.get(key)!(this.#originalFn, command, extra);
-      }
+      const hook = this.#cmds.get(key);
+      if (hook) return hook(this.#originalFn, command, extra);
     }
 
     return this.#originalFn(command, extra);
@@ -50,7 +49,7 @@ export class ResolveCommandRegistry {
       );
     }
 
-    const hookTarget = window._yttv![hookTargetName] as {
+    const hookTarget = window._yttv?.[hookTargetName] as {
       instance: { resolveCommand: ResolveCommand };
     };
 
@@ -69,7 +68,7 @@ export class ResolveCommandRegistry {
       typeof target === 'function' &&
       'instance' in target &&
       typeof target.instance === 'object' &&
-      typeof (target.instance as Record<string, unknown>).resolveCommand ===
+      typeof (target.instance as Record<string, unknown>)['resolveCommand'] ===
         'function'
     );
   }
@@ -147,7 +146,7 @@ export class ResolveCommandRegistry {
     if (registry) return registry;
 
     if (!pending) {
-      pending = this.init().catch((err) => {
+      pending = this.init().catch((err: unknown) => {
         pending = null;
         throw err;
       });
@@ -164,4 +163,4 @@ export class ResolveCommandRegistry {
   }
 }
 
-ResolveCommandRegistry.getInstance();
+void ResolveCommandRegistry.getInstance();

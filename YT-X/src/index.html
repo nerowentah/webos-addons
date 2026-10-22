@@ -1,11 +1,13 @@
 <!doctype html>
-<html>
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <title>YouTube Extended</title>
     <!-- The shell loads only its own bundle then immediately navigates to
          https://www.youtube.com/tv, so this CSP never needs connect-src or
-         frame-src traffic. Keep it strict; webOS serves the bundle from
+         frame-src traffic. The classic <script> (not type=module) and
+         style-src 'unsafe-inline' are load-bearing on the Chrome 79 shell
+         and for injected styles; don't "harden" them away. Keep it strict; webOS serves the bundle from
          file://, hence the explicit file: sources alongside 'self'. -->
     <meta
       http-equiv="Content-Security-Policy"

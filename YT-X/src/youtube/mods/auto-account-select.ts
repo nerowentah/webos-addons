@@ -10,8 +10,9 @@ const hook: ResolveCommandHook = function (resolveCommand, payload, extra) {
     return;
   }
 
-  const finalEndpoint = payload
-    ?.startAccountSelectorCommand // @ts-expect-error TS doesn't allow optional chaining on `unknown`. See: github.com/microsoft/TypeScript/issues/37700
+  const finalEndpoint = payload?.[
+    'startAccountSelectorCommand'
+  ] // @ts-expect-error TS doesn't allow optional chaining on `unknown`. See: github.com/microsoft/TypeScript/issues/37700
   ?.nextEndpoint as unknown;
 
   registry.dispatchCommand({

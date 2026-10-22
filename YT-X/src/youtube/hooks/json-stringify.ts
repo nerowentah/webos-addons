@@ -17,10 +17,12 @@ function stringify(
   let processedValue = value;
   if (!isPrimitive(value)) {
     // Copy only the path being edited: this runs on every stringify, and a full structuredClone of a large player/log payload stalls the main thread.
-    const playbackContext = (value as Record<string, unknown>).playbackContext;
+    const playbackContext = (value as Record<string, unknown>)[
+      'playbackContext'
+    ];
     if (!isPrimitive(playbackContext)) {
       const pc = playbackContext as Record<string, unknown>;
-      const ctx = pc.contentPlaybackContext;
+      const ctx = pc['contentPlaybackContext'];
       if (!isPrimitive(ctx)) {
         processedValue = {
           ...(value as Record<string, unknown>),
