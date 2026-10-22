@@ -1,5 +1,6 @@
 import TerserPlugin from 'terser-webpack-plugin';
 import webpack from 'webpack';
+import type { Configuration } from 'webpack';
 import { basename } from 'node:path';
 import { getVersionInfo } from './tools/version.ts';
 
@@ -13,11 +14,7 @@ const { version, gitSha, owner } = getVersionInfo();
 const DEFAULT_APP_RESOLUTION = '1920x1080';
 const APP_RESOLUTIONS = [DEFAULT_APP_RESOLUTION, '1280x720'];
 
-/**
- * @param requested {string | undefined}
- * @returns {string}
- */
-function resolveAppResolution(requested) {
+function resolveAppResolution(requested: string | undefined): string {
   if (requested === undefined) return DEFAULT_APP_RESOLUTION;
   if (!APP_RESOLUTIONS.includes(requested)) {
     throw new Error(
@@ -27,20 +24,14 @@ function resolveAppResolution(requested) {
   return requested;
 }
 
-/**
- * @param input {Buffer<ArrayBufferLike>}
- * @param resolution {string}
- * @returns {string}
- */
-function transformAppInfo(input, resolution) {
-  const appInfo = JSON.parse(input.toString());
+function transformAppInfo(input: Buffer, resolution: string): string {
+  const appInfo = JSON.parse(input.toString()) as Record<string, unknown>;
   appInfo.version = version;
   appInfo.resolution = resolution;
   return JSON.stringify(appInfo, null, 2);
 }
 
-/** @type {(env: Record<string, string>) => (import('webpack').Configuration)[]} */
-const makeConfig = (env) => [
+const makeConfig = (env: Record<string, string>): Configuration[] => [
   {
     // Read .browserslistrc explicitly rather than relying on the cwd-relative
     // default, so the ES floor is fixed wherever webpack is invoked from.

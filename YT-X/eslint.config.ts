@@ -21,8 +21,8 @@ const configs = [
   prettierConfig,
   regexpPlugin.configs['flat/recommended'],
 
-  // TypeScript: parser + TS-aware rules for *.ts/*.mts/*.cts. Re-scoped so the
-  // few remaining JS files (the webpack/babel build bootstrap) keep the core rules.
+  // TypeScript: parser + TS-aware rules, scoped to TS files (flat config lints
+  // nothing else by default).
   ...tseslint.configs.recommended.map((config) => ({
     ...(config as Linter.Config),
     files: tsFiles
@@ -124,16 +124,6 @@ const configs = [
       'no-console': 'error',
       'no-unsanitized/method': 'error',
       'no-unsanitized/property': 'error'
-    }
-  },
-
-  {
-    // Why doesn't ESLint do this by default is beyond me.
-    files: ['**/*.c[jt]s'],
-    languageOptions: {
-      sourceType: 'commonjs',
-      // nodeBuiltin omits the CommonJS-only bindings (__dirname, __filename).
-      globals: { ...globals.node }
     }
   },
 

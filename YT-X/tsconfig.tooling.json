@@ -2,7 +2,6 @@
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
     "types": ["node"],
-    "checkJs": true,
     // The tools run natively under Node (type stripping), which needs the .ts
     // extension on relative imports and only supports erasable syntax.
     "allowImportingTsExtensions": true,
@@ -17,9 +16,9 @@
     "./types",
     "./assets/appinfo.json",
     "./package.json",
-    "./webpack.config.js",
+    "./webpack.config.ts",
     "eslint.config.ts",
-    "babel.config.js",
+    "babel.config.ts",
     "postcss.config.ts"
   ]
 }

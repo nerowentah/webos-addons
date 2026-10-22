@@ -1,4 +1,5 @@
 import Module from 'node:module';
+import type { ConfigAPI, InputOptions } from '@babel/core';
 
 const require = Module.createRequire(import.meta.url);
 
@@ -9,12 +10,8 @@ const {
 } = require('@babel/runtime-corejs3/package.json');
 const { version: corejspureVersion } = require('core-js-pure/package.json');
 
-/** @typedef {import('@babel/core').ConfigAPI} ConfigAPI */
-/** @typedef {Record<string, any>} BabelConfig */
-
-/** @type {(api: ConfigAPI) => BabelConfig} */
-function makeConfig(api) {
-  const cfg = {
+function makeConfig(api: ConfigAPI): InputOptions {
+  const cfg: InputOptions = {
     // Webpack emits both CJS and ESM; auto-detect avoids
     // "__webpack_require__(...) is not a function". See
     // https://github.com/webpack/webpack/issues/9379
