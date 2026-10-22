@@ -42,6 +42,14 @@ test('cssString escapes quotes and backslashes', async () => {
   assert.equal(cssString('"; } body { x: "'), '"\\"; } body { x: \\""');
 });
 
+test('cssString neutralises markup that could close a <style> element', async () => {
+  const { cssString } = await load();
+  const out = cssString('</style><script>alert(1)</script>');
+  assert.ok(!out.includes('<'));
+  assert.ok(!out.toLowerCase().includes('</style'));
+  assert.equal(cssString('<'), '"\\3c "');
+});
+
 test('cssString neutralises newlines and control characters', async () => {
   const { cssString } = await load();
   assert.equal(cssString('a\nb\rc\fd'), '"a b c d"');
