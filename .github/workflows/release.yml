@@ -63,7 +63,12 @@ jobs:
       - name: Package IPK
         run: npm run package
 
+      # IPKs are sideloaded, so users have no other way to verify what they
+      # downloaded; publish a checksum file next to each one.
+      - name: Checksums
+        run: sha256sum ./*.ipk > SHA256SUMS.txt
+
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" ./*.ipk --generate-notes --title "$GITHUB_REF_NAME"
+        run: gh release create "$GITHUB_REF_NAME" ./*.ipk SHA256SUMS.txt --generate-notes --title "$GITHUB_REF_NAME"
