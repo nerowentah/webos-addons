@@ -1,3 +1,4 @@
+import { raceWithSignal } from '../../core/async';
 import { waitForChildAdd } from '../../core/utils';
 
 import type { YTPlayer } from './yt-api';
@@ -34,11 +35,11 @@ let player: YTPlayer | null = null;
 let pending: Promise<YTPlayer> | null = null;
 
 /**
- * The page's player, waiting for it to mount; rejects (and disconnects its observer) after PLAYER_WAIT_MS, or when `signal` aborts. Concurrent callers share one wait; a failed wait can be retried.
+ * The page's player, waiting for it to mount; rejects after PLAYER_WAIT_MS. Concurrent callers share one wait; a failed wait can be retried. The first caller owns the wait: its `signal` aborting cancels it (and disconnects the observer). Later callers' signals cancel only their own await.
  */
 export function getPlayer(signal?: AbortSignal): Promise<YTPlayer> {
   if (player) return Promise.resolve(player);
-  if (pending) return pending;
+  if (pending) return signal ? raceWithSignal(pending, signal) : pending;
 
   const controller = new AbortController();
   const timer = setTimeout(
