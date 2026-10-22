@@ -39,3 +39,8 @@ interface Document {
     options?: boolean | EventListenerOptions
   ): void;
 }
+
+interface DocumentEventMap {
+  /** webOS reports the Magic Remote pointer appearing or hiding (it hides on D-pad presses). */
+  cursorStateChange: CustomEvent<{ visibility?: boolean }>;
+}

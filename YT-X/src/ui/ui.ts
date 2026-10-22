@@ -1,12 +1,13 @@
-/*global __YTX_VERSION__, __YTX_GITSHA__, __YTX_OWNER__*/
 import {
   configAddChangeListener,
   configGetDesc,
   configRead,
   configWrite,
   panelCareModes,
-  videoCodecModes
-} from '../config/config.js';
+  videoCodecModes,
+  type BoolKey,
+  type ConfigValues
+} from '../config/config';
 import './ui.css';
 import {
   addTVSpecsChangeListener,
@@ -16,10 +17,10 @@ import {
 import {
   showNotification as notificationsShowNotification,
   setNotificationPanelCare
-} from './notifications.js';
-import { REMOTE_KEYS, SYNTHETIC_KEY_FLAG } from '../core/utils.js';
-import { gridColumns } from '../core/layout.js';
-import { PANEL } from '../config/ui-text.js';
+} from './notifications';
+import { REMOTE_KEYS, isSyntheticKey } from '../core/utils';
+import { gridColumns } from '../core/layout';
+import { PANEL } from '../config/ui-text';
 
 export const showNotification = notificationsShowNotification;
 
@@ -49,22 +50,51 @@ const UNSAFE_ATTRIBUTES = new Set([
   'background'
 ]);
 
-const createElement = (tag, props = {}, ...children) => {
+type ElementEvents = {
+  [K in keyof HTMLElementEventMap]?: (evt: HTMLElementEventMap[K]) => void;
+};
+
+/** What createElement accepts: the allowlisted properties, `class`/`text`/`style`/`events`, and any other string-valued attribute (e.g. `aria-label`). */
+interface ElementProps {
+  class?: string;
+  text?: string;
+  style?: Partial<CSSStyleDeclaration>;
+  events?: ElementEvents;
+  id?: string;
+  type?: string;
+  value?: string;
+  checked?: boolean;
+  disabled?: boolean;
+  selected?: boolean;
+  tabIndex?: number;
+  title?: string;
+  role?: string;
+  name?: string;
+  slot?: string;
+  hidden?: boolean;
+  [attribute: string]: unknown;
+}
+
+const createElement = <K extends keyof HTMLElementTagNameMap>(
+  tag: K,
+  props: ElementProps = {},
+  ...children: (string | Node)[]
+): HTMLElementTagNameMap[K] => {
   const el = document.createElement(tag);
 
   for (const [key, val] of Object.entries(props)) {
-    if (key === 'style' && typeof val === 'object') {
-      for (const [styleKey, styleVal] of Object.entries(val)) {
-        el.style[styleKey] = styleVal;
-      }
-    } else if (key === 'class') el.className = val;
-    else if (key === 'events' && typeof val === 'object') {
+    if (key === 'style' && typeof val === 'object' && val !== null) {
+      Object.assign(el.style, val);
+    } else if (key === 'class') el.className = String(val);
+    else if (key === 'events' && typeof val === 'object' && val !== null) {
       for (const [evt, handler] of Object.entries(val)) {
-        el.addEventListener(evt, handler);
+        el.addEventListener(evt, handler as EventListener);
       }
-    } else if (key === 'text') el.textContent = val;
-    else if (ELEMENT_PROP_KEYS.has(key) && val != null) el[key] = val;
-    else if (
+    } else if (key === 'text') el.textContent = String(val);
+    else if (ELEMENT_PROP_KEYS.has(key) && val != null) {
+      // Allowlisted above: only plain element properties get written.
+      (el as unknown as Record<string, unknown>)[key] = val;
+    } else if (
       typeof val === 'string' &&
       /^[a-z][a-z0-9-]*$/.test(key) &&
       !UNSAFE_ATTRIBUTES.has(key) &&
@@ -74,8 +104,7 @@ const createElement = (tag, props = {}, ...children) => {
     }
   }
 
-  for (let i = 0; i < children.length; i++) {
-    const child = children[i];
+  for (const child of children) {
     el.appendChild(
       typeof child === 'string' ? document.createTextNode(child) : child
     );
@@ -83,11 +112,11 @@ const createElement = (tag, props = {}, ...children) => {
   return el;
 };
 
-function createConfigCheckbox(key) {
-  const elmInput = createElement('input', {
+function createConfigCheckbox(key: BoolKey): HTMLLabelElement {
+  const elmInput: HTMLInputElement = createElement('input', {
     type: 'checkbox',
     checked: configRead(key),
-    events: { change: (evt) => configWrite(key, evt.target.checked) }
+    events: { change: () => configWrite(key, elmInput.checked) }
   });
 
   const labelContent = createElement(
@@ -97,7 +126,7 @@ function createConfigCheckbox(key) {
     elmInput
   );
   const elmLabel = createElement('label', {}, labelContent);
-  elmLabel.dataset.sortKey = configGetDesc(key);
+  elmLabel.dataset['sortKey'] = configGetDesc(key);
 
   configAddChangeListener(key, (evt) => {
     elmInput.checked = evt.detail.newValue;
@@ -107,17 +136,23 @@ function createConfigCheckbox(key) {
 }
 
 /** Order controls A-Z by `dataset.sortKey`; unkeyed elements group with the keyed control they follow. */
-function orderByLabel(elements) {
-  const groups = [];
+function orderByLabel(elements: readonly HTMLElement[]): HTMLElement[] {
+  interface Group {
+    key: string;
+    last: boolean;
+    els: HTMLElement[];
+  }
+  const groups: Group[] = [];
   for (const el of elements) {
-    const key = el && el.dataset ? el.dataset.sortKey : undefined;
-    if (key === undefined && groups.length) {
-      groups[groups.length - 1].els.push(el);
+    const key = el.dataset['sortKey'];
+    const lastGroup = groups[groups.length - 1];
+    if (key === undefined && lastGroup) {
+      lastGroup.els.push(el);
     } else {
       groups.push({
         key: key === undefined ? '' : key.toLowerCase(),
         // Pinned to the section bottom; A-Z would bury this summary row among the checkboxes.
-        last: !!(el.classList && el.classList.contains('ytx-cycle-row')),
+        last: el.classList.contains('ytx-cycle-row'),
         els: [el]
       });
     }
@@ -127,7 +162,7 @@ function orderByLabel(elements) {
     return a.key.localeCompare(b.key);
   });
 
-  const ordered = [];
+  const ordered: HTMLElement[] = [];
   for (const group of groups) {
     for (const el of group.els) ordered.push(el);
   }
@@ -135,14 +170,19 @@ function orderByLabel(elements) {
 }
 
 /**
- * @param {string} title Section heading.
- * @param {Element[]} elements Control rows.
- * @param {boolean} grid Opt the section into the multi-column layout. The
+ * @param title Section heading.
+ * @param elements Control rows.
+ * @param grid Opt the section into the multi-column layout. The
  *   column count (2 or 3) is then derived from how many rows it holds.
- * @param {string} note Optional muted caption rendered beside the heading, e.g.
+ * @param note Optional muted caption rendered beside the heading, e.g.
  *   a third-party attribution. Not uppercased or bolded like the title.
  */
-function createSection(title, elements, grid = false, note = '') {
+function createSection(
+  title: string,
+  elements: readonly HTMLElement[],
+  grid = false,
+  note = ''
+): HTMLDivElement {
   const ordered = orderByLabel(elements);
   let cls = '';
   if (grid && elements.length > 1) {
@@ -165,12 +205,12 @@ function createSection(title, elements, grid = false, note = '') {
 }
 
 function createGenericControlRow(
-  labelText,
-  displayValueGetter,
-  onLeft,
-  onRight,
-  onClick
-) {
+  labelText: string,
+  displayValueGetter: () => string,
+  onLeft: () => void,
+  onRight: () => void,
+  onClick: () => void
+): { container: HTMLDivElement; updateDisplay: () => void } {
   const valueText = createElement('span', { class: 'current-value' });
   const updateDisplay = () => {
     valueText.textContent = displayValueGetter();
@@ -216,29 +256,31 @@ function createGenericControlRow(
     )
   );
 
-  container.dataset.sortKey = labelText;
+  container.dataset['sortKey'] = labelText;
 
   return { container, updateDisplay };
 }
 
-function createCycleControl(
-  configKey,
-  labelText,
-  modesArray,
-  displayMap = null
-) {
-  const displayValueGetter = () =>
-    displayMap
-      ? displayMap[configRead(configKey)] || configRead(configKey)
-      : configRead(configKey);
-  const cycle = (dir) => {
+/** Config options that hold one of a fixed set of modes. */
+type CycleKey = 'panelCareMode' | 'forceVideoCodec';
+
+function createCycleControl<K extends CycleKey>(
+  configKey: K,
+  labelText: string,
+  displayMap: Record<ConfigValues[K], string>
+): HTMLDivElement {
+  const modesArray = Object.keys(displayMap) as ConfigValues[K][];
+  const displayValueGetter = (): string =>
+    displayMap[configRead(configKey)] || configRead(configKey);
+  const cycle = (dir: 'next' | 'prev') => {
     let idx = modesArray.indexOf(configRead(configKey));
     if (idx === -1) idx = 0;
     idx =
       dir === 'next'
         ? (idx + 1) % modesArray.length
         : (idx - 1 + modesArray.length) % modesArray.length;
-    configWrite(configKey, modesArray[idx]);
+    const mode = modesArray[idx];
+    if (mode !== undefined) configWrite(configKey, mode);
     updateDisplay();
   };
 
@@ -256,28 +298,34 @@ function createCycleControl(
 }
 
 /** A cycle control that lines up with the checkbox rows around it (both start their label at the row's left edge, so no placeholder is needed). */
-function createAlignedCycleControl(configKey, displayMap) {
-  return createCycleControl(
-    configKey,
-    configGetDesc(configKey),
-    Object.keys(displayMap),
-    displayMap
-  );
+function createAlignedCycleControl<K extends CycleKey>(
+  configKey: K,
+  displayMap: Record<ConfigValues[K], string>
+): HTMLDivElement {
+  return createCycleControl(configKey, configGetDesc(configKey), displayMap);
 }
 
 const createVideoCodecControl = () =>
   createAlignedCycleControl('forceVideoCodec', videoCodecModes);
 
-let optionsPanel = null;
+/** The options panel element plus the hooks the module drives it through. */
+interface OptionsPanel extends HTMLDivElement {
+  activePage: number;
+  ensurePage(index: number): void;
+  buildDeferredPages(): void;
+  recalcDensity(): void;
+}
+
+let optionsPanel: OptionsPanel | null = null;
 let optionsPanelVisible = false;
 let panelInitBlock = false;
-let lastSafeFocus = null;
+let lastSafeFocus: HTMLElement | null = null;
 
-// Wired by sponsorblock.js via setSponsorBlockPanelSync; no-op until then.
+// Wired by sponsorblock.ts via setSponsorBlockPanelSync; no-op until then.
 // The registered fn receives the panel-open state; the popup is suppressed
 // while the panel is open.
-let syncSponsorBlockPanel = () => {};
-export function setSponsorBlockPanelSync(fn) {
+let syncSponsorBlockPanel: (open: boolean) => void = () => {};
+export function setSponsorBlockPanelSync(fn: (open: boolean) => void): void {
   syncSponsorBlockPanel = fn;
 }
 
@@ -292,32 +340,41 @@ const SPONSOR_CATEGORIES = [
   'enableSponsorBlockFiller',
   'enableSponsorBlockHook',
   'enableSponsorBlockHighlight'
-];
+] as const satisfies readonly BoolKey[];
 
-function createOptionsPanel() {
-  const elmContainer = createElement('div', {
-    class: 'ytx-ui-container',
-    style: { display: 'none' },
-    tabIndex: 0,
-    events: {
-      keydown: (e) => {
-        if (
-          e.key === 'Escape' ||
-          e.key === 'Back' ||
-          e.keyCode === REMOTE_KEYS.BACK.keyCode ||
-          e.code === 'Backspace'
-        ) {
-          e.preventDefault();
-          e.stopImmediatePropagation();
-          showOptionsPanel(false);
+function createOptionsPanel(): OptionsPanel {
+  const elmContainer: OptionsPanel = Object.assign(
+    createElement('div', {
+      class: 'ytx-ui-container',
+      style: { display: 'none' },
+      tabIndex: 0,
+      events: {
+        keydown: (e) => {
+          if (
+            e.key === 'Escape' ||
+            e.key === 'Back' ||
+            e.keyCode === REMOTE_KEYS.BACK.keyCode ||
+            e.code === 'Backspace'
+          ) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            showOptionsPanel(false);
+          }
         }
       }
+    }),
+    {
+      activePage: 0,
+      // Replaced below, once the page machinery they close over exists.
+      ensurePage: (_index: number): void => {},
+      buildDeferredPages: (): void => {},
+      recalcDensity: (): void => {}
     }
-  });
+  );
 
   let activePage = 0;
-  elmContainer.activePage = 0;
-  let pageMain, pageSponsor, pageUITweaks, pagePrivacy, pageSystem;
+  // Page elements by tab index: Main, UI, System, Privacy, Adblock.
+  const pages: (HTMLElement | undefined)[] = [];
 
   const tabMenu = createElement('div', {
     class: 'ytx-tab-menu',
@@ -342,7 +399,9 @@ function createOptionsPanel() {
       tabIndex: 0,
       events: {
         click: () => setActivePage(index),
-        mouseenter: (e) => e.target.focus()
+        mouseenter: (e) => {
+          if (e.target instanceof HTMLElement) e.target.focus();
+        }
       }
     })
   );
@@ -350,37 +409,33 @@ function createOptionsPanel() {
     tabMenu.appendChild(btn);
   });
 
-  const setActivePage = (pageIndex) => {
+  const focusSelectors = [
+    'input',
+    '.ytx-cycle-row, input',
+    '.ytx-cycle-row, input',
+    'input',
+    '.ytx-cycle-row, input'
+  ];
+
+  const setActivePage = (pageIndex: number) => {
     if (pageIndex === activePage) return;
     ensurePage(pageIndex);
-    const pagesArray = [
-      pageMain,
-      pageUITweaks,
-      pageSystem,
-      pagePrivacy,
-      pageSponsor
-    ];
-    const focusSelectors = [
-      'input',
-      '.ytx-cycle-row, input',
-      '.ytx-cycle-row, input',
-      'input',
-      '.ytx-cycle-row, input'
-    ];
 
-    pagesArray[activePage].style.display = 'none';
-    tabBtns[activePage].classList.remove('active');
+    const previous = pages[activePage];
+    if (previous) previous.style.display = 'none';
+    tabBtns[activePage]?.classList.remove('active');
 
     activePage = elmContainer.activePage = pageIndex;
-    pagesArray[activePage].style.display = 'block';
-    tabBtns[activePage].classList.add('active');
+    const page = pages[activePage];
+    if (page) page.style.display = 'block';
+    tabBtns[activePage]?.classList.add('active');
 
     const activeEl = document.activeElement;
     const isTabFocused = activeEl && activeEl.classList.contains('ytx-tab-btn');
 
     if (!isTabFocused) {
-      const focusTarget = pagesArray[activePage].querySelector(
-        focusSelectors[activePage]
+      const focusTarget = page?.querySelector<HTMLElement>(
+        focusSelectors[activePage] ?? 'input'
       );
       if (focusTarget) focusTarget.focus();
     }
@@ -407,10 +462,11 @@ function createOptionsPanel() {
   elmContainer.appendChild(elmClose);
   elmContainer.appendChild(tabMenu);
 
-  pageMain = createElement('div', {
+  const pageMain = createElement('div', {
     class: 'ytx-settings-page',
     id: 'ytx-page-main'
   });
+  pages[0] = pageMain;
 
   pageMain.appendChild(
     createSection(
@@ -429,14 +485,15 @@ function createOptionsPanel() {
   elmContainer.appendChild(pageMain);
 
   // Remaining pages build off the critical path, one per animation frame; setActivePage() forces a synchronous build if reached first.
-  const pageBuilders = [
+  const pageBuilders: ((() => void) | null)[] = [
     null,
     function buildUITweaksPage() {
-      pageUITweaks = createElement('div', {
+      const pageUITweaks = createElement('div', {
         class: 'ytx-settings-page',
         id: 'ytx-page-ui-tweaks',
         style: { display: 'none' }
       });
+      pages[1] = pageUITweaks;
 
       pageUITweaks.appendChild(
         createSection(
@@ -464,11 +521,12 @@ function createOptionsPanel() {
       elmContainer.appendChild(pageUITweaks);
     },
     function buildSystemPage() {
-      pageSystem = createElement('div', {
+      const pageSystem = createElement('div', {
         class: 'ytx-settings-page',
         id: 'ytx-page-system',
         style: { display: 'none' }
       });
+      pages[2] = pageSystem;
 
       pageSystem.appendChild(
         createSection(PANEL.sections.system, [
@@ -480,11 +538,12 @@ function createOptionsPanel() {
       elmContainer.appendChild(pageSystem);
     },
     function buildPrivacyPage() {
-      pagePrivacy = createElement('div', {
+      const pagePrivacy = createElement('div', {
         class: 'ytx-settings-page',
         id: 'ytx-page-privacy',
         style: { display: 'none' }
       });
+      pages[3] = pagePrivacy;
 
       pagePrivacy.appendChild(
         createSection(PANEL.sections.privacy, [
@@ -496,11 +555,12 @@ function createOptionsPanel() {
       elmContainer.appendChild(pagePrivacy);
     },
     function buildSponsorPage() {
-      pageSponsor = createElement('div', {
+      const pageSponsor = createElement('div', {
         class: 'ytx-settings-page',
         id: 'ytx-page-sponsor',
         style: { display: 'none' }
       });
+      pages[4] = pageSponsor;
 
       pageSponsor.appendChild(
         createSection(PANEL.sections.adBlocking, [
@@ -526,7 +586,7 @@ function createOptionsPanel() {
     }
   ];
 
-  const ensurePage = (index) => {
+  const ensurePage = (index: number) => {
     const build = pageBuilders[index];
     if (!build) return;
     pageBuilders[index] = null;
@@ -549,13 +609,6 @@ function createOptionsPanel() {
   // Row count varies with the config surface, so density is trimmed only when the visible page actually overflows.
   const recalcDensity = () => {
     if (elmContainer.style.display === 'none') return;
-    const pages = [
-      pageMain,
-      pageUITweaks,
-      pageSystem,
-      pagePrivacy,
-      pageSponsor
-    ];
     const page = pages[activePage];
     if (!page || page.style.display === 'none') return;
     elmContainer.classList.toggle(
@@ -583,17 +636,14 @@ function createOptionsPanel() {
   return elmContainer;
 }
 
-function applyUIFixes() {
+function applyUIFixes(): void {
   try {
     const bodyClasses = document.body.classList;
 
     // Strip eagerly: the observer below only reacts to later changes.
     bodyClasses.remove('app-quality-root');
 
-    const observer = new MutationObserver(function bodyClassCallback(
-      _records,
-      _observer
-    ) {
+    const observer = new MutationObserver(function bodyClassCallback() {
       try {
         if (bodyClasses.contains('app-quality-root')) {
           bodyClasses.remove('app-quality-root');
@@ -615,10 +665,10 @@ function applyUIFixes() {
   }
 }
 
-let panelExitTimer = null;
-let panelEntranceRaf = null;
+let panelExitTimer: ReturnType<typeof setTimeout> | null = null;
+let panelEntranceRaf: number | null = null;
 
-function cancelPanelAnimation() {
+function cancelPanelAnimation(): void {
   if (panelExitTimer) {
     clearTimeout(panelExitTimer);
     panelExitTimer = null;
@@ -631,69 +681,71 @@ function cancelPanelAnimation() {
 
 // Pose hidden, force a reflow, then flip on the next frame; without the
 // intermediate commit the transition has no "from" value and pops in.
-function animatePanelIn() {
+function animatePanelIn(panel: HTMLElement): void {
   cancelPanelAnimation();
-  optionsPanel.classList.remove('collapse-start', 'collapse-end');
-  optionsPanel.classList.add('collapse-start');
-  void optionsPanel.offsetWidth;
+  panel.classList.remove('collapse-start', 'collapse-end');
+  panel.classList.add('collapse-start');
+  void panel.offsetWidth;
   panelEntranceRaf = requestAnimationFrame(() => {
     panelEntranceRaf = null;
-    optionsPanel.classList.remove('collapse-start');
-    optionsPanel.classList.add('collapse-end');
+    panel.classList.remove('collapse-start');
+    panel.classList.add('collapse-end');
   });
 }
 
 // Fixed timer, not transitionend (unreliable when backgrounded); the
 // display:none that follows stops the hidden panel trapping focus/clicks.
-function animatePanelOut() {
+function animatePanelOut(panel: HTMLElement): void {
   if (panelEntranceRaf) {
     cancelAnimationFrame(panelEntranceRaf);
     panelEntranceRaf = null;
   }
-  optionsPanel.classList.remove('collapse-end');
-  optionsPanel.classList.add('collapse-start');
+  panel.classList.remove('collapse-end');
+  panel.classList.add('collapse-start');
   panelExitTimer = setTimeout(() => {
     panelExitTimer = null;
-    optionsPanel.style.display = 'none';
-    optionsPanel.classList.remove('collapse-start');
+    panel.style.display = 'none';
+    panel.classList.remove('collapse-start');
   }, 300);
 }
 
-function showOptionsPanel(visible) {
+function showOptionsPanel(visible = true): void {
   if (panelInitBlock) {
     return;
   }
-  if (visible === undefined || visible === null) visible = true;
 
   if (visible && !optionsPanelVisible) {
-    if (!optionsPanel) {
+    let panel = optionsPanel;
+    if (!panel) {
       panelInitBlock = true;
       setTimeout(() => {
         panelInitBlock = false;
       }, 500);
-      optionsPanel = createOptionsPanel();
-      document.body.appendChild(optionsPanel);
+      panel = optionsPanel = createOptionsPanel();
+      document.body.appendChild(panel);
 
       applyPanelCareMode(configRead('panelCareMode'));
     }
 
-    optionsPanel.style.display = 'block';
-    animatePanelIn();
-    if (optionsPanel.buildDeferredPages) optionsPanel.buildDeferredPages();
-    if (optionsPanel.recalcDensity) optionsPanel.recalcDensity();
+    panel.style.display = 'block';
+    animatePanelIn(panel);
+    panel.buildDeferredPages();
+    panel.recalcDensity();
     syncSponsorBlockPanel(true);
 
-    const activeTabBtn = optionsPanel.querySelector('.ytx-tab-btn.active');
+    const activeTabBtn = panel.querySelector<HTMLElement>(
+      '.ytx-tab-btn.active'
+    );
     if (activeTabBtn) {
       activeTabBtn.focus();
       lastSafeFocus = activeTabBtn;
     } else {
-      optionsPanel.focus();
-      lastSafeFocus = optionsPanel;
+      panel.focus();
+      lastSafeFocus = panel;
     }
     optionsPanelVisible = true;
   } else if (!visible && optionsPanelVisible && optionsPanel) {
-    animatePanelOut();
+    animatePanelOut(optionsPanel);
     syncSponsorBlockPanel(false);
     optionsPanel.blur();
     optionsPanelVisible = false;
@@ -707,20 +759,22 @@ function showOptionsPanel(visible) {
 document.addEventListener(
   'focus',
   (e) => {
-    if (!optionsPanelVisible || !optionsPanel) return;
+    const panel = optionsPanel;
+    if (!optionsPanelVisible || !panel) return;
     const target = e.target;
-    const isSafeFocus = optionsPanel && optionsPanel.contains(target);
-    if (isSafeFocus) lastSafeFocus = target;
-    else {
+    const isSafeFocus = target instanceof Node && panel.contains(target);
+    if (isSafeFocus) {
+      if (target instanceof HTMLElement) lastSafeFocus = target;
+    } else {
       e.stopPropagation();
       e.preventDefault();
       if (lastSafeFocus && lastSafeFocus.isConnected) lastSafeFocus.focus();
       else {
-        const firstVisibleInput = optionsPanel.querySelector(
+        const firstVisibleInput = panel.querySelector<HTMLElement>(
           '.ytx-tab-btn.active, .ytx-settings-page[style*="block"] input:not([disabled])'
         );
         if (firstVisibleInput) firstVisibleInput.focus();
-        else optionsPanel.focus();
+        else panel.focus();
       }
     }
   },
@@ -735,20 +789,26 @@ const PANEL_FOCUSABLE_SELECTOR =
   'input[type="checkbox"]:not([disabled])';
 
 // Visible focusable controls in DOM order; the two guards drop hidden pages and negative tabindex, so no page-aware query is needed.
-function panelFocusables() {
+function panelFocusables(): HTMLElement[] {
   if (!optionsPanel) return [];
   return Array.from(
-    optionsPanel.querySelectorAll(PANEL_FOCUSABLE_SELECTOR)
+    optionsPanel.querySelectorAll<HTMLElement>(PANEL_FOCUSABLE_SELECTOR)
   ).filter((el) => el.tabIndex >= 0 && el.offsetParent !== null);
 }
 
+type Direction = 'ArrowUp' | 'ArrowDown' | 'ArrowLeft' | 'ArrowRight';
+
 /** Nearest focusable from `list` in `direction`, measured by geometry; the score is the travel distance plus 2x the perpendicular offset, so moves stay in their column. */
-function findSpatialNeighbor(current, list, direction) {
+function findSpatialNeighbor(
+  current: Element,
+  list: readonly HTMLElement[],
+  direction: Direction
+): HTMLElement | null {
   const cur = current.getBoundingClientRect();
   const curX = cur.left + cur.width / 2;
   const curY = cur.top + cur.height / 2;
 
-  let best = null;
+  let best: HTMLElement | null = null;
   let bestScore = Infinity;
 
   for (const el of list) {
@@ -758,8 +818,8 @@ function findSpatialNeighbor(current, list, direction) {
     const dx = rect.left + rect.width / 2 - curX;
     const dy = rect.top + rect.height / 2 - curY;
 
-    let primary;
-    let perpendicular;
+    let primary: number;
+    let perpendicular: number;
     if (direction === 'ArrowUp') {
       primary = -dy;
       perpendicular = Math.abs(dx);
@@ -787,25 +847,26 @@ function findSpatialNeighbor(current, list, direction) {
   return best;
 }
 
-const NAV_DIRECTIONS = {
-  [REMOTE_KEYS.UP.keyCode]: 'ArrowUp',
-  [REMOTE_KEYS.DOWN.keyCode]: 'ArrowDown',
-  [REMOTE_KEYS.LEFT.keyCode]: 'ArrowLeft',
-  [REMOTE_KEYS.RIGHT.keyCode]: 'ArrowRight'
-};
+const NAV_DIRECTIONS = new Map<number, Direction>([
+  [REMOTE_KEYS.UP.keyCode, 'ArrowUp'],
+  [REMOTE_KEYS.DOWN.keyCode, 'ArrowDown'],
+  [REMOTE_KEYS.LEFT.keyCode, 'ArrowLeft'],
+  [REMOTE_KEYS.RIGHT.keyCode, 'ArrowRight']
+]);
 
-const isHorizontal = (direction) =>
+const isHorizontal = (direction: Direction): boolean =>
   direction === 'ArrowLeft' || direction === 'ArrowRight';
 
-const consume = (evt) => {
+const consume = (evt: Event): void => {
   evt.preventDefault();
   evt.stopImmediatePropagation();
 };
 
-function handlePanelNavKey(evt) {
-  if (!optionsPanelVisible || !optionsPanel) return;
-  // Synthetic events (sendKey) are not remote presses; real input only, same contract as keyboard-search.js.
-  if (evt.isTrusted === false || evt[SYNTHETIC_KEY_FLAG]) return;
+function handlePanelNavKey(evt: KeyboardEvent): void {
+  const panel = optionsPanel;
+  if (!optionsPanelVisible || !panel) return;
+  // Synthetic events (sendKey) are not remote presses; real input only, same contract as keyboard-search.ts.
+  if (isSyntheticKey(evt)) return;
 
   // Remote Back closes the panel from the capture phase, so it works even when
   // focus has escaped the panel, and it is consumed so YouTube's own back
@@ -817,18 +878,22 @@ function handlePanelNavKey(evt) {
     return;
   }
 
-  const focused = document.activeElement;
-  const inPanel = focused && optionsPanel.contains(focused);
+  const focused =
+    document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
+  const inPanel = focused !== null && panel.contains(focused);
 
-  const direction = NAV_DIRECTIONS[evt.keyCode];
+  const direction = NAV_DIRECTIONS.get(evt.keyCode);
   if (direction) {
     // On a value row, Left/Right step the value itself and never move focus.
     if (
+      focused &&
       inPanel &&
       isHorizontal(direction) &&
       focused.classList.contains('ytx-cycle-row')
     ) {
-      const arrows = focused.querySelectorAll('.arrow-btn');
+      const arrows = focused.querySelectorAll<HTMLElement>('.arrow-btn');
       const target =
         direction === 'ArrowLeft' ? arrows[0] : arrows[arrows.length - 1];
       if (target) {
@@ -839,11 +904,12 @@ function handlePanelNavKey(evt) {
     }
 
     const list = panelFocusables();
-    if (list.length === 0) return;
+    const first = list[0];
+    if (!first) return;
 
-    if (!inPanel || focused === optionsPanel) {
+    if (!focused || !inPanel || focused === panel) {
       consume(evt);
-      list[0].focus();
+      first.focus();
       return;
     }
 
@@ -854,7 +920,7 @@ function handlePanelNavKey(evt) {
   }
 
   // Checkboxes do not toggle on Enter natively, so the click is issued here and the default suppressed to avoid a second activation.
-  if (evt.keyCode === REMOTE_KEYS.ENTER.keyCode && inPanel) {
+  if (evt.keyCode === REMOTE_KEYS.ENTER.keyCode && focused && inPanel) {
     if (focused.matches(PANEL_FOCUSABLE_SELECTOR)) {
       consume(evt);
       focused.click();
@@ -869,7 +935,7 @@ const configBadge = document.createElement('button');
 configBadge.type = 'button';
 configBadge.className = 'ytx-ui-badge';
 configBadge.textContent = PANEL.badge;
-configBadge.setAttribute('tabindex', -1);
+configBadge.setAttribute('tabindex', '-1');
 configBadge.addEventListener(
   'click',
   (evt) => {
@@ -884,11 +950,11 @@ document.body.appendChild(configBadge);
 // shown on a real move, fading seconds later, dismissed by
 // D-pad/pointer-hide/navigation. On, it stays put as a fixed entry point.
 const POINTER_BADGE_HIDE_MS = 4000;
-let pointerBadgeTimer = null;
+let pointerBadgeTimer: ReturnType<typeof setTimeout> | null = null;
 let lastPointerX = -1;
 let lastPointerY = -1;
 
-const hidePointerBadge = () => {
+const hidePointerBadge = (): void => {
   if (pointerBadgeTimer) {
     clearTimeout(pointerBadgeTimer);
     pointerBadgeTimer = null;
@@ -896,7 +962,7 @@ const hidePointerBadge = () => {
   configBadge.classList.remove('ytx-badge-visible');
 };
 
-const showPointerBadge = () => {
+const showPointerBadge = (): void => {
   if (configRead('pointerSettingsButton')) {
     return;
   }
@@ -905,8 +971,8 @@ const showPointerBadge = () => {
   pointerBadgeTimer = setTimeout(hidePointerBadge, POINTER_BADGE_HIDE_MS);
 };
 
-const syncBadgeVisibility = () => {
-  const fixed = !!configRead('pointerSettingsButton');
+const syncBadgeVisibility = (): void => {
+  const fixed = configRead('pointerSettingsButton');
   configBadge.classList.toggle('ytx-badge-pointer-mode', !fixed);
   // Any pointer-mode "visible" state (and its fade timer) is stale across a mode switch; drop it so the badge settles into the new resting visibility.
   hidePointerBadge();
@@ -947,7 +1013,7 @@ window.addEventListener('ytx-page-update', (evt) => {
   if (evt.detail.isWatch || evt.detail.isShorts) hidePointerBadge();
 });
 
-function initGlobalStyles() {
+function initGlobalStyles(): void {
   // Toggles live on <html> because YouTube rewrites body.className on tab
   // navigation; not gated on .app-quality-root, which applyUIFixes() strips.
   const style = createElement('style');
@@ -1017,9 +1083,9 @@ function initGlobalStyles() {
   `;
   document.head.appendChild(style);
 
-  const syncClass = (cls, key) =>
-    document.documentElement.classList.toggle(cls, !!configRead(key));
-  const CLASS_KEYS = {
+  const syncClass = (cls: string, key: BoolKey) =>
+    document.documentElement.classList.toggle(cls, configRead(key));
+  const CLASS_KEYS: Readonly<Record<string, BoolKey>> = {
     'ytx-hide-logo': 'hideLogo',
     'ytx-fix-titles': 'fixMultilineTitles',
     'ytx-no-animations': 'disableAnimations'
@@ -1036,7 +1102,7 @@ function initGlobalStyles() {
  */
 let resolvedPanelCareMode = resolvePanelCareMode(configRead('panelCareMode'));
 
-function applyPanelCareMode(mode) {
+function applyPanelCareMode(mode: string): void {
   resolvedPanelCareMode = resolvePanelCareMode(mode);
   const isOled = resolvedPanelCareMode === 'oled';
   const isQned = resolvedPanelCareMode === 'qned';
@@ -1068,6 +1134,6 @@ applyUIFixes();
 // are only present in-page), so it re-runs on every specs change and the panel's density relayout rides along.
 addTVSpecsChangeListener(() => {
   refreshUIScale();
-  optionsPanel?.recalcDensity?.();
+  optionsPanel?.recalcDensity();
 });
 refreshUIScale();
