@@ -1,5 +1,5 @@
 /* Shared dark plate hue and panel alpha (panel, badge, playback scrim). Off and
-   QNED share the neutral translucent base; html.oled-theme-active (ui.js)
+   QNED share the neutral translucent base; html.oled-theme-active (ui.ts)
    overrides both to true black. Comma form: rgba() rejects space-separated
    channels in a var().
 
@@ -450,7 +450,7 @@
 
 /* Settings section layout. Chrome lives here rather than in createSection()'s
    inline styles, so the panel retunes from one place. Columns are a
-   per-section opt-in: `ytx-grid` plus a `ytx-grid-2`/`-3` count (layout.js).
+   per-section opt-in: `ytx-grid` plus a `ytx-grid-2`/`-3` count (layout.ts).
 
    Grid, not flexbox: the webOS 6 / Chrome 79 floor predates flex `gap`
    (Chrome 84) but not grid (Chrome 57), so tracks and spans must be grid. */

@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 // Fails the build when a user-visible string outgrows its cap.
 //
-// The strings live in src/config/ui-text.js; this imports that module (it has no DOM
+// The strings live in src/config/ui-text.ts; this imports that module (it has no DOM
 // or localStorage dependencies) and checks every static value, then runs each
 // notification template with a documented worst-case input. Wired into
 // `npm run verify`, so an over-long label can never reach a build.
 //
 // The import path is built at runtime rather than written as a literal so the
-// browser tsconfig project stays the only one that owns src/config/ui-text.js; a
+// browser tsconfig project stays the only one that owns src/config/ui-text.ts; a
 // static import here would drag it into the tooling project too and trip
 // TypeScript's composite-project file-ownership rule.
 

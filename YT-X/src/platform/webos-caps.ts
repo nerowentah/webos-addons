@@ -113,7 +113,7 @@ type VideoCodec = (typeof VIDEO_CODECS)[number];
  * Format specification). The UHD container table is narrower than the
  * resolution rows: 3840/4096x2160 pair only with H.264 and HEVC, cancelling
  * the VP9/AV1 renditions the rows advertise for those heights — so pinning
- * AV1 or VP9 on a 4K panel can never succeed, and force-codec.js refuses it
+ * AV1 or VP9 on a 4K panel can never succeed, and force-codec.ts refuses it
  * with a reason. 8K (7680x4320) is not UHD by that table, so AV1 works there.
  *
  * @see https://webostv.developer.lge.com/develop/specifications/video-audio-260

@@ -60,7 +60,7 @@ for (const [name, { keyCode, alt }] of COLOR_KEYS) {
   for (const altCode of alt ?? []) colorByCode.set(altCode, name);
 }
 
-/** Single source of truth for colour-key codes, including the alternates some remotes emit; consumed by keyboard-search.js. Read-only: the backing map is private. */
+/** Single source of truth for colour-key codes, including the alternates some remotes emit; consumed by keyboard-search.ts. Read-only: the backing map is private. */
 export const COLOR_CODE_MAP = Object.freeze({
   has: (keyCode: number): boolean => colorByCode.has(keyCode),
   get: (keyCode: number): ColorName | undefined => colorByCode.get(keyCode)

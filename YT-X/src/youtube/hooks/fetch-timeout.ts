@@ -53,13 +53,11 @@ export function fetchJsonWithTimeout(
     signal: controller.signal
   }).then((response) =>
     response.ok
-      ? response
-          .json()
-          .then((data: unknown) => ({
-            ok: true,
-            status: response.status,
-            data
-          }))
+      ? response.json().then((data: unknown) => ({
+          ok: true,
+          status: response.status,
+          data
+        }))
       : { ok: false, status: response.status, data: null }
   );
   // The losing side of the race must not surface as an unhandled rejection.

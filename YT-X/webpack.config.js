@@ -119,10 +119,6 @@ const makeConfig = (env) => [
     resolve: {
       extensions: ['.mjs', '.cjs', '.js', '.json', '.ts'],
 
-      // Sources import migrated modules by their .js specifier (what TS
-      // resolves); try the .ts file first.
-      extensionAlias: { '.js': ['.ts', '.js'] },
-
       // The app only runs in the webOS webview. Node-only core modules have no
       // legitimate use in src, so resolve them to an empty module rather than
       // silently pulling a browser stub (or a transitive polyfill) into the

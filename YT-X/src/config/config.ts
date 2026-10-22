@@ -25,7 +25,7 @@ export const segmentColors: Readonly<Record<string, string>> = {
   hook: '#395699'
 };
 
-/** Force Video Codec modes. 'auto' leaves negotiation to the player and server; everything else narrows what the player accepts (see force-codec.js). 'no_av1' stays separate from 'vp9' so avoiding AV1 does not also exclude other codecs. */
+/** Force Video Codec modes. 'auto' leaves negotiation to the player and server; everything else narrows what the player accepts (see force-codec.ts). 'no_av1' stays separate from 'vp9' so avoiding AV1 does not also exclude other codecs. */
 export const videoCodecModes = {
   auto: 'Auto',
   av1: 'AV1',

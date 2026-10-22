@@ -81,7 +81,7 @@ ytlr-tile-renderer[style*='width: 12.75rem; height: 21.25rem;']
 }
 
 /* The inline hover preview never renders on this panel (LG's hardware video
- * plane does not composite it), so the tile would go black; previews.js holds
+ * plane does not composite it), so the tile would go black; previews.ts holds
  * the paired audio teardown. */
 .fade-out-during-inline {
   opacity: 1 !important;
