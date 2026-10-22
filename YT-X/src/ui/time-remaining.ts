@@ -1,6 +1,6 @@
-import { configAddChangeListener, configRead } from '../config/config.js';
-import { getVideo, isWatchPage } from '../core/utils.js';
-import { cssString, formatTime } from '../core/format.js';
+import { configAddChangeListener, configRead } from '../config/config';
+import { getVideo, isWatchPage } from '../core/utils';
+import { cssString, formatTime } from '../core/format';
 import './time-remaining.css';
 
 // "-41:58 · ends 21:45" under the seek bar, written as a pseudo-element rule (a
@@ -11,12 +11,12 @@ const BAR_SELECTOR =
   'ytlr-progress-bar, ytlr-multi-markers-player-bar-renderer';
 const TICK_MS = 1000;
 
-let styleEl = null;
+let styleEl: HTMLStyleElement | null = null;
 let css = '';
-let timer = null;
-let endFormatter = null;
+let timer: ReturnType<typeof setInterval> | null = null;
+let endFormatter: Intl.DateTimeFormat | null = null;
 
-function write(next) {
+function write(next: string): void {
   if (next === css && (!next || (styleEl && styleEl.isConnected))) return;
   css = next;
   if (!styleEl || !styleEl.isConnected) {
@@ -29,27 +29,30 @@ function write(next) {
 }
 
 /** The controls are up: the time label exists and the seek bar is not hidden. */
-function controlsVisible() {
+function controlsVisible(): boolean {
   if (!document.querySelector('[idomkey="time-label"]')) return false;
-  const bar = document.querySelector(BAR_SELECTOR);
+  const bar = document.querySelector<HTMLElement>(BAR_SELECTOR);
   return (
     !bar ||
     !(bar.classList.contains('zylon-hidden') || bar.style.opacity === '0')
   );
 }
 
-function formatEnd(ms) {
-  if (!endFormatter) {
-    endFormatter = new Intl.DateTimeFormat(navigator.language, {
-      hour: 'numeric',
-      minute: 'numeric'
-    });
-  }
+function formatEnd(ms: number): string {
+  endFormatter ??= new Intl.DateTimeFormat(navigator.language, {
+    hour: 'numeric',
+    minute: 'numeric'
+  });
   return endFormatter.format(new Date(ms));
 }
 
 /** The rule for the video's current position, or '' when there is nothing to show. */
-function buildCss(duration, currentTime, playbackRate, now) {
+function buildCss(
+  duration: number,
+  currentTime: number,
+  playbackRate: number,
+  now: number
+): string {
   if (!(duration > 0) || !isFinite(duration) || isNaN(currentTime)) return '';
   const remaining =
     Math.max(0, duration - currentTime) / (playbackRate > 0 ? playbackRate : 1);
@@ -57,7 +60,7 @@ function buildCss(duration, currentTime, playbackRate, now) {
   return `${TIME_SELECTOR}{content:${cssString(text)};}`;
 }
 
-function tick() {
+function tick(): void {
   if (!controlsVisible()) return;
   const video = getVideo();
   write(
@@ -72,7 +75,7 @@ function tick() {
   );
 }
 
-function sync() {
+function sync(): void {
   const on = configRead('showTimeRemaining') && isWatchPage();
   if (on && !timer) {
     timer = setInterval(tick, TICK_MS);

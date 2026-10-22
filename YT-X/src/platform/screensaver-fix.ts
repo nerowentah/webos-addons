@@ -10,24 +10,33 @@ import {
   isWatchPage,
   isShortsPage,
   getVideo
-} from '../core/utils.js';
+} from '../core/utils';
 
-function isPlayerHidden(video) {
+/** The slice of YouTube's player element this module calls. */
+interface YtPlayerElement extends HTMLElement {
+  getPlayerState?: () => number;
+}
+
+type PageType = 'WATCH' | 'SHORTS' | 'OTHER';
+
+function isPlayerHidden(video: HTMLElement): boolean {
   return (
     video.style.display == 'none' ||
-    (video.style.top && video.style.top.indexOf('-') === 0)
+    (video.style.top !== '' && video.style.top.startsWith('-'))
   );
 }
 
-let lastPageType = null;
-let shortsKeepAliveTimer = null;
+let lastPageType: PageType | null = null;
+let shortsKeepAliveTimer: number | null = null;
 const STATE_PLAYING = 1;
 
-function setShortsKeepAlive(enable) {
+function setShortsKeepAlive(enable: boolean): void {
   if (enable) {
     if (shortsKeepAliveTimer) return;
     shortsKeepAliveTimer = window.setInterval(() => {
-      const player = document.getElementById(SELECTORS.PLAYER_ID);
+      const player = document.getElementById(
+        SELECTORS.PLAYER_ID
+      ) as YtPlayerElement | null;
       const isPlaying =
         player &&
         typeof player.getPlayerState === 'function' &&
@@ -46,7 +55,7 @@ function setShortsKeepAlive(enable) {
 }
 
 let rafPending = false;
-let rafTargetVideo = null;
+let rafTargetVideo: HTMLVideoElement | null = null;
 
 const playerCtrlObs = new MutationObserver((mutations) => {
   // Only watch page has a full-screen player fix logic.
@@ -60,7 +69,7 @@ const playerCtrlObs = new MutationObserver((mutations) => {
   if (!video || !(video instanceof HTMLVideoElement) || !video.isConnected) {
     playerCtrlObs.disconnect();
     // The page may still be the watch page with a new <video>; ytx-page-update fires only on a page-type change, so look again.
-    setTimeout(updateState, 0);
+    setTimeout(updateStateListener, 0);
     return;
   }
 
@@ -100,11 +109,19 @@ const playerCtrlObs = new MutationObserver((mutations) => {
 const TVPOWER_URI = 'luna://com.webos.service.tvpower/power/';
 const SCREENSAVER_CLIENT = 'youtube-extended';
 // A bridge collected before its answer arrives drops the answer; keep each one-shot call referenced until its callback ran.
-const pendingLunaCalls = [];
+const pendingLunaCalls: PalmServiceBridge[] = [];
 
-function lunaCall(method, params, onResponse, subscribe) {
+/** A parsed Luna answer; `null` when the payload was not a JSON object. */
+type LunaResponse = Record<string, unknown> | null;
+
+function lunaCall(
+  method: string,
+  params: Record<string, unknown>,
+  onResponse?: (res: LunaResponse) => void,
+  subscribe = false
+): PalmServiceBridge | null {
   const Bridge =
-    typeof window !== 'undefined' ? window.PalmServiceBridge : null;
+    typeof window !== 'undefined' ? window.PalmServiceBridge : undefined;
   if (typeof Bridge !== 'function') return null;
   try {
     const bridge = new Bridge();
@@ -115,9 +132,12 @@ function lunaCall(method, params, onResponse, subscribe) {
         if (i !== -1) pendingLunaCalls.splice(i, 1);
       }
       if (!onResponse) return;
-      let res = null;
+      let res: LunaResponse = null;
       try {
-        res = JSON.parse(msg);
+        const parsed: unknown = JSON.parse(msg);
+        if (typeof parsed === 'object' && parsed !== null) {
+          res = parsed as Record<string, unknown>;
+        }
       } catch {
         /* not JSON */
       }
@@ -134,30 +154,30 @@ function lunaCall(method, params, onResponse, subscribe) {
   }
 }
 
-function isVideoPlaying() {
+function isVideoPlaying(): boolean {
   if (lastPageType !== 'WATCH' && lastPageType !== 'SHORTS') return false;
   const video = getVideo();
   return !!(video && !video.paused && !video.ended);
 }
 
 // Held for the session: the subscription lasts as long as its bridge.
-let screenSaverSubscription = null;
+let screenSaverSubscription: PalmServiceBridge | null = null;
 
-function registerScreenSaverRequest() {
+function registerScreenSaverRequest(): void {
   screenSaverSubscription = lunaCall(
     'registerScreenSaverRequest',
     { subscribe: true, clientName: SCREENSAVER_CLIENT },
     (res) => {
-      if (!res || res.returnValue === false) {
+      if (!res || res['returnValue'] === false) {
         return;
       }
       // The first answer only confirms the subscription; each screensaver the TV is about to start comes with a timestamp to answer.
-      if (res.timestamp === undefined) return;
+      if (res['timestamp'] === undefined) return;
       const playing = isVideoPlaying();
       lunaCall('responseScreenSaverRequest', {
         clientName: SCREENSAVER_CLIENT,
         ack: !playing,
-        timestamp: res.timestamp
+        timestamp: res['timestamp']
       });
     },
     true
@@ -166,22 +186,22 @@ function registerScreenSaverRequest() {
 
 registerScreenSaverRequest();
 
-let currentVideoElement = null;
+let currentVideoElement: HTMLVideoElement | null = null;
 
-const holdsVideo = (node) =>
+const holdsVideo = (node: Node): boolean =>
   node instanceof HTMLVideoElement ||
-  !!(node.querySelector && node.querySelector('video'));
+  (node instanceof Element && node.querySelector('video') !== null);
 
 // The pending wait for a <video>, cancelled on a page change so its observer does not outlive the page.
-let videoWait = null;
+let videoWait: AbortController | null = null;
 
-function unbindVideo() {
+function unbindVideo(): void {
   playerCtrlObs.disconnect();
   currentVideoElement = null;
 }
 
 // The watch page's <video>, waited for when it has not mounted yet; null when it never does (left the page, or the 30s wait ran out).
-async function findWatchVideo() {
+async function findWatchVideo(): Promise<HTMLVideoElement | null> {
   const playerContainer = document.getElementById(SELECTORS.PLAYER_CONTAINER);
   const searchRoot = playerContainer || document.body;
 
@@ -198,9 +218,8 @@ async function findWatchVideo() {
       false,
       controller.signal
     );
-    return node instanceof HTMLVideoElement
-      ? node
-      : node.querySelector('video');
+    if (node instanceof HTMLVideoElement) return node;
+    return node instanceof Element ? node.querySelector('video') : null;
   } catch {
     return null;
   } finally {
@@ -208,7 +227,7 @@ async function findWatchVideo() {
   }
 }
 
-async function bindWatchVideo() {
+async function bindWatchVideo(): Promise<void> {
   try {
     const video = await findWatchVideo();
 
@@ -230,11 +249,15 @@ async function bindWatchVideo() {
   }
 }
 
-const updateState = async () => {
+const updateState = async (): Promise<void> => {
   const isWatch = isWatchPage();
   const isShorts = isShortsPage();
 
-  const newPageType = isWatch ? 'WATCH' : isShorts ? 'SHORTS' : 'OTHER';
+  const newPageType: PageType = isWatch
+    ? 'WATCH'
+    : isShorts
+      ? 'SHORTS'
+      : 'OTHER';
 
   if (newPageType === lastPageType) {
     // Watch to watch: bind a remounted <video>, or one that mounted after the wait ran out; an in-flight wait is left to find it.
@@ -256,21 +279,23 @@ const updateState = async () => {
   else unbindVideo();
 };
 
-window.addEventListener('ytx-page-update', updateState);
-// A video-to-video navigation keeps the page type and may replace the <video>.
-window.addEventListener('hashchange', updateState);
+const updateStateListener = (): void => void updateState();
 
-if (document.body) updateState();
-else document.addEventListener('DOMContentLoaded', updateState);
+window.addEventListener('ytx-page-update', updateStateListener);
+// A video-to-video navigation keeps the page type and may replace the <video>.
+window.addEventListener('hashchange', updateStateListener);
+
+if (document.body) updateStateListener();
+else document.addEventListener('DOMContentLoaded', updateStateListener);
 
 window.addEventListener('beforeunload', () => {
   playerCtrlObs.disconnect();
-  window.removeEventListener('ytx-page-update', updateState);
-  window.removeEventListener('hashchange', updateState);
+  window.removeEventListener('ytx-page-update', updateStateListener);
+  window.removeEventListener('hashchange', updateStateListener);
   if (videoWait) videoWait.abort();
   if (screenSaverSubscription) {
     try {
-      screenSaverSubscription.cancel();
+      screenSaverSubscription.cancel?.();
     } catch {
       /* ignore */
     }

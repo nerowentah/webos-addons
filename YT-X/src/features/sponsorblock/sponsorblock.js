@@ -11,7 +11,7 @@ import {
 import { setSponsorBlockPanelSync, showNotification } from '../../ui/ui';
 import { NOTIFICATIONS } from '../../config/ui-text.js';
 import sponsorBlockUI from './sponsorblock-ui.js';
-import { fetchJsonWithTimeout } from '../../youtube/hooks/fetch-timeout.js';
+import { fetchJsonWithTimeout } from '../../youtube/hooks/fetch-timeout';
 
 const barTypes = {
   sponsor: { name: 'sponsored segment' },

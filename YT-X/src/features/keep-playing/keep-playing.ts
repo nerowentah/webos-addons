@@ -1,20 +1,25 @@
 // Two separate signals: YouTube's idle auto-pause goes through
 // HTMLVideoElement.pause (swallowed here), and the "Video paused. Continue
 // watching?" dialog is a popup we must click away separately.
-import { configRead } from '../../config/config.js';
+import { configRead } from '../../config/config';
 import {
   isConfirmLabel,
   matchesContinueWatchingText
-} from './keep-playing-text.js';
+} from './keep-playing-text';
 import {
   getVideo,
   isShortsPage,
+  isSyntheticKey,
   isWatchPage,
   REMOTE_KEYS,
   SELECTORS,
-  sendKey,
-  SYNTHETIC_KEY_FLAG
-} from '../../core/utils.js';
+  sendKey
+} from '../../core/utils';
+
+/** The slice of YouTube's player element this module calls. */
+interface YtPlayerElement extends HTMLElement {
+  playVideo?: () => void;
+}
 
 // Matches the interruption window used by lawfx/YoutubeNonStop.
 const IDLE_MS = 5000;
@@ -33,17 +38,16 @@ const CONFIRM_SELECTOR =
 
 let lastInteractionAt = Date.now();
 
-const isUserIdle = () => Date.now() - lastInteractionAt >= IDLE_MS;
+const isUserIdle = (): boolean => Date.now() - lastInteractionAt >= IDLE_MS;
 
 // A real remote/mouse press since the last check means the pause (and any
 // dialog) is the user's own, not the inactivity prompt.
-function markInteraction(e) {
-  if (e && (e.isTrusted === false || e[SYNTHETIC_KEY_FLAG])) return;
+function markInteraction(e: Event): void {
+  if (isSyntheticKey(e)) return;
   lastInteractionAt = Date.now();
 }
 
-function isElementVisible(el) {
-  if (!el || !el.getBoundingClientRect) return false;
+function isElementVisible(el: Element): boolean {
   const rect = el.getBoundingClientRect();
   if (rect.width === 0 && rect.height === 0) return false;
   const style = window.getComputedStyle(el);
@@ -55,7 +59,7 @@ function isElementVisible(el) {
   );
 }
 
-function findDialogIn(root) {
+function findDialogIn(root: ParentNode): Element | null {
   for (const sel of DIALOG_SELECTORS) {
     for (const node of root.querySelectorAll(sel)) {
       if (!isElementVisible(node)) continue;
@@ -67,11 +71,11 @@ function findDialogIn(root) {
 
 // The TV dialog markup is unverified, so fall back to the prompt text found in
 // an ancestor of an affirmative-looking control.
-function findDialogByButton(root) {
+function findDialogByButton(root: ParentNode): Element | null {
   for (const btn of root.querySelectorAll(CONFIRM_SELECTOR)) {
     if (!isElementVisible(btn) || !isConfirmLabel(btn.textContent || ''))
       continue;
-    let node = btn;
+    let node: Element | null = btn;
     for (let i = 0; i < 6 && node; i++, node = node.parentElement) {
       const text = node.textContent || '';
       if (text.length < 400 && matchesContinueWatchingText(text)) return node;
@@ -80,7 +84,7 @@ function findDialogByButton(root) {
   return null;
 }
 
-function findDialog() {
+function findDialog(): Element | null {
   const player = document.getElementById(SELECTORS.PLAYER_ID);
   for (const root of player ? [player, document] : [document]) {
     const dialog = findDialogIn(root) || findDialogByButton(root);
@@ -89,18 +93,20 @@ function findDialog() {
   return null;
 }
 
-function findConfirmControl(dialog) {
-  for (const node of dialog.querySelectorAll(CONFIRM_SELECTOR)) {
+function findConfirmControl(dialog: Element): HTMLElement | null {
+  for (const node of dialog.querySelectorAll<HTMLElement>(CONFIRM_SELECTOR)) {
     if (!isElementVisible(node)) continue;
     if (isConfirmLabel(node.textContent || '')) return node;
   }
   return null;
 }
 
-function resumePlayback() {
+function resumePlayback(): void {
   const video = getVideo();
   if (!video || !video.paused) return;
-  const player = document.getElementById(SELECTORS.PLAYER_ID);
+  const player = document.getElementById(
+    SELECTORS.PLAYER_ID
+  ) as YtPlayerElement | null;
   if (player && typeof player.playVideo === 'function') {
     try {
       player.playVideo();
@@ -109,7 +115,8 @@ function resumePlayback() {
       /* fall through to the element API */
     }
   }
-  const playback = video.play();
+  // Old engines may return undefined from play().
+  const playback = video.play() as Promise<void> | undefined;
   if (playback && typeof playback.catch === 'function') {
     playback.catch(() => {});
   }
@@ -117,7 +124,7 @@ function resumePlayback() {
 
 let lastDismissAt = 0;
 
-function scanForDialog() {
+function scanForDialog(): void {
   if (!configRead('keepPlaying')) return;
   if (!isWatchPage() && !isShortsPage()) return;
   if (Date.now() - lastDismissAt < 2000) return;
@@ -140,7 +147,7 @@ function scanForDialog() {
 
 let scanScheduled = false;
 
-function scheduleScan() {
+function scheduleScan(): void {
   if (scanScheduled) return;
   scanScheduled = true;
   setTimeout(() => {
@@ -150,20 +157,20 @@ function scheduleScan() {
 }
 
 /** Wrap `video.pause` so only an idle-triggered pause is swallowed. */
-function hookVideo(video) {
+function hookVideo(video: HTMLVideoElement | null): void {
   if (!video || video.__ytxPauseHooked) return;
   video.__ytxPauseHooked = true;
 
   const originalPause = video.pause.bind(video);
   video.pause = () => {
     if (!configRead('keepPlaying')) return originalPause();
-    // Browse previews are paused by previews.js; leave those alone.
+    // Browse previews are paused by previews.ts; leave those alone.
     if (!isWatchPage() && !isShortsPage()) return originalPause();
     if (!isUserIdle()) return originalPause();
   };
 }
 
-function attach() {
+function attach(): void {
   hookVideo(getVideo());
 }
 
@@ -186,7 +193,7 @@ if (typeof document !== 'undefined') {
   document.addEventListener(
     'play',
     (e) => {
-      if (e.target && e.target.tagName === 'VIDEO') hookVideo(e.target);
+      if (e.target instanceof HTMLVideoElement) hookVideo(e.target);
     },
     true
   );
