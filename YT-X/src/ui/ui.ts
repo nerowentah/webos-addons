@@ -19,6 +19,14 @@ import {
 import { REMOTE_KEYS, isSyntheticKey } from '../core/utils';
 import { PANEL } from '../config/ui-text';
 import { createElement } from './dom';
+import {
+  panelState,
+  setSponsorBlockPanelSync,
+  syncSponsorBlockPanel,
+  type OptionsPanel
+} from './panel-state';
+import { animatePanelIn, animatePanelOut } from './panel-animation';
+import { applyUIFixes } from './ui-fixes';
 import { findSpatialNeighbor, type Direction } from './panel-nav';
 import {
   createAlignedCycleControl,
@@ -28,27 +36,7 @@ import {
 } from './controls';
 
 export const showNotification = notificationsShowNotification;
-
-/** The options panel element plus the hooks the module drives it through. */
-interface OptionsPanel extends HTMLDivElement {
-  activePage: number;
-  ensurePage(index: number): void;
-  buildDeferredPages(): void;
-  recalcDensity(): void;
-}
-
-let optionsPanel: OptionsPanel | null = null;
-let optionsPanelVisible = false;
-let panelInitBlock = false;
-let lastSafeFocus: HTMLElement | null = null;
-
-// Wired by sponsorblock.ts via setSponsorBlockPanelSync; no-op until then.
-// The registered fn receives the panel-open state; the popup is suppressed
-// while the panel is open.
-let syncSponsorBlockPanel: (open: boolean) => void = () => {};
-export function setSponsorBlockPanelSync(fn: (open: boolean) => void): void {
-  syncSponsorBlockPanel = fn;
-}
+export { setSponsorBlockPanelSync };
 
 const SPONSOR_CATEGORIES = [
   'enableSponsorBlockSponsor',
@@ -357,94 +345,19 @@ function createOptionsPanel(): OptionsPanel {
   return elmContainer;
 }
 
-function applyUIFixes(): void {
-  try {
-    const bodyClasses = document.body.classList;
-
-    // Strip eagerly: the observer below only reacts to later changes.
-    bodyClasses.remove('app-quality-root');
-
-    const observer = new MutationObserver(function bodyClassCallback() {
-      try {
-        if (bodyClasses.contains('app-quality-root')) {
-          bodyClasses.remove('app-quality-root');
-        }
-      } catch {
-        // A throwing observer callback must not break the mutation loop.
-      }
-    });
-
-    observer.observe(document.body, {
-      subtree: false,
-      childList: false,
-      attributes: true,
-      attributeFilter: ['class'],
-      characterData: false
-    });
-  } catch {
-    // Observer setup is best-effort.
-  }
-}
-
-let panelExitTimer: ReturnType<typeof setTimeout> | null = null;
-let panelEntranceRaf: number | null = null;
-
-function cancelPanelAnimation(): void {
-  if (panelExitTimer) {
-    clearTimeout(panelExitTimer);
-    panelExitTimer = null;
-  }
-  if (panelEntranceRaf) {
-    cancelAnimationFrame(panelEntranceRaf);
-    panelEntranceRaf = null;
-  }
-}
-
-// Pose hidden, force a reflow, then flip on the next frame; without the
-// intermediate commit the transition has no "from" value and pops in.
-function animatePanelIn(panel: HTMLElement): void {
-  cancelPanelAnimation();
-  panel.classList.remove('collapse-start', 'collapse-end');
-  panel.classList.add('collapse-start');
-  // Forced reflow; `void` marks the read as intentional.
-  // eslint-disable-next-line @typescript-eslint/no-meaningless-void-operator
-  void panel.offsetWidth;
-  panelEntranceRaf = requestAnimationFrame(() => {
-    panelEntranceRaf = null;
-    panel.classList.remove('collapse-start');
-    panel.classList.add('collapse-end');
-  });
-}
-
-// Fixed timer, not transitionend (unreliable when backgrounded); the
-// display:none that follows stops the hidden panel trapping focus/clicks.
-function animatePanelOut(panel: HTMLElement): void {
-  if (panelEntranceRaf) {
-    cancelAnimationFrame(panelEntranceRaf);
-    panelEntranceRaf = null;
-  }
-  panel.classList.remove('collapse-end');
-  panel.classList.add('collapse-start');
-  panelExitTimer = setTimeout(() => {
-    panelExitTimer = null;
-    panel.style.display = 'none';
-    panel.classList.remove('collapse-start');
-  }, 300);
-}
-
 function showOptionsPanel(visible = true): void {
-  if (panelInitBlock) {
+  if (panelState.initBlock) {
     return;
   }
 
-  if (visible && !optionsPanelVisible) {
-    let panel = optionsPanel;
+  if (visible && !panelState.visible) {
+    let panel = panelState.panel;
     if (!panel) {
-      panelInitBlock = true;
+      panelState.initBlock = true;
       setTimeout(() => {
-        panelInitBlock = false;
+        panelState.initBlock = false;
       }, 500);
-      panel = optionsPanel = createOptionsPanel();
+      panel = panelState.panel = createOptionsPanel();
       document.body.appendChild(panel);
 
       applyPanelCareMode(configRead('panelCareMode'));
@@ -461,37 +374,38 @@ function showOptionsPanel(visible = true): void {
     );
     if (activeTabBtn) {
       activeTabBtn.focus();
-      lastSafeFocus = activeTabBtn;
+      panelState.lastSafeFocus = activeTabBtn;
     } else {
       panel.focus();
-      lastSafeFocus = panel;
+      panelState.lastSafeFocus = panel;
     }
-    optionsPanelVisible = true;
-  } else if (!visible && optionsPanelVisible && optionsPanel) {
-    animatePanelOut(optionsPanel);
+    panelState.visible = true;
+  } else if (!visible && panelState.visible && panelState.panel) {
+    animatePanelOut(panelState.panel);
     syncSponsorBlockPanel(false);
-    optionsPanel.blur();
-    optionsPanelVisible = false;
-    lastSafeFocus = null;
+    panelState.panel.blur();
+    panelState.visible = false;
+    panelState.lastSafeFocus = null;
   }
 
-  configBadge.classList.toggle('ytx-ui-badge-hidden', optionsPanelVisible);
+  configBadge.classList.toggle('ytx-ui-badge-hidden', panelState.visible);
 }
 
 // Trap focus inside options panel when visible
 document.addEventListener(
   'focus',
   (e) => {
-    const panel = optionsPanel;
-    if (!optionsPanelVisible || !panel) return;
+    const panel = panelState.panel;
+    if (!panelState.visible || !panel) return;
     const target = e.target;
     const isSafeFocus = target instanceof Node && panel.contains(target);
     if (isSafeFocus) {
-      if (target instanceof HTMLElement) lastSafeFocus = target;
+      if (target instanceof HTMLElement) panelState.lastSafeFocus = target;
     } else {
       e.stopPropagation();
       e.preventDefault();
-      if (lastSafeFocus && lastSafeFocus.isConnected) lastSafeFocus.focus();
+      if (panelState.lastSafeFocus && panelState.lastSafeFocus.isConnected)
+        panelState.lastSafeFocus.focus();
       else {
         const firstVisibleInput = panel.querySelector<HTMLElement>(
           '.ytx-tab-btn.active, .ytx-settings-page[style*="block"] input:not([disabled])'
@@ -513,9 +427,9 @@ const PANEL_FOCUSABLE_SELECTOR =
 
 // Visible focusable controls in DOM order; the two guards drop hidden pages and negative tabindex, so no page-aware query is needed.
 function panelFocusables(): HTMLElement[] {
-  if (!optionsPanel) return [];
+  if (!panelState.panel) return [];
   return Array.from(
-    optionsPanel.querySelectorAll<HTMLElement>(PANEL_FOCUSABLE_SELECTOR)
+    panelState.panel.querySelectorAll<HTMLElement>(PANEL_FOCUSABLE_SELECTOR)
   ).filter((el) => el.tabIndex >= 0 && el.offsetParent !== null);
 }
 
@@ -535,8 +449,8 @@ const consume = (evt: Event): void => {
 };
 
 function handlePanelNavKey(evt: KeyboardEvent): void {
-  const panel = optionsPanel;
-  if (!optionsPanelVisible || !panel) return;
+  const panel = panelState.panel;
+  if (!panelState.visible || !panel) return;
   // Synthetic events (sendKey) are not remote presses; real input only, same contract as keyboard-search.ts.
   if (isSyntheticKey(evt)) return;
 
@@ -612,7 +526,7 @@ configBadge.addEventListener(
   'click',
   (evt) => {
     evt.stopPropagation();
-    showOptionsPanel(!optionsPanelVisible);
+    showOptionsPanel(!panelState.visible);
   },
   true
 );
@@ -713,9 +627,9 @@ function applyPanelCareMode(mode: PanelCareMode): void {
   const isOled = resolvedPanelCareMode === 'oled';
   const isQned = resolvedPanelCareMode === 'qned';
 
-  if (optionsPanel) {
-    optionsPanel.classList.toggle('oled-care', isOled);
-    optionsPanel.classList.toggle('qned-care', isQned);
+  if (panelState.panel) {
+    panelState.panel.classList.toggle('oled-care', isOled);
+    panelState.panel.classList.toggle('qned-care', isQned);
   }
   setNotificationPanelCare(resolvedPanelCareMode);
 
@@ -740,6 +654,6 @@ applyUIFixes();
 // are only present in-page), so it re-runs on every specs change and the panel's density relayout rides along.
 addTVSpecsChangeListener(() => {
   refreshUIScale();
-  optionsPanel?.recalcDensity();
+  panelState.panel?.recalcDensity();
 });
 refreshUIScale();
