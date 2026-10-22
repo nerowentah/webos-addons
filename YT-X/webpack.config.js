@@ -1,7 +1,7 @@
 import TerserPlugin from 'terser-webpack-plugin';
 import webpack from 'webpack';
 import { basename } from 'node:path';
-import { getVersionInfo } from './tools/version.cjs';
+import { getVersionInfo } from './tools/version.ts';
 
 const { version, gitSha, owner } = getVersionInfo();
 

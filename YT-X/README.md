@@ -302,7 +302,7 @@ npm run verify   # production build plus ES compatibility check
 ```
 
 `verify` fails if the bundle uses syntax newer than ES2022, and
-`tools/check-syntax-floor.cjs` rejects the specific syntax Chrome 79 cannot parse
+`tools/check-syntax-floor.ts` rejects the specific syntax Chrome 79 cannot parse
 (optional chaining, nullish coalescing, logical assignment, static blocks).
 Everything else for the Chrome 79 floor comes from Babel via `.browserslistrc`;
 private class fields are left native because Chrome 74+ supports them.
@@ -343,7 +343,7 @@ player.
 ### Dependency notes
 
 Two advisories in the development dependency tree have no upstream fix and are
-accepted, gated by `tools/audit.cjs`. Neither ships in the packaged `.ipk`:
+accepted, gated by `tools/audit.ts`. Neither ships in the packaged `.ipk`:
 
 | Package      | Advisory                                                                   | Why accepted                                                                       |
 | ------------ | -------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |

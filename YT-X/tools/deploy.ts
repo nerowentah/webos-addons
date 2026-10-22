@@ -1,18 +1,14 @@
 import { spawnSync } from 'node:child_process';
 import { normalize } from 'node:path';
-import { createRequire } from 'node:module';
-import { getVersion } from './version.cjs';
-
-const require = createRequire(import.meta.url);
-const appinfo = require('../assets/appinfo.json');
+import appinfo from '../assets/appinfo.json' with { type: 'json' };
+import { getVersion } from './version.ts';
 
 /** Build, package, install and launch in one go. webOS canvas: 1920x1080 (default) or 1280x720 (opt-in). */
 const APP_RESOLUTIONS = ['1920x1080', '1280x720'];
 const DEFAULT_RESOLUTION = '1920x1080';
 
 /** Parse `--resolution <value>` or `--resolution=<value>`. */
-/** @param {string[]} argv */
-function parseResolution(argv) {
+function parseResolution(argv: string[]): string | undefined {
   for (const [i, arg] of argv.entries()) {
     if (arg === '--resolution') return argv[i + 1];
     if (arg.startsWith('--resolution=')) {
@@ -24,7 +20,7 @@ function parseResolution(argv) {
 
 const argv = process.argv.slice(2);
 const resolution =
-  parseResolution(argv) ?? process.env.YTX_RESOLUTION ?? DEFAULT_RESOLUTION;
+  parseResolution(argv) ?? process.env['YTX_RESOLUTION'] ?? DEFAULT_RESOLUTION;
 
 if (!APP_RESOLUTIONS.includes(resolution)) {
   console.error(
@@ -42,12 +38,12 @@ const TOOL_ENTRIES = {
 };
 
 /** Run a CLI step via node entrypoint. */
-/** @param {string} step @param {keyof typeof TOOL_ENTRIES} tool @param {string[]} args */
-function run(step, tool, args) {
+function run(
+  step: string,
+  tool: keyof typeof TOOL_ENTRIES,
+  args: string[]
+): void {
   const entry = TOOL_ENTRIES[tool];
-  if (!entry) {
-    throw new Error(`deploy: no entrypoint mapped for "${tool}"`);
-  }
   console.log(`\n[deploy] ${step}`);
   const result = spawnSync(process.execPath, [normalize(entry), ...args], {
     stdio: 'inherit'

@@ -1,9 +1,8 @@
-'use strict';
 /**
  * On-TV inspector: attaches to the running app over CDP via `ares-inspect`.
  *
- *   node tools/inspect.cjs                 diagnostics JSON
- *   node tools/inspect.cjs eval "<expr>"   evaluate in the page
+ *   node tools/inspect.ts                 diagnostics JSON
+ *   node tools/inspect.ts eval "<expr>"   evaluate in the page
  *   (add `-d <device>` anywhere to pick an ares device)
  *
  * Gotchas:
@@ -14,23 +13,71 @@
  *  - If results look implausible (0 focusables on a rendered page), suspect the
  *    harness before the app.
  */
-const { spawn } = require('node:child_process');
-const { normalize } = require('node:path');
-const appinfo = require('../assets/appinfo.json');
+import { spawn } from 'node:child_process';
+import { normalize } from 'node:path';
+import appinfo from '../assets/appinfo.json' with { type: 'json' };
 
 const ARES_INSPECT = './node_modules/@webos-tools/cli/bin/ares-inspect.js';
 const STARTUP_TIMEOUT_MS = 30_000;
 
-class HarnessError extends Error {}
+export class HarnessError extends Error {}
+
+/** A message from the DevTools protocol: a reply (`id`) or an event (`method`). */
+interface CdpMessage {
+  id?: number;
+  result?: unknown;
+  error?: { message: string };
+  method?: string;
+  params?: {
+    type?: string;
+    args?: { value?: unknown; description?: string }[];
+    exceptionDetails?: ExceptionDetails;
+  };
+}
+
+interface ExceptionDetails {
+  text: string;
+  exception?: { description?: string };
+}
+
+interface EvaluateResult {
+  exceptionDetails?: ExceptionDetails;
+  result: { value?: unknown; objectId?: string };
+}
+
+/** Diagnostics returned by the in-page probe, plus the harness's own additions. */
+export interface Diagnostics {
+  url: string;
+  visibility: string;
+  appRendered: boolean;
+  domNodes: number;
+  focusables: number;
+  activeElement: string | null;
+  brokenImages: number;
+  videos: number;
+  video: { currentTime: number; paused: boolean; readyState: number } | null;
+  settingsOverlayOpen: boolean;
+  metrics: Record<string, number>;
+  recentLog: string[];
+}
+
+export interface Session {
+  send(method: string, params?: object): Promise<unknown>;
+  evaluate(expression: string): Promise<unknown>;
+  callFunction(
+    functionDeclaration: string,
+    ...args: unknown[]
+  ): Promise<unknown>;
+  log: string[];
+  close(): void;
+}
 
 /** Probe /json on the forwarded port and return the first page target's ws URL. */
-/** @param {number} port */
-async function findTarget(port) {
-  /** @type {{type?: string, webSocketDebuggerUrl?: string}[]} */
-  let targets;
+async function findTarget(port: number): Promise<string> {
+  let targets: { type?: string; webSocketDebuggerUrl?: string }[];
   try {
     const res = await fetch(`http://127.0.0.1:${port}/json`);
-    targets = /** @type {typeof targets} */ (await res.json());
+    targets = (await res.json()) as typeof targets;
   } catch {
     throw new HarnessError(
       `nothing answered on the forwarded inspector port ${port}. Is the device reachable and the app running?`
@@ -43,18 +90,23 @@ async function findTarget(port) {
   return page.webSocketDebuggerUrl;
 }
 
+function exceptionMessage(details: ExceptionDetails): string {
+  return details.exception?.description ?? details.text;
+}
+
 /**
  * Start ares-inspect and connect. Resolves to a session; call close() when done.
- * @param {{device?: string | undefined}} [opts]
  */
-async function connect({ device } = {}) {
+export async function connect({
+  device
+}: { device?: string | undefined } = {}): Promise<Session> {
   const args = [normalize(ARES_INSPECT), '-a', appinfo.id];
   if (device) args.push('-d', device);
   const child = spawn(process.execPath, args, {
     stdio: ['ignore', 'pipe', 'pipe']
   });
 
-  const port = await new Promise((resolve, reject) => {
+  const port = await new Promise<number>((resolve, reject) => {
     let out = '';
     const timer = setTimeout(
       () =>
@@ -63,7 +115,7 @@ async function connect({ device } = {}) {
         ),
       STARTUP_TIMEOUT_MS
     );
-    const onData = (/** @type {Buffer} */ buf) => {
+    const onData = (buf: Buffer) => {
       out += buf;
       const m = /(?:127\.0\.0\.1|localhost):(\d{2,5})/.exec(out);
       if (m) {
@@ -83,56 +135,51 @@ async function connect({ device } = {}) {
     });
   });
 
-  const ws = new WebSocket(await findTarget(Number(port)));
+  const ws = new WebSocket(await findTarget(port));
   await new Promise((resolve, reject) => {
     ws.onopen = resolve;
     ws.onerror = () => reject(new HarnessError('DevTools socket failed'));
   });
 
   let nextId = 1;
-  /** @type {Map<number, {resolve: Function, reject: Function}>} */
-  const pending = new Map();
-  /** @type {string[]} */
-  const log = [];
+  const pending = new Map<
+    number,
+    { resolve: (value: unknown) => void; reject: (reason: Error) => void }
+  >();
+  const log: string[] = [];
   ws.onmessage = (ev) => {
-    const msg = JSON.parse(String(ev.data));
-    if (msg.id && pending.has(msg.id)) {
-      const p = pending.get(msg.id);
+    const msg = JSON.parse(String(ev.data)) as CdpMessage;
+    const waiting = msg.id === undefined ? undefined : pending.get(msg.id);
+    if (msg.id !== undefined && waiting) {
       pending.delete(msg.id);
-      if (msg.error) p?.reject(new HarnessError(msg.error.message));
-      else p?.resolve(msg.result);
+      if (msg.error) waiting.reject(new HarnessError(msg.error.message));
+      else waiting.resolve(msg.result);
     } else if (msg.method === 'Runtime.consoleAPICalled') {
-      const text = msg.params.args
-        .map((/** @type {any} */ a) => a.value ?? a.description)
+      const text = (msg.params?.args ?? [])
+        .map((a) => a.value ?? a.description)
         .join(' ');
-      log.push(`console.${msg.params.type}: ${text}`);
+      log.push(`console.${msg.params?.type}: ${text}`);
     } else if (msg.method === 'Runtime.exceptionThrown') {
-      const d = msg.params.exceptionDetails;
-      log.push(`exception: ${d.text} ${d.exception?.description ?? ''}`);
+      const d = msg.params?.exceptionDetails;
+      log.push(`exception: ${d?.text} ${d?.exception?.description ?? ''}`);
     }
   };
 
-  /** @param {string} method @param {object} [params] */
-  const send = (method, params = {}) =>
+  const send = (method: string, params: object = {}): Promise<unknown> =>
     new Promise((resolve, reject) => {
       const id = nextId++;
       pending.set(id, { resolve, reject });
       ws.send(JSON.stringify({ id, method, params }));
     });
 
-  /** @param {string} expression */
-  const evaluate = async (expression) => {
-    const r = /** @type {any} */ (
-      await send('Runtime.evaluate', {
-        expression,
-        returnByValue: true,
-        awaitPromise: true
-      })
-    );
+  const evaluate = async (expression: string): Promise<unknown> => {
+    const r = (await send('Runtime.evaluate', {
+      expression,
+      returnByValue: true,
+      awaitPromise: true
+    })) as EvaluateResult;
     if (r.exceptionDetails) {
-      throw new HarnessError(
-        r.exceptionDetails.exception?.description ?? r.exceptionDetails.text
-      );
+      throw new HarnessError(exceptionMessage(r.exceptionDetails));
     }
     return r.result.value;
   };
@@ -140,27 +187,24 @@ async function connect({ device } = {}) {
   /**
    * Call a function declaration in the page with JSON-serialisable arguments
    * passed as values, so nothing is spliced into evaluated source.
-   * @param {string} functionDeclaration
-   * @param {...unknown} args
    */
-  const callFunction = async (functionDeclaration, ...args) => {
-    const g = /** @type {any} */ (
-      await send('Runtime.evaluate', { expression: 'globalThis' })
-    );
+  const callFunction = async (
+    functionDeclaration: string,
+    ...fnArgs: unknown[]
+  ): Promise<unknown> => {
+    const g = (await send('Runtime.evaluate', {
+      expression: 'globalThis'
+    })) as EvaluateResult;
     try {
-      const r = /** @type {any} */ (
-        await send('Runtime.callFunctionOn', {
-          functionDeclaration,
-          objectId: g.result.objectId,
-          arguments: args.map((value) => ({ value })),
-          returnByValue: true,
-          awaitPromise: true
-        })
-      );
+      const r = (await send('Runtime.callFunctionOn', {
+        functionDeclaration,
+        objectId: g.result.objectId,
+        arguments: fnArgs.map((value) => ({ value })),
+        returnByValue: true,
+        awaitPromise: true
+      })) as EvaluateResult;
       if (r.exceptionDetails) {
-        throw new HarnessError(
-          r.exceptionDetails.exception?.description ?? r.exceptionDetails.text
-        );
+        throw new HarnessError(exceptionMessage(r.exceptionDetails));
       }
       return r.result.value;
     } finally {
@@ -200,40 +244,31 @@ const DIAGNOSTICS = `(() => {
   };
 })()`;
 
-/** @param {Awaited<ReturnType<typeof connect>>} session */
-async function diagnostics(session) {
-  const state = /** @type {Record<string, any>} */ (
-    await session.evaluate(DIAGNOSTICS)
-  );
-  const { metrics } = /** @type {any} */ (
-    await session.send('Performance.getMetrics')
-  );
+export async function diagnostics(session: Session): Promise<Diagnostics> {
+  // The probe above is the schema; the harness adds `metrics` and `recentLog`.
+  const state = (await session.evaluate(DIAGNOSTICS)) as Diagnostics;
+  const { metrics } = (await session.send('Performance.getMetrics')) as {
+    metrics: { name: string; value: number }[];
+  };
   const keep = ['JSHeapUsedSize', 'Nodes', 'LayoutCount', 'Documents'];
   state.metrics = Object.fromEntries(
-    metrics
-      .filter((/** @type {{name: string}} */ m) => keep.includes(m.name))
-      .map((/** @type {{name: string, value: number}} */ m) => [
-        m.name,
-        m.value
-      ])
+    metrics.filter((m) => keep.includes(m.name)).map((m) => [m.name, m.value])
   );
   state.recentLog = session.log.slice(-20);
   return state;
 }
 
 /** Shared CLI wrapper: clean message instead of a stack trace. */
-/** @param {() => Promise<void>} main */
-function runCli(main) {
-  main().catch((err) => {
+export function runCli(main: () => Promise<void>): void {
+  main().catch((err: unknown) => {
     const kind = err instanceof HarnessError ? 'error' : 'unexpected error';
-    console.error(`${kind}: ${err.message}`);
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(`${kind}: ${message}`);
     process.exit(1);
   });
 }
 
-module.exports = { connect, diagnostics, runCli, HarnessError };
-
-if (require.main === module) {
+if (import.meta.main) {
   runCli(async () => {
     const argv = process.argv.slice(2);
     const di = argv.indexOf('-d');
@@ -242,7 +277,7 @@ if (require.main === module) {
     try {
       if (argv[0] === 'eval') {
         if (!argv[1]) {
-          throw new HarnessError('usage: inspect.cjs eval "<expression>"');
+          throw new HarnessError('usage: inspect.ts eval "<expression>"');
         }
         console.log(JSON.stringify(await session.evaluate(argv[1]), null, 2));
       } else {

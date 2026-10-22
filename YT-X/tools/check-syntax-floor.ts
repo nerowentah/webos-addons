@@ -1,4 +1,3 @@
-'use strict';
 /**
  * Syntax-floor gate for the production bundle.
  *
@@ -7,24 +6,45 @@
  * native in Chrome 74+) and aborts valid Chrome 79 output. What actually breaks
  * old engines is syntax Babel has not transpiled, so check for exactly that.
  *
- *   node tools/check-syntax-floor.cjs [files...]
+ *   node tools/check-syntax-floor.ts [files...]
  *
  * Defaults to ./dist/**\/*.js. Exits 1 with file:line:col for every offender.
  */
-const { readFileSync, readdirSync, statSync } = require('node:fs');
-const { join, relative } = require('node:path');
-const acorn = require('acorn');
+import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { join, relative } from 'node:path';
+import * as acorn from 'acorn';
 
 /** Syntax Chrome 79 (webOS 6) cannot parse. Everything else in the bundle is
  * either ES2019 or older, or natively supported (private fields, class fields). */
-/** @type {Record<string, string>} */
-const RULES = {
+const RULES: Record<string, string> = {
   ChainExpression: 'optional chaining (?.)',
   StaticBlock: 'class static block'
 };
 
-/** @param {string} dir @param {string[]} out */
-function jsFiles(dir, out = []) {
+interface Hit {
+  file: string;
+  line: number;
+  col: number;
+  what: string;
+}
+
+/** The slice of an ESTree node the walk reads; children are found by key. */
+interface AstNode {
+  type: string;
+  operator?: string;
+  loc?: { start: { line: number; column: number } };
+  [key: string]: unknown;
+}
+
+function isAstNode(value: unknown): value is AstNode {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    typeof (value as { type?: unknown }).type === 'string'
+  );
+}
+
+function jsFiles(dir: string, out: string[] = []): string[] {
   for (const name of readdirSync(dir)) {
     const path = join(dir, name);
     if (statSync(path).isDirectory()) jsFiles(path, out);
@@ -33,25 +53,16 @@ function jsFiles(dir, out = []) {
   return out;
 }
 
-/** @param {any} node @param {string} file @param {{file: string, line: number, col: number, what: string}[]} hits */
-function walk(node, file, hits) {
-  if (!node || typeof node.type !== 'string') return;
+function walk(node: unknown, file: string, hits: Hit[]): void {
+  if (!isAstNode(node)) return;
+  const line = node.loc?.start.line ?? 0;
+  const col = node.loc?.start.column ?? 0;
   const rule = RULES[node.type];
   if (rule) {
-    hits.push({
-      file,
-      line: node.loc?.start.line ?? 0,
-      col: node.loc?.start.column ?? 0,
-      what: rule
-    });
+    hits.push({ file, line, col, what: rule });
   }
   if (node.type === 'LogicalExpression' && node.operator === '??') {
-    hits.push({
-      file,
-      line: node.loc.start.line,
-      col: node.loc.start.column,
-      what: 'nullish coalescing (??)'
-    });
+    hits.push({ file, line, col, what: 'nullish coalescing (??)' });
   }
   if (
     node.type === 'AssignmentExpression' &&
@@ -61,8 +72,8 @@ function walk(node, file, hits) {
   ) {
     hits.push({
       file,
-      line: node.loc.start.line,
-      col: node.loc.start.column,
+      line,
+      col,
       what: `logical assignment (${node.operator})`
     });
   }
@@ -70,7 +81,7 @@ function walk(node, file, hits) {
     if (key === 'loc' || key === 'start' || key === 'end') continue;
     const value = node[key];
     if (Array.isArray(value)) {
-      for (const child of value) walk(child, file, hits);
+      for (const child of value as unknown[]) walk(child, file, hits);
     } else if (value && typeof value === 'object') {
       walk(value, file, hits);
     }
@@ -84,8 +95,7 @@ if (files.length === 0) {
   process.exit(1);
 }
 
-/** @type {{file: string, line: number, col: number, what: string}[]} */
-const hits = [];
+const hits: Hit[] = [];
 let parsed = 0;
 
 for (const file of files) {
@@ -99,7 +109,10 @@ for (const file of files) {
     walk(ast, file, hits);
     parsed++;
   } catch (err) {
-    const e = /** @type {any} */ (err);
+    const e = err as {
+      message?: string;
+      loc?: { line: number; column: number };
+    };
     hits.push({
       file,
       line: e.loc?.line ?? 0,

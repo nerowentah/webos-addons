@@ -1,4 +1,3 @@
-'use strict';
 /**
  * Manual device gate (not wired into CI): deploy, then assert on the TV.
  *
@@ -8,25 +7,23 @@
  * settings overlay without navigating or throwing, and <video> advances after
  * `ok`. Record the build sha, TV model and webOS version in the PR.
  */
-const { spawnSync } = require('node:child_process');
-const { connect, diagnostics, runCli, HarnessError } = require('./inspect.cjs');
-const { press, click, sleep } = require('./drive.cjs');
+import { spawnSync } from 'node:child_process';
+import { connect, diagnostics, runCli, HarnessError } from './inspect.ts';
+import { press, click, sleep } from './drive.ts';
 
 const argv = process.argv.slice(2);
 const di = argv.indexOf('-d');
 const device = di >= 0 ? argv.splice(di, 2)[1] : undefined;
 
-/** @type {string[]} */
-const failures = [];
-/** @param {boolean} ok @param {string} label */
-const check = (ok, label) => {
+const failures: string[] = [];
+const check = (ok: boolean, label: string): void => {
   console.log(`${ok ? 'PASS' : 'FAIL'}  ${label}`);
   if (!ok) failures.push(label);
 };
 
 runCli(async () => {
   if (!argv.includes('--skip-deploy')) {
-    const r = spawnSync(process.execPath, ['tools/deploy.js'], {
+    const r = spawnSync(process.execPath, ['tools/deploy.ts'], {
       stdio: 'inherit'
     });
     if (r.status !== 0) throw new HarnessError('deploy failed');

@@ -1,16 +1,14 @@
-#!/usr/bin/env node
 // src/ is TypeScript only: tsconfig no longer allows JS, so a stray .js file
 // would be bundled by webpack but never type-checked. Run with `npm test`.
 
-const test = require('node:test');
-const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const path = require('node:path');
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
 
-const SRC = path.join(__dirname, '..', 'src');
+const SRC = path.join(import.meta.dirname, '..', 'src');
 
-/** @param {string} dir @returns {Generator<string>} */
-function* walk(dir) {
+function* walk(dir: string): Generator<string> {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) yield* walk(full);

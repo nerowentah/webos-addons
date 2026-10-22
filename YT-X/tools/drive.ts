@@ -1,20 +1,24 @@
-'use strict';
 /**
  * Send remote-control keys to the running app over CDP and print diagnostics.
  *
- *   node tools/drive.cjs "down,down,ok" [shot.png] [-d <device>]
+ *   node tools/drive.ts "down,down,ok" [shot.png] [-d <device>]
  *
  * Tokens: up down left right ok back red green yellow blue.
  * Back is keyCode 461 (not Backspace); colour keys are 403-406.
- * Screenshots exclude the hardware video plane (see inspect.cjs).
+ * Screenshots exclude the hardware video plane (see inspect.ts).
  */
-const { writeFileSync } = require('node:fs');
-const { connect, diagnostics, runCli, HarnessError } = require('./inspect.cjs');
+import { writeFileSync } from 'node:fs';
+import {
+  connect,
+  diagnostics,
+  runCli,
+  HarnessError,
+  type Session
+} from './inspect.ts';
 
 const SETTLE_MS = 450;
 
-/** @type {Record<string, {code: number, key: string, domCode: string}>} */
-const KEYS = {
+const KEYS: Record<string, { code: number; key: string; domCode: string }> = {
   up: { code: 38, key: 'ArrowUp', domCode: 'ArrowUp' },
   down: { code: 40, key: 'ArrowDown', domCode: 'ArrowDown' },
   left: { code: 37, key: 'ArrowLeft', domCode: 'ArrowLeft' },
@@ -27,11 +31,10 @@ const KEYS = {
   blue: { code: 406, key: 'ColorF3Blue', domCode: '' }
 };
 
-/** @param {number} ms */
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+export const sleep = (ms: number): Promise<void> =>
+  new Promise((r) => setTimeout(r, ms));
 
-/** @param {Awaited<ReturnType<typeof connect>>} session @param {string} token */
-async function press(session, token) {
+export async function press(session: Session, token: string): Promise<void> {
   const k = KEYS[token];
   if (!k) {
     throw new HarnessError(
@@ -52,14 +55,12 @@ async function press(session, token) {
 /**
  * Click an element with trusted input. In-page `el.click()` does not drive the
  * app's listeners on webOS, so pointer-driven UI has to go through the protocol.
- * @param {Awaited<ReturnType<typeof connect>>} session
- * @param {string} selector
  */
-async function click(session, selector) {
-  const rect = await session.callFunction(
+export async function click(session: Session, selector: string): Promise<void> {
+  const rect = (await session.callFunction(
     'function (selector) { const el = document.querySelector(selector); if (!el) return null; const r = el.getBoundingClientRect(); return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) }; }',
     selector
-  );
+  )) as { x: number; y: number } | null;
   if (!rect) throw new HarnessError(`no element matches ${selector}`);
   const base = { ...rect, button: 'left', buttons: 1, clickCount: 1 };
   await session.send('Input.dispatchMouseEvent', {
@@ -77,9 +78,7 @@ async function click(session, selector) {
   await sleep(SETTLE_MS);
 }
 
-module.exports = { press, click, sleep };
-
-if (require.main === module) {
+if (import.meta.main) {
   runCli(async () => {
     const argv = process.argv.slice(2);
     const di = argv.indexOf('-d');
@@ -87,7 +86,7 @@ if (require.main === module) {
     const [keys, shot] = argv;
     if (!keys) {
       throw new HarnessError(
-        'usage: drive.cjs "down,down,ok" [shot.png] [-d device]'
+        'usage: drive.ts "down,down,ok" [shot.png] [-d device]'
       );
     }
     const session = await connect({ device });
@@ -101,9 +100,9 @@ if (require.main === module) {
       }
       /* eslint-enable no-await-in-loop */
       if (shot) {
-        const { data } = /** @type {any} */ (
-          await session.send('Page.captureScreenshot', { format: 'png' })
-        );
+        const { data } = (await session.send('Page.captureScreenshot', {
+          format: 'png'
+        })) as { data: string };
         writeFileSync(shot, Buffer.from(data, 'base64'));
       }
       console.log(JSON.stringify(await diagnostics(session), null, 2));

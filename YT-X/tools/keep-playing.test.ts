@@ -1,26 +1,25 @@
-#!/usr/bin/env node
 // Unit tests for the "Video paused. Continue watching?" text matchers
 // (src/features/keep-playing/keep-playing-text.ts). Run with `npm test` (node --test). The module
 // path is built at runtime so this file does not statically import from src/.
 
-const test = require('node:test');
-const assert = require('node:assert/strict');
-const path = require('node:path');
-const { pathToFileURL } = require('node:url');
+import test from 'node:test';
+import assert from 'node:assert/strict';
 
-const textHref = pathToFileURL(
-  path.join(
-    __dirname,
-    '..',
-    'src',
-    'features',
-    'keep-playing',
-    'keep-playing-text.ts'
-  )
+/** The parts of keep-playing-text.ts these tests use. */
+interface KeepPlayingTextModule {
+  matchesContinueWatchingText(text: unknown): boolean;
+  isConfirmLabel(label: unknown): boolean;
+}
+
+const textHref = new URL(
+  '../src/features/keep-playing/keep-playing-text.ts',
+  import.meta.url
 ).href;
 
+const load = async () => (await import(textHref)) as KeepPlayingTextModule;
+
 test('matchesContinueWatchingText recognises the inactivity prompt', async () => {
-  const { matchesContinueWatchingText } = await import(textHref);
+  const { matchesContinueWatchingText } = await load();
   assert.equal(
     matchesContinueWatchingText('Video paused. Continue watching?'),
     true
@@ -30,21 +29,21 @@ test('matchesContinueWatchingText recognises the inactivity prompt', async () =>
 });
 
 test('matchesContinueWatchingText ignores unrelated copy', async () => {
-  const { matchesContinueWatchingText } = await import(textHref);
+  const { matchesContinueWatchingText } = await load();
   assert.equal(matchesContinueWatchingText('Subscribe'), false);
   assert.equal(matchesContinueWatchingText(''), false);
   assert.equal(matchesContinueWatchingText(undefined), false);
 });
 
 test('isConfirmLabel recognises the affirmative control', async () => {
-  const { isConfirmLabel } = await import(textHref);
+  const { isConfirmLabel } = await load();
   assert.equal(isConfirmLabel('Yes'), true);
   assert.equal(isConfirmLabel('  Continue watching  '), true);
   assert.equal(isConfirmLabel('OK'), true);
 });
 
 test('isConfirmLabel ignores non-affirmative controls', async () => {
-  const { isConfirmLabel } = await import(textHref);
+  const { isConfirmLabel } = await load();
   assert.equal(isConfirmLabel('Bookmark'), false);
   assert.equal(isConfirmLabel('No'), false);
   assert.equal(isConfirmLabel(''), false);

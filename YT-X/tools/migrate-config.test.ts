@@ -1,19 +1,30 @@
-#!/usr/bin/env node
 // Unit tests for the stored-config migration (src/config/migrate.ts). Run with
 // `npm test` (node --test), which strips the TypeScript types natively. The
 // module path is built at runtime so this file does not statically import from
 // src/ (which would pull it into the tooling tsconfig project).
 
-const test = require('node:test');
-const assert = require('node:assert/strict');
-const path = require('node:path');
-const { pathToFileURL } = require('node:url');
+import test from 'node:test';
+import assert from 'node:assert/strict';
 
-const href = pathToFileURL(
-  path.join(__dirname, '..', 'src', 'config', 'migrate.ts')
-).href;
+/** The parts of src/config/migrate.ts these tests use. */
+interface MigrateModule {
+  BADGE_MODE_MARKER: string;
+  migrateStoredConfig(parsed: unknown): Record<string, unknown> | null;
+}
 
-const load = () => import(href);
+const href = new URL('../src/config/migrate.ts', import.meta.url).href;
+
+const load = async () => (await import(href)) as MigrateModule;
+
+/** A migrated config the test expects to exist. */
+function migrated(
+  migrateStoredConfig: MigrateModule['migrateStoredConfig'],
+  input: unknown
+): Record<string, unknown> {
+  const out = migrateStoredConfig(input);
+  assert.notEqual(out, null);
+  return out as Record<string, unknown>;
+}
 
 test('migrateStoredConfig rejects anything but a plain object', async () => {
   const { migrateStoredConfig } = await load();
@@ -32,32 +43,37 @@ test('migrateStoredConfig returns a copy and marks the badge swap done', async (
 
 test('migrateStoredConfig inverts pointerSettingsButton exactly once', async () => {
   const { migrateStoredConfig } = await load();
-  const once = migrateStoredConfig({ pointerSettingsButton: true });
-  assert.equal(once.pointerSettingsButton, false);
-  const twice = migrateStoredConfig(once);
-  assert.equal(twice.pointerSettingsButton, false);
+  const once = migrated(migrateStoredConfig, { pointerSettingsButton: true });
+  assert.equal(once['pointerSettingsButton'], false);
+  const twice = migrated(migrateStoredConfig, once);
+  assert.equal(twice['pointerSettingsButton'], false);
   assert.equal(
-    migrateStoredConfig({ pointerSettingsButton: false }).pointerSettingsButton,
+    migrated(migrateStoredConfig, { pointerSettingsButton: false })[
+      'pointerSettingsButton'
+    ],
     true
   );
-  assert.equal('pointerSettingsButton' in migrateStoredConfig({}), false);
+  assert.equal(
+    'pointerSettingsButton' in migrated(migrateStoredConfig, {}),
+    false
+  );
 });
 
 test('migrateStoredConfig turns the legacy OLED toggle into panelCareMode', async () => {
   const { migrateStoredConfig } = await load();
-  const on = migrateStoredConfig({ enableOledCareMode: true });
-  assert.equal(on.panelCareMode, 'oled');
+  const on = migrated(migrateStoredConfig, { enableOledCareMode: true });
+  assert.equal(on['panelCareMode'], 'oled');
   assert.equal('enableOledCareMode' in on, false);
 
-  const off = migrateStoredConfig({ enableOledCareMode: false });
+  const off = migrated(migrateStoredConfig, { enableOledCareMode: false });
   assert.equal('panelCareMode' in off, false);
   assert.equal('enableOledCareMode' in off, false);
 
-  const kept = migrateStoredConfig({
+  const kept = migrated(migrateStoredConfig, {
     enableOledCareMode: true,
     panelCareMode: 'qned'
   });
-  assert.equal(kept.panelCareMode, 'qned');
+  assert.equal(kept['panelCareMode'], 'qned');
 });
 
 test('migrateStoredConfig drops retired keys and keeps the rest', async () => {

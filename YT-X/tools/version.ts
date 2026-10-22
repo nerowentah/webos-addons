@@ -1,23 +1,17 @@
-#!/usr/bin/env node
-
-const { spawnSync } = require('node:child_process');
-const path = require('node:path');
-const pkgJson = require('../package.json');
+import { spawnSync } from 'node:child_process';
+import path from 'node:path';
+import pkgJson from '../package.json' with { type: 'json' };
 
 // Resolve from this module (cwd varies by caller).
-const APP_DIR = path.dirname(require.resolve('../package.json'));
+const APP_DIR = path.resolve(import.meta.dirname, '..');
 
 // Cache git results per process (manifest reads version twice; HEAD stable).
-/** @type {number | null | undefined} */
-let cachedBuild;
-/** @type {string | null | undefined} */
-let cachedSha;
-/** @type {string | undefined} */
-let cachedVersion;
+let cachedBuild: number | null | undefined;
+let cachedSha: string | null | undefined;
+let cachedVersion: string | undefined;
 
 /** Run git with cwd pinned to APP_DIR (repo may be parent). */
-/** @param {string[]} args */
-function runGit(args) {
+function runGit(args: string[]): string | null {
   const result = spawnSync('git', args, {
     cwd: APP_DIR,
     encoding: 'utf8'
@@ -26,15 +20,15 @@ function runGit(args) {
   return result.stdout.trim();
 }
 
-/** @returns {string | null} Short SHA of HEAD. */
-function getGitShortSha() {
+/** Short SHA of HEAD. */
+function getGitShortSha(): string | null {
   if (cachedSha !== undefined) return cachedSha;
   cachedSha = runGit(['rev-parse', '--short', 'HEAD']);
   return cachedSha;
 }
 
 /** Get repo-root-relative git pathspec for this app (`''` if app is root). */
-function getAppPathspec() {
+function getAppPathspec(): string | null {
   const prefix = runGit(['rev-parse', '--show-prefix']);
   if (prefix === null) return null;
   if (prefix === '') return '';
@@ -42,7 +36,7 @@ function getAppPathspec() {
 }
 
 /** Commits that touched this app (not whole repo). */
-function getBuildNumber() {
+function getBuildNumber(): number | null {
   if (cachedBuild !== undefined) return cachedBuild;
   cachedBuild = null;
   const pathspec = getAppPathspec();
@@ -57,14 +51,13 @@ function getBuildNumber() {
 }
 
 /** Parse numeric version component (default 0 if malformed). */
-/** @param {string | undefined} value */
-function toVersionPart(value) {
+function toVersionPart(value: string | undefined): number {
   const parsed = Number.parseInt(value ?? '', 10);
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
 /** Version: major.minor.patch (patch = max(build count, pkg patch). 3-part for webOS). */
-function getVersion() {
+export function getVersion(): string {
   if (cachedVersion !== undefined) return cachedVersion;
   const build = getBuildNumber();
   if (build === null) {
@@ -78,8 +71,7 @@ function getVersion() {
 }
 
 /** Extract repo URL from package.json repository (string or {url}). */
-/** @param {unknown} repository */
-function repositoryUrl(repository) {
+function repositoryUrl(repository: unknown): string | undefined {
   if (typeof repository === 'string') return repository;
   if (
     repository !== null &&
@@ -93,36 +85,33 @@ function repositoryUrl(repository) {
 }
 
 /** Parse owner/repo from package.json repository (shorthand or URL). */
-function getRepository() {
+export function getRepository(): { owner: string; repo: string } | null {
   const value = repositoryUrl(pkgJson.repository);
   if (value === undefined || value === '') return null;
 
-  const path = value
+  const slug = value
     .replace(/^github:/, '')
     .replace(/^git\+/, '')
     .replace(/^https?:\/\/(?:www\.)?github\.com\//, '')
     .replace(/\.git$/, '');
-  const [owner, repo] = path.split('/');
+  const [owner, repo] = slug.split('/');
   if (!owner || !repo) return null;
   return { owner, repo };
 }
 
 /** Get publishing owner (undefined if repo not parseable). */
-function getOwner() {
+function getOwner(): string | undefined {
   return getRepository()?.owner;
 }
 
-/** @returns {{ version: string, gitSha: string | null, owner: string | undefined }} */
-function getVersionInfo() {
+export function getVersionInfo(): {
+  version: string;
+  gitSha: string | null;
+  owner: string | undefined;
+} {
   return { version: getVersion(), gitSha: getGitShortSha(), owner: getOwner() };
 }
 
-if (require.main === module) {
+if (import.meta.main) {
   process.stdout.write(`${JSON.stringify(getVersionInfo())}\n`);
 }
-
-module.exports = {
-  getVersion,
-  getVersionInfo,
-  getRepository
-};

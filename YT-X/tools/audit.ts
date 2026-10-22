@@ -1,9 +1,7 @@
-#!/usr/bin/env node
+import { spawnSync } from 'node:child_process';
 
-const { spawnSync } = require('node:child_process');
-
-delete process.env.npm_config_allow_scripts;
-delete process.env.NPM_CONFIG_ALLOW_SCRIPTS;
+delete process.env['npm_config_allow_scripts'];
+delete process.env['NPM_CONFIG_ALLOW_SCRIPTS'];
 
 // Accepted advisories (no upstream fix; dev-only). Keyed on GHSA id so an
 // entry keeps working as the affected packages get version bumps. Each has a
@@ -19,13 +17,37 @@ const ACCEPTED = new Set([
   'GHSA-hp3w-g68c-fv3c' // sprintf-js: devDep only, no fix.
 ]);
 
+/** The slice of `npm audit --json` this gate reads. */
+interface AuditVia {
+  url?: string;
+  severity?: string;
+  title?: string;
+}
+
+interface AuditVulnerability {
+  severity?: string;
+  via?: (string | AuditVia)[];
+}
+
+interface AuditReport {
+  error?: { code?: string; summary?: string; detail?: string };
+  vulnerabilities?: Record<string, AuditVulnerability>;
+}
+
+interface Advisory {
+  name: string;
+  severity: string;
+  title: string;
+  url: string;
+}
+
 const args = ['audit', '--json', ...process.argv.slice(2)];
 
 // Prefer npm's own CLI JS under node: npm_execpath is set when this runs via
 // `npm run audit`, so argv is never re-parsed by a shell on Windows. The
 // cmd.exe path remains only for direct invocation without npm.
 const isWindows = process.platform === 'win32';
-const npmCliPath = process.env.npm_execpath;
+const npmCliPath = process.env['npm_execpath'];
 const result = npmCliPath
   ? spawnSync(process.execPath, [npmCliPath, ...args], {
       stdio: ['ignore', 'pipe', 'inherit'],
@@ -33,7 +55,7 @@ const result = npmCliPath
     })
   : isWindows
     ? spawnSync(
-        process.env.ComSpec ?? 'cmd.exe',
+        process.env['ComSpec'] ?? 'cmd.exe',
         ['/d', '/c', 'npm.cmd', ...args],
         { stdio: ['ignore', 'pipe', 'inherit'], encoding: 'utf8' }
       )
@@ -53,9 +75,9 @@ if (result.status === null) {
   process.exit(1);
 }
 
-let report;
+let report: AuditReport;
 try {
-  report = JSON.parse(result.stdout.replace(/^\ufeff/, ''));
+  report = JSON.parse(result.stdout.replace(/^\ufeff/, '')) as AuditReport;
 } catch (err) {
   const message = err instanceof Error ? err.message : String(err);
   console.error(`audit: could not parse npm audit output: ${message}`);
@@ -76,7 +98,7 @@ if (report.error) {
 }
 
 // Only direct advisory objects (not chain strings) are reported.
-const advisories = new Map();
+const advisories = new Map<string, Advisory>();
 for (const [name, vuln] of Object.entries(report.vulnerabilities ?? {})) {
   for (const via of vuln.via ?? []) {
     if (typeof via === 'string' || !via.url) {
@@ -92,7 +114,7 @@ for (const [name, vuln] of Object.entries(report.vulnerabilities ?? {})) {
 }
 
 const unaccepted = [...advisories.values()].filter(
-  (advisory) => !ACCEPTED.has(advisory.url.split('/').pop())
+  (advisory) => !ACCEPTED.has(advisory.url.split('/').pop() ?? '')
 );
 
 if (unaccepted.length > 0) {

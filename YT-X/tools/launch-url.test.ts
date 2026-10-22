@@ -1,19 +1,32 @@
-#!/usr/bin/env node
 // Unit tests for launch-parameter handling (src/core/launch-url.ts). Run with
 // `npm test` (node --test), which strips the TypeScript types natively. The
 // module path is built at runtime so this file does not statically import from
 // src/ (which would pull it into the tooling tsconfig project).
 
-const test = require('node:test');
-const assert = require('node:assert/strict');
-const path = require('node:path');
-const { pathToFileURL } = require('node:url');
+import test from 'node:test';
+import assert from 'node:assert/strict';
 
-const href = pathToFileURL(
-  path.join(__dirname, '..', 'src', 'core', 'launch-url.ts')
-).href;
+/** The parts of src/core/launch-url.ts these tests use. */
+interface LaunchUrlModule {
+  BASE_LAUNCH_URL: string;
+  parseLaunchParams(raw: unknown): Record<string, unknown>;
+  contentTargetOf(params: unknown): unknown;
+  buildLaunchUrl(params: unknown): string | null;
+}
 
-const load = () => import(href);
+const href = new URL('../src/core/launch-url.ts', import.meta.url).href;
+
+const load = async () => (await import(href)) as LaunchUrlModule;
+
+/** The URL a launch with `params` opens; the test fails if there is none. */
+function launchUrl(
+  buildLaunchUrl: LaunchUrlModule['buildLaunchUrl'],
+  params: unknown
+): URL {
+  const built = buildLaunchUrl(params);
+  assert.notEqual(built, null);
+  return new URL(String(built));
+}
 
 test('parseLaunchParams accepts JSON objects only', async () => {
   const { parseLaunchParams } = await load();
@@ -76,9 +89,9 @@ test('the bare-launch fallback keeps the env flags', async () => {
 
 test('buildLaunchUrl folds a DIAL query string into the app URL', async () => {
   const { buildLaunchUrl } = await load();
-  const url = new URL(
-    buildLaunchUrl({ contentTarget: 'pairingCode=abc&dialLaunch=watch' })
-  );
+  const url = launchUrl(buildLaunchUrl, {
+    contentTarget: 'pairingCode=abc&dialLaunch=watch'
+  });
   assert.equal(url.origin, 'https://www.youtube.com');
   assert.equal(url.pathname, '/tv');
   assert.equal(url.hash, '#/');
@@ -89,7 +102,7 @@ test('buildLaunchUrl folds a DIAL query string into the app URL', async () => {
 
 test('buildLaunchUrl repairs the doubled v= prefix and honours target', async () => {
   const { buildLaunchUrl } = await load();
-  const url = new URL(buildLaunchUrl({ target: 'v=v=abc123' }));
+  const url = launchUrl(buildLaunchUrl, { target: 'v=v=abc123' });
   assert.equal(url.searchParams.get('v'), 'abc123');
 });
 
@@ -101,22 +114,18 @@ test('buildLaunchUrl keeps same-origin https URLs only', async () => {
 
 test('buildLaunchUrl builds voice launches', async () => {
   const { buildLaunchUrl } = await load();
-  const url = new URL(
-    buildLaunchUrl({
-      contentTarget: { intent: 'SearchContent', intentParam: 'cats & dogs' }
-    })
-  );
+  const url = launchUrl(buildLaunchUrl, {
+    contentTarget: { intent: 'SearchContent', intentParam: 'cats & dogs' }
+  });
   assert.equal(url.searchParams.get('inApp'), 'true');
   assert.equal(url.searchParams.get('vs'), '9');
   assert.equal(url.searchParams.get('va'), 'search');
   assert.deepEqual(url.searchParams.getAll('launch'), ['voice', 'search']);
   assert.equal(url.searchParams.get('vq'), 'cats & dogs');
 
-  const play = new URL(
-    buildLaunchUrl({
-      contentTarget: { intent: 'PlayContent', intentParam: 'x'.repeat(600) }
-    })
-  );
+  const play = launchUrl(buildLaunchUrl, {
+    contentTarget: { intent: 'PlayContent', intentParam: 'x'.repeat(600) }
+  });
   assert.equal(play.searchParams.get('va'), 'play');
   assert.deepEqual(play.searchParams.getAll('launch'), ['voice']);
   assert.equal(play.searchParams.get('vq')?.length, 512);
@@ -124,11 +133,9 @@ test('buildLaunchUrl builds voice launches', async () => {
 
 test('buildLaunchUrl skips va for an unrecognised intent but still searches', async () => {
   const { buildLaunchUrl } = await load();
-  const url = new URL(
-    buildLaunchUrl({
-      contentTarget: { intent: 'Weird&Intent', intentParam: 'q' }
-    })
-  );
+  const url = launchUrl(buildLaunchUrl, {
+    contentTarget: { intent: 'Weird&Intent', intentParam: 'q' }
+  });
   assert.equal(url.searchParams.has('va'), false);
   assert.equal(url.searchParams.get('vq'), 'q');
 });
