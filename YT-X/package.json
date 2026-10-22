@@ -18,7 +18,7 @@
     "compare:chrome": "node tools/compare-chrome.ts",
     "compare:tv": "node tools/compare-tv.ts",
     "manifest": "node tools/gen-manifest.ts youtube.leanback.v4.manifest.json",
-    "test": "node --test",
+    "test": "node --import ./tools/register-ts-resolve.ts --test",
     "test:compat": "es-check && node tools/check-syntax-floor.ts",
     "check:text": "node tools/check-ui-text.ts",
     "lint": "eslint --concurrency auto --max-warnings 0",
