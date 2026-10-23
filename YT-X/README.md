@@ -56,13 +56,16 @@ Both upstream projects are licensed GPL-3.0, which this project matches (see
 
 - Panel Care Mode with per-panel profiles: OLED-Care (true black UI) and
   QNED MiniLED-Care (dark comfort UI). Off uses the neutral translucent
-  QNED-style plate while leaving YouTube's page surfaces untouched
+  QNED-style plate
 - Panel Care Mode defaults to Auto, which reads the model string from the app's
   user agent (the only signal when `webOS.deviceInfo` is unavailable) and
   applies the matching profile; unclassified panels fall back to
   Off, and the manual setting always overrides detection
+- Panel Care themes only the YT-X settings panel and badge. YouTube's own
+  surfaces (player, guide, browse) are never recoloured, and YT-X's playback
+  additions use YouTube's dark-theme palette only: `#0f0f0f`, `#272727`,
+  `#ffffff`, `#aaaaaa`, `#717171`, `#ff0000`, `#3ea6ff`
 - Classic Red is the only UI theme
-- Fix multiline titles
 - Bypass the account selector screen
 - YT-X settings button on screen
 
@@ -223,23 +226,31 @@ luna-send-pub -n 1 'luna://com.webos.service.eim/deleteDevice' '{"appId":"youtub
 
 ## Compatibility notes
 
-### Cast to TV is disabled on webOS 2025
+### Casting on webOS 2025
 
 On webOS 2025 firmware (webOS platform ≥ 10 / firmware ≥ 33), the built-in
 Chromecast ("cast core") service conflicts with this app and freezes it
 ([webosbrew/youtube-webos#343](https://github.com/webosbrew/youtube-webos/issues/343)).
-The fix blocks the app's `/wake_cast_core` fetch on those firmware versions,
-which means the phone-to-TV casting flow is disabled there. Older firmware
-leaves the fetch alone, so casting keeps working.
+The app blocks its own `/wake_cast_core` fetch on those firmware versions
+unless the launch came from a cast handoff (`cc2`, `dialLaunch`,
+`pairingCode`, or a webOS relaunch).
 
-Note: `dialAppName` is what registers the app with the TV's DIAL service
-(`com.webos.service.dial`), the only way the mobile YouTube app discovers the
-TV. Do not remove it — without it, the TV disappears from the phone's cast
-list entirely.
+The default package omits `dialAppName`, so the app does not register a DIAL
+entry. The phone lists only the TV's native Cast target. The setting labelled
+**Block Cast Wake (webOS 25)** controls only that wake fetch; it cannot add,
+remove, or rename a cast destination. It is **off by default**, because the
+native Cast receiver needs the wake to complete: with the block on, a cold cast
+start left the TV unresponsive in testing. Existing installs are migrated to
+off once; re-enable it only if you do not cast.
+
+If a phone cannot find the TV, restore `"dialAppName": "YouTube"` in
+`assets/appinfo.json` and rebuild. That restores the app's DIAL entry and is
+the compatibility path for phones that rely on DIAL.
 
 ### Playback plates follow YouTube's own styling
 
-The scrim, title plate and action bar are no longer restyled: webOS renders
+YT-X does not strip `app-quality-root` from `<body>`, so YouTube's own plates
+apply. The scrim, title plate and action bar are not restyled: webOS renders
 `<video>` on a separate native/hardware plane that CSS `backdrop-filter` cannot
 sample, so a translucent plate only ever blurred DOM content. Do not add
 `transform`, `filter` or `will-change` to `<video>` or its ancestors to try to
@@ -288,6 +299,27 @@ npm run build:hd   # or: npm run package:hd
 `npm run deploy` always builds `1920x1080` unless told otherwise; use
 `npm run deploy:hd` (or `--resolution 1280x720`) to deploy the 720p build.
 
+### User agent
+
+webOS builds the app's User-Agent from the template in `assets/appinfo.json`
+(`vendorExtension.userAgent`) and fills in this TV's model, firmware and network.
+YouTube picks its stylesheets from that UA before any userscript runs, so it can
+only be chosen at build time, not from the settings panel:
+
+| `--ua`             | UA                                         | Playback plates                                                              |
+| ------------------ | ------------------------------------------ | ---------------------------------------------------------------------------- |
+| `cobalt` (default) | PS4 Cobalt UA plus the same LG device tail | YouTube's Cobalt variant: transparent title card and tray, translucent pills |
+| `webos`            | the template in `appinfo.json`             | YouTube's LG variant: opaque black title card and tray                       |
+
+```sh
+npm run deploy:webos       # or: npm run deploy:hd:webos, or YTX_UA=webos npm run deploy
+```
+
+Builds default to `cobalt` (including `npm run build`, `package` and `deploy`); `--ua webos` or `YTX_UA=webos` selects the template UA. `cobalt` is experimental: its pages carry a stricter CSP, so YT-X stamps its styles with the page's style nonce. On a 65QNED86 (webOS 25) it played 3840-wide video with
+YT-X active; other models and remote or pointer behaviour are untested. The
+platform default UA (`Web0S; Linux/SmartTV ... WebAppManager`) still gets the LG
+variant, so it is not offered.
+
 Both variants install under the same app ID, so they replace one another rather
 than appearing as two apps. Nothing else differs: the UI lays out in `vh` and
 scales to the smaller canvas on its own, and playback still happens at the
@@ -303,7 +335,7 @@ npm run verify   # production build plus ES compatibility check
 
 `npm run compare:chrome` is a manual Chrome reference gate; it needs Chrome and
 network access, so it is not part of `lint:all` or `verify`. Run it once with
-`--login` (desktop user agent) to sign in; probes then use the PS4 Leanback UA.
+`--login` (desktop user agent) to sign in; probes then use the TV's own webOS UA (`--ua cobalt` for the PS4 Cobalt build).
 Both `compare:tv` and `compare:chrome` seek to `--time` (default 102 s) and
 pause, so frames line up.
 
@@ -346,9 +378,13 @@ Limitations:
 
 ### Chrome TV reference comparison
 
-`npm run compare:chrome` launches Chrome with the YouTube TV URI and the PS4
-Leanback user agent, emulates a 1920x1080 TV viewport, and probes the official
-control bar over CDP. It is a manual reference gate, not part of `npm test` or
+`npm run compare:chrome` launches Chrome with the YouTube TV URI and the TV's
+webOS user agent (`--ua cobalt` selects the PS4 Cobalt one, a different YouTube
+build), emulates a TV viewport (`--viewport 1280x720` for the hd build, default
+1920x1080), and probes the playback controls over CDP. `--eval <file>` runs a
+script in the probed page for ad-hoc cascade inspection. YouTube may still serve
+the TV and Chrome different style variants (for example the black title card and
+suggestions tray), so only same-variant values are comparable. It is a manual reference gate, not part of `npm test` or
 CI. The on-TV probe remains the source of truth for the installed build.
 
 First run:

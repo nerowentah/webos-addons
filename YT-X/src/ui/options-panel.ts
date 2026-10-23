@@ -172,7 +172,6 @@ export function createOptionsPanel(onClose: () => void): OptionsPanel {
         createSection(
           PANEL.sections.playerUiTweaks,
           [
-            createConfigCheckbox('fixMultilineTitles'),
             createConfigCheckbox('pointerSettingsButton'),
             createConfigCheckbox('keyboardSearch'),
             createConfigCheckbox('disableAnimations'),

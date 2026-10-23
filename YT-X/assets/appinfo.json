@@ -29,7 +29,6 @@
   "trustLevel": "netcast",
   "privilegedJail": true,
   "supportQuickStart": true,
-  "dialAppName": "YouTube",
   "disableBackHistoryAPI": true,
   "supportGIP": true,
   "wolwowlan": true

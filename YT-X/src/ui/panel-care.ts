@@ -15,13 +15,12 @@ import { panelState } from './panel-state';
 
 function initGlobalToggles(): void {
   // Toggles live on <html> because YouTube rewrites body.className on tab
-  // navigation; not gated on .app-quality-root, which applyUIFixes() strips.
+  // navigation.
   // The rules they switch are in theme.css.
   const syncClass = (cls: string, key: BoolKey) =>
     document.documentElement.classList.toggle(cls, configRead(key));
   const CLASS_KEYS: Readonly<Record<string, BoolKey>> = {
     'ytx-hide-logo': 'hideLogo',
-    'ytx-fix-titles': 'fixMultilineTitles',
     'ytx-no-animations': 'disableAnimations'
   };
   for (const [cls, key] of Object.entries(CLASS_KEYS)) {

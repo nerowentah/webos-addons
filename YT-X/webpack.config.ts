@@ -2,6 +2,8 @@ import TerserPlugin from 'terser-webpack-plugin';
 import webpack from 'webpack';
 import type { Configuration } from 'webpack';
 import { basename } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { applyUserAgent, resolveUaMode, type UaMode } from './tools/app-ua.ts';
 import { getVersionInfo } from './tools/version.ts';
 
 const { version, gitSha, owner } = getVersionInfo();
@@ -24,10 +26,15 @@ function resolveAppResolution(requested: string | undefined): string {
   return requested;
 }
 
-function transformAppInfo(input: Buffer, resolution: string): string {
+function transformAppInfo(
+  input: Buffer,
+  resolution: string,
+  ua: UaMode
+): string {
   const appInfo = JSON.parse(input.toString()) as Record<string, unknown>;
   appInfo['version'] = version;
   appInfo['resolution'] = resolution;
+  applyUserAgent(appInfo, ua);
   return JSON.stringify(appInfo, null, 2);
 }
 
@@ -62,7 +69,8 @@ const makeConfig = (env: Record<string, string>): Configuration[] => [
               if (basename(absolutePath) === 'appinfo.json') {
                 return transformAppInfo(
                   input,
-                  resolveAppResolution(env['resolution'])
+                  resolveAppResolution(env['resolution']),
+                  resolveUaMode(env['ua'])
                 );
               }
               return input;
@@ -70,7 +78,8 @@ const makeConfig = (env: Record<string, string>): Configuration[] => [
             cache: {
               keys: {
                 version,
-                resolution: resolveAppResolution(env['resolution'])
+                resolution: resolveAppResolution(env['resolution']),
+                ua: resolveUaMode(env['ua'])
               }
             }
           }
@@ -156,7 +165,15 @@ const makeConfig = (env: Record<string, string>): Configuration[] => [
         {
           test: /\.css$/i,
           use: [
-            { loader: 'style-loader' },
+            {
+              loader: 'style-loader',
+              // Stamps the page's style nonce (needed under the Cobalt CSP).
+              options: {
+                insert: fileURLToPath(
+                  new URL('./src/styles/insert-style.ts', import.meta.url)
+                )
+              }
+            },
             {
               loader: 'css-loader',
               options: { importLoaders: 1 }

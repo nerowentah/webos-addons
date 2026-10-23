@@ -1,4 +1,5 @@
 import { configAddChangeListener, configRead } from '../config/config';
+import { nonceStyle } from '../core/csp-nonce';
 import { getVideo, isWatchPage } from '../core/utils';
 import { cssString, formatTime } from '../core/format';
 import './time-remaining.css';
@@ -23,6 +24,7 @@ function write(next: string): void {
     if (!next) return;
     styleEl = document.createElement('style');
     styleEl.id = 'ytx-time-remaining';
+    nonceStyle(styleEl);
     (document.head || document.documentElement).appendChild(styleEl);
   }
   styleEl.textContent = next;

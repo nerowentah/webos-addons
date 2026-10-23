@@ -28,7 +28,7 @@ class SponsorBlockUI {
   suppressed = false;
 
   getSegmentColor(category: string): string {
-    return categoryInfo(category)?.color || '#777';
+    return categoryInfo(category)?.color || '#717171';
   }
 
   getCategoryName(category: string): string {

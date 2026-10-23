@@ -1,4 +1,4 @@
-/* Shared dark plate hue and panel alpha (panel, badge, playback scrim). Off and
+/* Shared dark plate hue and panel alpha (panel, badge). Off and
    QNED share the neutral translucent base; html.oled-theme-active (ui.ts)
    overrides both to true black. Comma form: rgba() rejects space-separated
    channels in a var().
@@ -37,8 +37,6 @@
   width: 70vw;
   height: 70vh;
   color: #ffffff;
-  font-family:
-    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   font-size: 4.44vh;
   -webkit-font-smoothing: antialiased;
   z-index: 1000;
@@ -574,6 +572,7 @@
   position: fixed;
   left: 4.375vw;
   top: 95.65vh;
+  font-family: inherit;
   transform: translateX(-50%);
   z-index: 1100;
   padding: 0.3em 0.7em;
@@ -621,43 +620,6 @@
 .ytx-ui-badge.ytx-badge-pointer-mode.ytx-badge-visible {
   opacity: 0.85;
   pointer-events: auto;
-}
-
-.ytx-sponsorblock-segment-container {
-  top: 0%;
-  height: 100%;
-  width: 100%;
-  pointer-events: none;
-  position: absolute;
-  overflow: hidden;
-}
-
-/* Fix: progress bar w/ chapter markers uses a different layout */
-[idomkey='player-bar-renderer']
-  :not([idomkey='slider'])
-  .ytx-sponsorblock-segment-container {
-  top: 0.28vh;
-  height: 75%;
-}
-
-/* Expand to overflow progress bar when focused */
-[idomkey='progress-bar'].zylon-focus .ytx-sponsorblock-segment-container {
-  top: -12%;
-  height: 124%;
-}
-
-.ytx-sponsorblock-segment {
-  opacity: 0.6;
-  height: 100%;
-  width: 100%;
-  position: absolute;
-  border-radius: 9001px;
-}
-
-/* Allow overlay segments to overflow */
-[idomkey='slider'],
-[idomkey='progress-bar'] {
-  overflow: unset !important;
 }
 
 .ytx-ui-version {

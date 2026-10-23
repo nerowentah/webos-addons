@@ -1,0 +1,23 @@
+/* SponsorBlock progress-bar markers. Scoped to the host we add, so YouTube's
+   own overflow rules on the player bar are untouched. */
+
+.ytx-sb-marker-host {
+  overflow: visible !important;
+}
+
+.ytx-sb-marker-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.ytx-sb-marker {
+  position: absolute;
+  pointer-events: none;
+  border-radius: 9001px;
+  opacity: 0.6;
+}

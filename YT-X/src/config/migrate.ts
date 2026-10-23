@@ -3,6 +3,9 @@
 /** Marker written once the one-time `pointerSettingsButton` inversion has run. */
 export const BADGE_MODE_MARKER = 'badgeModeV2';
 
+/** Marker written once the native-Cast wake default has been migrated. */
+export const NATIVE_CAST_MARKER = 'nativeCastV1';
+
 // Retired options. configRead() throws on unknown keys, so leftover values must go.
 const RETIRED_KEYS: readonly string[] = [
   'uiTheme', // Classic Red is the only theme
@@ -66,6 +69,14 @@ export function migrateStoredConfig(
       config['pointerSettingsButton'] = !config['pointerSettingsButton'];
     }
     config[BADGE_MODE_MARKER] = true;
+  }
+
+  // Native Cast needs the cast-core wake to complete. The old default blocked
+  // it, which left the receiver waiting and could hang the TV, so existing
+  // installs flip to the new default once. A later explicit enable persists.
+  if (!config[NATIVE_CAST_MARKER]) {
+    config['blockWebosCast'] = false;
+    config[NATIVE_CAST_MARKER] = true;
   }
 
   return config;

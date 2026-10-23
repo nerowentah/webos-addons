@@ -1,6 +1,6 @@
 /**
  * Chrome TV reference probe: launches desktop Chrome with the YouTube TV URI
- * and the PS4 Leanback user agent, emulates a 1920x1080 TV viewport and probes
+ * and the TV's webOS user agent (or the PS4 Cobalt one), emulates a TV viewport and probes
  * the official control bar over CDP. Manual gate (needs Chrome and network);
  * not part of `npm test`, `verify` or CI. The on-TV probe stays authoritative.
  *
@@ -28,16 +28,27 @@ import {
   type Session
 } from './inspect.ts';
 
-const TV_UA =
+/** The UA the TV app sends: YouTube serves the LG webOS build (its own CSS/JS) to it, so it is the like-for-like reference. */
+const WEBOS_UA =
+  'LG Browser/8.00.00 (webOS.TV-2025), _TV_O18/33.31.75 (LG, 65QNED86ASA.ATSFLJD, wireless)';
+/** The PS4 Cobalt UA serves a different build; kept as a cross-build reference. */
+const COBALT_UA =
   'Mozilla/5.0 (PS4; Leanback Shell) Cobalt/24.lts.13.1032728-gold v8/8.8.278.8-jit gles Starboard/14';
-const DEFAULT_URL = 'https://www.youtube.com/tv';
-const DEFAULT_WATCH =
-  'https://www.youtube.com/tv#/watch?v=dQw4w9WgXcQ&list=RDdQw4w9WgXcQ';
+const USER_AGENTS = { webos: WEBOS_UA, cobalt: COBALT_UA } as const;
+/** The params the TV app loads youtube.com/tv with. */
+const TV_PARAMS =
+  'env_forceFullAnimation=1&env_enableWebSpeech=1&env_enableVoice=1';
+const DEFAULT_URL = `https://www.youtube.com/tv?${TV_PARAMS}`;
+const DEFAULT_WATCH = `https://www.youtube.com/tv?${TV_PARAMS}#/watch?v=dQw4w9WgXcQ&list=RDdQw4w9WgXcQ`;
 const LOGIN_URL = 'https://www.youtube.com/';
 const DEFAULT_PORT = 9222;
 /** Frame both sides are paused at, so screenshots and styles compare 1:1. */
 export const DEFAULT_TIME_S = 102;
 export const VIEWPORT = { width: 1920, height: 1080 } as const;
+
+// Set from --ua / --viewport in main(); module state so the CDP helpers stay argument-light.
+let activeUA: string = WEBOS_UA;
+let activeViewport: { width: number; height: number } = { ...VIEWPORT };
 const DEFAULT_TIMEOUT_S = 90;
 
 // --- Pure comparison logic (unit-tested without Chrome) ---------------------
@@ -47,7 +58,9 @@ export const STYLE_FIELDS = [
   'backgroundImage',
   'backdropFilter',
   'borderRadius',
-  'opacity'
+  'opacity',
+  'color',
+  'boxShadow'
 ] as const;
 
 export interface Style {
@@ -56,6 +69,8 @@ export interface Style {
   backdropFilter: string;
   borderRadius: string;
   opacity: string;
+  color: string;
+  boxShadow: string;
 }
 
 export interface Entry {
@@ -79,6 +94,13 @@ export const PROBE_SELECTORS = {
   titlePlate: ['ytlr-watch-metadata'],
   titleInner: ['ytlr-watch-default .LeWSF', '.LeWSF'],
   scrim: ["[idomkey='shadow']", '.ytLrWatchDefaultShadow'],
+  player: ['ytlr-player'],
+  transport: ["[idomkey='transport-controls']"],
+  timeLabel: ["[idomkey='time-label']"],
+  progressBar: ["[idomkey='progress-bar']"],
+  slider: ["[idomkey='slider']"],
+  playhead: ["[idomkey='playhead']"],
+  pivot: ["[idomkey='pivot']", 'ytlr-pivot'],
   scrim2025: ['.ytLrWatchDefault2025Shadow'],
   nowPlaying: [
     'ytlr-thumbnail-overlay-now-playing-renderer.P21kJ',
@@ -178,35 +200,6 @@ export function evaluateInvariants(snap: Snapshot): Check[] {
     });
   }
 
-  const opaque: ProbeKey[] = [
-    'pill',
-    'leftButtons',
-    'titlePlate',
-    'titleInner'
-  ];
-  for (const key of opaque) {
-    const style = styleOf(key);
-    const coverage = style
-      ? classifyCoverage(style.backgroundColor, style.opacity)
-      : null;
-    checks.push({
-      name: `${key} opaque`,
-      pass: coverage === 'opaque',
-      detail: style
-        ? `${style.backgroundColor}, opacity ${style.opacity} (${coverage})`
-        : 'element missing'
-    });
-  }
-
-  const np = styleOf('nowPlaying');
-  const npCoverage = np
-    ? classifyCoverage(np.backgroundColor, np.opacity)
-    : null;
-  checks.push({
-    name: 'nowPlaying (.P21kJ) transparent',
-    pass: npCoverage === 'transparent',
-    detail: np ? `${np.backgroundColor} (${npCoverage})` : 'element missing'
-  });
   checks.push({
     name: 'now-playing tile image present',
     pass: Boolean(snap.tileImageUrl),
@@ -274,7 +267,9 @@ const PROBE_FN = `(selectors) => {
       backgroundImage: cs.backgroundImage,
       backdropFilter: cs.backdropFilter || cs.webkitBackdropFilter || 'none',
       borderRadius: cs.borderRadius,
-      opacity: cs.opacity
+      opacity: cs.opacity,
+      color: cs.color,
+      boxShadow: cs.boxShadow
     };
   };
   const entries = {};
@@ -355,7 +350,7 @@ function launchChrome(opts: {
     `--user-data-dir=${opts.profile}`,
     ...(opts.userAgent ? [`--user-agent=${opts.userAgent}`] : []),
     `--app=${opts.url}`,
-    `--window-size=${VIEWPORT.width},${VIEWPORT.height}`,
+    `--window-size=${activeViewport.width},${activeViewport.height}`,
     '--window-position=0,0',
     '--autoplay-policy=no-user-gesture-required',
     '--no-first-run',
@@ -437,7 +432,7 @@ async function ensureTvLayout(
     // Fall through to the user-agent override retry.
   }
   await session.send('Network.enable');
-  await session.send('Network.setUserAgentOverride', { userAgent: TV_UA });
+  await session.send('Network.setUserAgentOverride', { userAgent: activeUA });
   await session.send('Page.reload');
   try {
     await waitFor('ytlr-app', timeoutMs, appUp, notice);
@@ -495,19 +490,6 @@ export async function showControls(
     return false;
   });
 }
-
-/** Mirror applyUIFixes(): the app strips .app-quality-root, so the TV never shows its translucent plates. */
-const STRIP_QUALITY_ROOT = `(() => {
-  const cl = document.body.classList;
-  cl.remove('app-quality-root');
-  new MutationObserver(() => {
-    // remove() on an absent class still mutates; guard like the app does.
-    if (cl.contains('app-quality-root')) cl.remove('app-quality-root');
-  }).observe(document.body, {
-    attributes: true,
-    attributeFilter: ['class']
-  });
-})()`;
 
 export interface Frame {
   requestedS: number;
@@ -581,12 +563,11 @@ async function probe(
     timeoutMs: number;
     out: string;
     timeS: number;
-    keepQualityRoot: boolean;
   }
 ): Promise<{ snapshot: Snapshot; info: Record<string, unknown> }> {
   await session.send('Page.bringToFront');
   await session.send('Emulation.setDeviceMetricsOverride', {
-    ...VIEWPORT,
+    ...activeViewport,
     deviceScaleFactor: 1,
     mobile: false
   });
@@ -597,7 +578,6 @@ async function probe(
   await ensureTvLayout(session, opts.timeoutMs);
 
   const started = Date.now();
-  if (!opts.keepQualityRoot) await session.evaluate(STRIP_QUALITY_ROOT);
   const frame = await seekAndPause(session, opts.timeS, opts.timeoutMs);
   try {
     await showControls(session, opts.timeoutMs, (key, code) =>
@@ -672,7 +652,9 @@ const HELP = `usage: node tools/compare-chrome.ts [options]
   --tv <file>      optional TV snapshot JSON to report soft DIFFs against
   --attach         attach to Chrome already listening on --port
   --login          open the profile with the desktop UA to sign in, then wait for you to close it
-  --keep-quality-root  do not strip .app-quality-root (the app strips it; default mirrors that)
+  --ua <webos|cobalt>  user agent (default webos: the TV's own, so YouTube serves the same build; cobalt: PS4 reference build)
+  --viewport <WxH> emulated viewport (default 1920x1080; use 1280x720 against the hd build)
+  --eval <file>    evaluate this JS file in the probed page and print the result
   --keep-open      leave Chrome running after the probe
   --timeout <sec>  per-step timeout (default ${DEFAULT_TIMEOUT_S})
   --help`;
@@ -690,8 +672,10 @@ async function main(): Promise<void> {
       tv: { type: 'string' },
       attach: { type: 'boolean', default: false },
       login: { type: 'boolean', default: false },
+      ua: { type: 'string', default: 'webos' },
+      eval: { type: 'string' },
+      viewport: { type: 'string' },
       'keep-open': { type: 'boolean', default: false },
-      'keep-quality-root': { type: 'boolean', default: false },
       timeout: { type: 'string', default: String(DEFAULT_TIMEOUT_S) },
       help: { type: 'boolean', default: false }
     }
@@ -699,6 +683,15 @@ async function main(): Promise<void> {
   if (values.help) {
     console.log(HELP);
     return;
+  }
+  if (values.ua !== 'webos' && values.ua !== 'cobalt') {
+    throw new HarnessError('--ua must be webos or cobalt');
+  }
+  activeUA = USER_AGENTS[values.ua];
+  if (values.viewport) {
+    const m = /^(\d+)x(\d+)$/.exec(values.viewport);
+    if (!m) throw new HarnessError('--viewport must look like 1280x720');
+    activeViewport = { width: Number(m[1]), height: Number(m[2]) };
   }
   const port = Number(values.port);
   const timeoutMs = Number(values.timeout) * 1000;
@@ -730,7 +723,7 @@ async function main(): Promise<void> {
       port,
       profile,
       url,
-      ...(values.login ? {} : { userAgent: TV_UA })
+      ...(values.login ? {} : { userAgent: activeUA })
     });
   } else if (!(await portAnswers(port))) {
     throw new HarnessError(`--attach: nothing is listening on port ${port}`);
@@ -755,10 +748,16 @@ async function main(): Promise<void> {
       watch: values.watch,
       timeoutMs,
       out,
-      timeS,
-      keepQualityRoot: values['keep-quality-root']
+      timeS
     });
     await assertSelectors(session, snapshot);
+    if (values.eval) {
+      // Same page state as the probe (paused frame, bar up): for ad-hoc cascade inspection.
+      const result = await session.evaluate(
+        await readFile(values.eval, 'utf8')
+      );
+      console.log(JSON.stringify(result, null, 2));
+    }
 
     const tvSnap = values.tv
       ? (JSON.parse(await readFile(values.tv, 'utf8')) as {
@@ -773,10 +772,9 @@ async function main(): Promise<void> {
       JSON.stringify(
         {
           uri: url,
-          userAgent: TV_UA,
-          viewport: VIEWPORT,
+          userAgent: activeUA,
+          viewport: activeViewport,
           timeS,
-          keepQualityRoot: values['keep-quality-root'],
           snapshot,
           checks,
           diffs,

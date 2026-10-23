@@ -1,6 +1,6 @@
 {
   "name": "youtube-extended",
-  "version": "1.0.0",
+  "version": "1.0.37",
   "description": "Extended YouTube app for webOS",
   "type": "module",
   "private": true,
@@ -11,6 +11,8 @@
     "package:hd": "npm run build:hd && npm run package",
     "deploy": "node tools/deploy.ts",
     "deploy:hd": "node tools/deploy.ts --resolution 1280x720",
+    "deploy:webos": "node tools/deploy.ts --ua webos",
+    "deploy:hd:webos": "node tools/deploy.ts --resolution 1280x720 --ua webos",
     "launch": "ares-launch youtube.leanback.v4",
     "inspect": "node tools/inspect.ts",
     "drive": "node tools/drive.ts",

@@ -1,6 +1,7 @@
 import { spawnSync } from 'node:child_process';
 import { normalize } from 'node:path';
 import appinfo from '../assets/appinfo.json' with { type: 'json' };
+import { resolveUaMode } from './app-ua.ts';
 import { getVersion } from './version.ts';
 
 /** Build, package, install and launch in one go. webOS canvas: 1920x1080 (default) or 1280x720 (opt-in). */
@@ -18,9 +19,26 @@ function parseResolution(argv: string[]): string | undefined {
   return undefined;
 }
 
+/** Parse `--ua <mode>` or `--ua=<mode>`. */
+function parseUa(argv: string[]): string | undefined {
+  for (const [i, arg] of argv.entries()) {
+    if (arg === '--ua') return argv[i + 1];
+    if (arg.startsWith('--ua=')) return arg.slice('--ua='.length);
+  }
+  return undefined;
+}
+
 const argv = process.argv.slice(2);
 const resolution =
   parseResolution(argv) ?? process.env['YTX_RESOLUTION'] ?? DEFAULT_RESOLUTION;
+
+let ua: string;
+try {
+  ua = resolveUaMode(parseUa(argv) ?? process.env['YTX_UA']);
+} catch (error) {
+  console.error(`deploy: ${(error as Error).message}`);
+  process.exit(1);
+}
 
 if (!APP_RESOLUTIONS.includes(resolution)) {
   console.error(
@@ -64,7 +82,9 @@ const ipk = `./${appinfo.id}_${getVersion()}_all.ipk`;
 run('build', 'webpack', [
   '--mode=production',
   '--env',
-  `resolution=${resolution}`
+  `resolution=${resolution}`,
+  '--env',
+  `ua=${ua}`
 ]);
 run('package', 'ares-package', ['-n', 'dist']);
 run('install', 'ares-install', [normalize(ipk)]);

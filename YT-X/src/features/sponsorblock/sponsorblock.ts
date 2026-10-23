@@ -14,15 +14,17 @@ import { setSponsorBlockPanelSync, showNotification } from '../../ui/ui';
 import { NOTIFICATIONS } from '../../config/ui-text';
 import sponsorBlockUI from './sponsorblock-ui';
 import { fetchJsonWithTimeout } from '../../youtube/hooks/fetch-timeout';
-import { isArray, isRecord } from '../../youtube/json';
-
-/** A well-formed API segment: a category and a numeric [start, end] in seconds. */
-interface Segment {
-  category: string;
-  segment: readonly [number, number];
-  actionType: string | undefined;
-  UUID: string | undefined;
-}
+import {
+  backoffDelay,
+  nextHighlightStart,
+  pickSegment,
+  REFRESH_POPULATED_MS,
+  segmentsFor,
+  segmentsSignature,
+  skipTarget,
+  TERMINAL_TOLERANCE_S,
+  type Segment
+} from './segments';
 
 interface MuteSegment {
   start: number;
@@ -39,71 +41,17 @@ const FETCH_CATEGORIES = encodeURIComponent(
 );
 
 // Both action types, so a `mute` segment can be muted rather than skipped.
-const FETCH_ACTION_TYPES = encodeURIComponent(JSON.stringify(['skip', 'mute']));
+// `poi` is separate: highlights (`poi_highlight`) are points, not skip ranges.
+const FETCH_ACTION_TYPES = encodeURIComponent(
+  JSON.stringify(['skip', 'mute', 'poi'])
+);
 
 // Waits before re-asking when both servers failed; an empty answer ends the retries.
 const RETRY_DELAYS = [2000, 4000];
 
-/** Periodic re-check while a video plays: 15-minute interval with segments, 5/10/20/30-minute back-off while empty or failing; a pause-time check runs on resume. */
-const MINUTE_MS = 60 * 1000;
-const REFRESH_POPULATED_MS = 15 * MINUTE_MS;
-const REFRESH_BACKOFF_MS = [5, 10, 20, 30].map((m) => m * MINUTE_MS);
-
-/** The back-off delay after `checks` consecutive empty or failed checks. */
-function backoffDelay(checks: number): number {
-  const index = Math.min(Math.max(1, checks), REFRESH_BACKOFF_MS.length) - 1;
-  return REFRESH_BACKOFF_MS[index] ?? REFRESH_POPULATED_MS;
-}
+const HIGHLIGHT = 'poi_highlight';
 
 const SEGMENT_CATEGORY_KEYS = SEGMENT_CATEGORIES.map((c) => c.configKey);
-
-// Fixed palette shared with the popup (sponsorblock-ui.ts) so the overlay and popup agree.
-function getSegmentColor(category: string): string {
-  return categoryInfo(category)?.color || '#0072ff';
-}
-
-/** Order-independent identity of a segment list, to tell a real change from a re-send. */
-function segmentsSignature(segments: readonly Segment[]): string {
-  return segments
-    .map(
-      (s) =>
-        s.UUID ||
-        `${s.category}:${s.actionType}:${s.segment[0]}:${s.segment[1]}`
-    )
-    .sort()
-    .join('|');
-}
-
-/** Validates one API entry (a real category and a numeric [start, end]); null for a malformed one. */
-function toSegment(entry: unknown): Segment | null {
-  if (!isRecord(entry)) return null;
-  const { category, segment, actionType, UUID } = entry;
-  if (typeof category !== 'string' || !isArray(segment)) return null;
-  const [start, end] = segment;
-  if (typeof start !== 'number' || typeof end !== 'number') return null;
-  return {
-    category,
-    segment: [start, end],
-    actionType: typeof actionType === 'string' ? actionType : undefined,
-    UUID: typeof UUID === 'string' ? UUID : undefined
-  };
-}
-
-/** The sorted, well-formed segments for `videoID` in an API answer (the hash-prefix answer lists several videos). */
-function segmentsFor(data: unknown, videoID: string): Segment[] {
-  const videoData = isArray(data)
-    ? data.find((x) => isRecord(x) && x['videoID'] === videoID)
-    : data;
-  const raw = isRecord(videoData) ? videoData['segments'] : undefined;
-  if (!isArray(raw)) return [];
-
-  const segments: Segment[] = [];
-  for (const entry of raw) {
-    const segment = toSegment(entry);
-    if (segment) segments.push(segment);
-  }
-  return segments.sort((a, b) => a.segment[0] - b.segment[0]);
-}
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -117,15 +65,9 @@ class SponsorBlockHandler {
   attachVideoTimeout: Timer | null = null;
   nextSkipTimeout: Timer | null = null;
 
-  slider: Element | null = null;
-  sliderInterval: ReturnType<typeof setInterval> | null = null;
-  sliderObserver: MutationObserver | null = null;
-  sliderSegmentsOverlay: HTMLDivElement | null = null;
-
   scheduleSkipHandler = (): void => this.scheduleSkip();
-  // A duration is often unknown or short at init, so re-run the whole overlay build on durationchange.
-  durationChangeHandler = (): void => this.buildOverlay();
   playingHandler = (): void => {
+    this.jumpToHighlight();
     if (this.refreshPending) void this.refreshSegments();
     sponsorBlockUI.scheduleAutoShow();
   };
@@ -135,6 +77,13 @@ class SponsorBlockHandler {
     }
   };
   seekedHandler = (): void => this.checkMutedSegment();
+  endedHandler = (): void => this.leaveMutedSegment();
+  // A viewer unmuting inside a mute segment is theirs to keep: leaving the segment must not re-mute.
+  volumeChangeHandler = (): void => {
+    if (this.mutedSegment && this.video && !this.video.muted) {
+      this.viewerUnmuted = true;
+    }
+  };
 
   segments: Segment[] | null = null;
   skippableSegments: Segment[] = [];
@@ -142,7 +91,11 @@ class SponsorBlockHandler {
   muteSegments: MuteSegment[] = [];
   mutedSegment: MuteSegment | null = null;
   mutedBefore = false;
+  viewerUnmuted = false;
+  highlightDone = false;
   segmentsSig = '';
+  /** Starts of terminal segments already handled; they must not re-trigger the end-of-video loop. */
+  terminalHandled = new Set<number>();
 
   refreshTimer: Timer | null = null;
   refreshPending = false;
@@ -195,10 +148,16 @@ class SponsorBlockHandler {
     }
 
     this.rebuildSegments();
-    sponsorBlockUI.updateSegments(segments);
+    sponsorBlockUI.updateSegments(this.popupSegments(segments));
     sponsorBlockUI.scheduleAutoShow();
-    this.buildOverlay();
+    if (this.video && !this.video.paused) this.jumpToHighlight();
     this.scheduleRefresh();
+  }
+
+  /** The popup follows the enabled categories; a disabled highlight must not auto-show it. */
+  popupSegments(segments: readonly Segment[]): Segment[] {
+    if (this.skippableCategories.includes(HIGHLIGHT)) return [...segments];
+    return segments.filter((seg) => seg.category !== HIGHLIGHT);
   }
 
   /** Fetches the segment list: official server first, community mirror only when it fails; null when both failed (an empty list is a valid answer). The answer is untrusted JSON, read through segmentsFor(). */
@@ -263,6 +222,7 @@ class SponsorBlockHandler {
     this.skippableSegments = (this.segments || []).filter(
       (seg) =>
         seg.actionType !== 'mute' &&
+        seg.category !== HIGHLIGHT &&
         this.skippableCategories.includes(seg.category)
     );
     this.rebuildMuteSegments();
@@ -273,7 +233,7 @@ class SponsorBlockHandler {
     const list: MuteSegment[] = [];
     if (configRead('enableMutedSegments')) {
       for (const seg of this.segments || []) {
-        if (seg.actionType !== 'mute' || seg.category === 'poi_highlight') {
+        if (seg.actionType !== 'mute' || seg.category === HIGHLIGHT) {
           continue;
         }
         if (!this.skippableCategories.includes(seg.category)) continue;
@@ -308,7 +268,10 @@ class SponsorBlockHandler {
       return;
     }
     if (this.mutedSegment === current) return;
-    if (!this.mutedSegment) this.mutedBefore = video.muted;
+    if (!this.mutedSegment) {
+      this.mutedBefore = video.muted;
+      this.viewerUnmuted = false;
+    }
     this.mutedSegment = current;
     video.muted = true;
     const name = current.name;
@@ -320,7 +283,9 @@ class SponsorBlockHandler {
   leaveMutedSegment(): void {
     if (!this.mutedSegment) return;
     this.mutedSegment = null;
-    if (this.video) this.video.muted = this.mutedBefore;
+    if (this.video && !this.viewerUnmuted) {
+      this.video.muted = this.mutedBefore;
+    }
   }
 
   /** Listens for a config change until destroy(). */
@@ -361,116 +326,39 @@ class SponsorBlockHandler {
     video.addEventListener('play', this.scheduleSkipHandler);
     video.addEventListener('pause', this.scheduleSkipHandler);
     video.addEventListener('timeupdate', this.scheduleSkipHandler);
-    video.addEventListener('durationchange', this.durationChangeHandler);
     video.addEventListener('playing', this.playingHandler);
     video.addEventListener('timeupdate', this.muteCheckHandler);
     video.addEventListener('seeked', this.seekedHandler);
+    video.addEventListener('volumechange', this.volumeChangeHandler);
+    video.addEventListener('ended', this.endedHandler);
+    if (!video.paused) this.jumpToHighlight();
   }
 
-  buildOverlay(): void {
-    if (!this.video || !this.video.duration) {
-      return;
+  /** Once per video, when playback starts or the segment list arrives: seeks to the first enabled highlight still ahead. A highlight is a point, not a range, so this is a seek to its start rather than a skip. */
+  jumpToHighlight(): void {
+    const video = this.video;
+    if (this.highlightDone || !video || this.isDestroyed) return;
+    if (!this.skippableCategories.includes(HIGHLIGHT)) return;
+    const start = nextHighlightStart(this.segments || [], video.currentTime);
+    if (start === null) return;
+    this.highlightDone = true;
+    showNotification(
+      NOTIFICATIONS.skipping(categoryInfo(HIGHLIGHT)?.skipName || HIGHLIGHT)
+    );
+    video.currentTime = start;
+  }
+
+  /** Starts the picker must ignore: skip-once entries and terminal segments already handled. */
+  excludedStarts(): ReadonlySet<number> | null {
+    const skipOnce = configRead('skipSegmentsOnce');
+    if (!skipOnce && this.terminalHandled.size === 0) return null;
+
+    const excluded = new Set<number>();
+    if (skipOnce) {
+      for (const start of this.skippedSegmentStarts) excluded.add(start);
     }
-
-    if (!this.sliderSegmentsOverlay) {
-      this.sliderSegmentsOverlay = document.createElement('div');
-      this.sliderSegmentsOverlay.className =
-        'ytx-sponsorblock-segment-container';
-    }
-
-    this.drawSegments();
-
-    if (!this.sliderObserver) this.startSliderWatch();
-  }
-
-  /** Redraws the overlay marks; called again on durationchange so a duration reported short early is undone once the real one arrives. */
-  drawSegments(): void {
-    const overlay = this.sliderSegmentsOverlay;
-    if (!overlay) return;
-    overlay.textContent = '';
-    const videoDuration = this.video && this.video.duration;
-    if (!videoDuration) return;
-
-    (this.segments || []).forEach((segment) => {
-      const [start, end] = segment.segment;
-      const elm = document.createElement('div');
-      elm.className = 'ytx-sponsorblock-segment';
-      elm.style.backgroundColor = getSegmentColor(segment.category);
-      elm.style.left = `${(start / videoDuration) * 100.0}%`;
-      elm.style.width = `${((end - start) / videoDuration) * 100.0}%`;
-      overlay.appendChild(elm);
-    });
-  }
-
-  startSliderWatch(): void {
-    const addSliderOverlay = () => {
-      if (this.slider && this.sliderSegmentsOverlay) {
-        this.slider.appendChild(this.sliderSegmentsOverlay);
-      }
-    };
-
-    const watchForSlider = () => {
-      if (this.sliderInterval) clearInterval(this.sliderInterval);
-
-      this.sliderInterval = setInterval(() => {
-        const nodes = document.querySelectorAll('[idomkey=progress-bar]');
-        const last = nodes[nodes.length - 1];
-        if (!last) return; // no slider found yet
-        switch (nodes.length) {
-          case 3: {
-            // Slider has chapter markers.
-            this.slider = last;
-            break;
-          }
-          case 2: {
-            // Slider has no markers or auto-markers
-            this.slider = last.querySelector('[idomkey=slider]');
-            break;
-          }
-          default: {
-            return; // no slider found yet
-          }
-        }
-
-        if (this.sliderInterval) clearInterval(this.sliderInterval);
-        this.sliderInterval = null;
-        observer.observe(last, {
-          childList: true,
-          subtree: true
-        });
-        addSliderOverlay();
-      }, 100);
-    };
-
-    const observer = new MutationObserver((mutations) => {
-      mutations.forEach((m) => {
-        if (m.removedNodes) {
-          for (const node of m.removedNodes) {
-            if (node === this.sliderSegmentsOverlay) {
-              addSliderOverlay();
-            }
-            if (node === this.slider) {
-              observer.disconnect();
-              watchForSlider();
-            }
-          }
-        }
-      });
-    });
-    this.sliderObserver = observer;
-
-    watchForSlider();
-  }
-
-  /** The enabled, not-yet-skipped segment the playhead is in or next to reach; null when nothing is ahead, so a segment behind is never re-skipped. */
-  pickSegment(currentTime: number): Segment | null {
-    const once = configRead('skipSegmentsOnce');
-    for (const seg of this.skippableSegments) {
-      if (seg.segment[1] <= currentTime + 0.05) continue;
-      if (once && this.skippedSegmentStarts.has(seg.segment[0])) continue;
-      return seg;
-    }
-    return null;
+    for (const start of this.terminalHandled) excluded.add(start);
+    return excluded;
   }
 
   scheduleSkip(): void {
@@ -486,7 +374,11 @@ class SponsorBlockHandler {
     }
 
     const currentTime = video.currentTime;
-    const segment = this.pickSegment(currentTime);
+    const segment = pickSegment(
+      this.skippableSegments,
+      currentTime,
+      this.excludedStarts()
+    );
 
     if (!segment) {
       if (this.nextSkipTimeout) {
@@ -499,7 +391,9 @@ class SponsorBlockHandler {
 
     const [start, end] = segment.segment;
     // May be negative when the playhead is already inside the segment (a seek landed in one); the timeout then fires immediately.
-    const skipDelay = (start - currentTime) * 1000;
+    // Scaled by playbackRate: media time passes that much faster (or slower) than the timer.
+    const rate = video.playbackRate > 0 ? video.playbackRate : 1;
+    const skipDelay = ((start - currentTime) * 1000) / rate;
 
     // timeupdate fires frequently; skip re-arming the timer when the same
     // segment is still scheduled within a small tolerance.
@@ -522,16 +416,33 @@ class SponsorBlockHandler {
         return;
       }
 
-      if (video.currentTime >= end - 0.05) {
+      const target = skipTarget(end, video.duration, video.currentTime);
+      const terminal =
+        Number.isFinite(video.duration) &&
+        video.duration > 0 &&
+        end >= video.duration - TERMINAL_TOLERANCE_S;
+
+      // Buffering or a rate change can leave the playhead short of the start,
+      // inside the natural-end tail, or past the end: re-evaluate instead of
+      // jumping. A terminal segment is marked handled so it cannot loop.
+      if (
+        target === null ||
+        video.currentTime < start - 0.05 ||
+        video.currentTime >= target - 0.05
+      ) {
+        if (terminal) this.terminalHandled.add(start);
+        this.nextSkipTimeout = null;
+        this.lastScheduled = null;
         this.scheduleSkip();
         return;
       }
 
       this.skippedSegmentStarts.add(start);
+      if (terminal) this.terminalHandled.add(start);
       const skipName =
         categoryInfo(segment.category)?.skipName || segment.category;
       showNotification(NOTIFICATIONS.skipping(skipName));
-      video.currentTime = end;
+      video.currentTime = target;
       this.scheduleSkip();
     }, skipDelay);
   }
@@ -611,16 +522,15 @@ class SponsorBlockHandler {
 
     this.segments = segments;
     this.segmentsSig = sig;
+    this.terminalHandled.clear();
     this.rebuildSegments();
-    sponsorBlockUI.updateSegments(segments);
+    sponsorBlockUI.updateSegments(this.popupSegments(segments));
     sponsorBlockUI.scheduleAutoShow();
-
-    if (!this.sliderObserver) this.buildOverlay();
-    else this.drawSegments();
 
     if (added > 0) {
       showNotification(NOTIFICATIONS.sponsorNew(added));
     }
+    if (this.video && !this.video.paused) this.jumpToHighlight();
     this.scheduleSkip();
   }
 
@@ -646,21 +556,6 @@ class SponsorBlockHandler {
 
     this.lastScheduled = null;
 
-    if (this.sliderInterval) {
-      clearInterval(this.sliderInterval);
-      this.sliderInterval = null;
-    }
-
-    if (this.sliderObserver) {
-      this.sliderObserver.disconnect();
-      this.sliderObserver = null;
-    }
-
-    if (this.sliderSegmentsOverlay) {
-      this.sliderSegmentsOverlay.remove();
-      this.sliderSegmentsOverlay = null;
-    }
-
     this.leaveMutedSegment();
     this.muteSegments = [];
     this.skippableSegments = [];
@@ -674,13 +569,11 @@ class SponsorBlockHandler {
       this.video.removeEventListener('play', this.scheduleSkipHandler);
       this.video.removeEventListener('pause', this.scheduleSkipHandler);
       this.video.removeEventListener('timeupdate', this.scheduleSkipHandler);
-      this.video.removeEventListener(
-        'durationchange',
-        this.durationChangeHandler
-      );
       this.video.removeEventListener('playing', this.playingHandler);
       this.video.removeEventListener('timeupdate', this.muteCheckHandler);
       this.video.removeEventListener('seeked', this.seekedHandler);
+      this.video.removeEventListener('volumechange', this.volumeChangeHandler);
+      this.video.removeEventListener('ended', this.endedHandler);
     }
   }
 }
@@ -704,30 +597,31 @@ function uninitializeSponsorblock(): void {
   window.sponsorblock = null;
 }
 
-window.addEventListener(
-  'hashchange',
-  () => {
-    const newURL = new URL(location.hash.substring(1), location.href);
-    // Detach on non-/watch paths so SponsorBlock does not attach to the home page's playback preview video.
-    if (newURL.pathname !== '/watch' && window.sponsorblock) {
-      uninitializeSponsorblock();
-      return;
+function syncForCurrentRoute(): void {
+  const newURL = new URL(location.hash.substring(1), location.href);
+  // Detach on non-/watch paths so SponsorBlock does not attach to the home page's playback preview video.
+  if (newURL.pathname !== '/watch' && window.sponsorblock) {
+    uninitializeSponsorblock();
+    return;
+  }
+
+  const videoID = newURL.searchParams.get('v');
+  const needsReload =
+    videoID &&
+    (!window.sponsorblock || window.sponsorblock.videoID !== videoID);
+
+  if (needsReload) {
+    uninitializeSponsorblock();
+
+    if (configRead('enableSponsorBlock')) {
+      const handler = new SponsorBlockHandler(videoID);
+      window.sponsorblock = handler;
+      void handler.init();
     }
+  }
+}
 
-    const videoID = newURL.searchParams.get('v');
-    const needsReload =
-      videoID &&
-      (!window.sponsorblock || window.sponsorblock.videoID != videoID);
+window.addEventListener('hashchange', syncForCurrentRoute, false);
 
-    if (needsReload) {
-      uninitializeSponsorblock();
-
-      if (configRead('enableSponsorBlock')) {
-        const handler = new SponsorBlockHandler(videoID);
-        window.sponsorblock = handler;
-        void handler.init();
-      }
-    }
-  },
-  false
-);
+// A cold start can land directly on #/watch, where no hashchange follows.
+syncForCurrentRoute();

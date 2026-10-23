@@ -2,6 +2,7 @@
    before the duration, which already carries SponsorBlock's "time with skips". */
 [idomkey='time-label'] [idomkey='duration']::before {
   margin-right: 0.6em;
-  opacity: 0.75;
+  color: #aaaaaa;
+  opacity: 1;
   white-space: nowrap;
 }

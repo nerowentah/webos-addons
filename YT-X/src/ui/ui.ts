@@ -11,7 +11,6 @@ import { showOptionsPanel } from './panel-controller';
 import { initPanelCare } from './panel-care';
 import { initPanelKeys } from './panel-keys';
 import { panelState, setSponsorBlockPanelSync } from './panel-state';
-import { applyUIFixes } from './ui-fixes';
 
 export { showNotification } from './notifications';
 export { setSponsorBlockPanelSync };
@@ -21,8 +20,6 @@ initPanelKeys();
 initBadge(() => showOptionsPanel(!panelState.visible));
 
 initPanelCare();
-
-applyUIFixes();
 
 // --ytx-ui-scale is owned by tv-specs but measured here (the site's stylesheets
 // are only present in-page), so it re-runs on every specs change and the panel's density relayout rides along.
