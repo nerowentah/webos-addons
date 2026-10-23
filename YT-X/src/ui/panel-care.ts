@@ -47,7 +47,6 @@ export function applyPanelCareMode(mode: PanelCareMode): void {
   setNotificationPanelCare(resolvedPanelCareMode);
 
   document.documentElement.classList.toggle('oled-theme-active', isOled);
-  document.documentElement.classList.toggle('qned-theme-active', isQned);
 }
 
 /** Applies the toggles and the care mode now, and keeps them in sync. */

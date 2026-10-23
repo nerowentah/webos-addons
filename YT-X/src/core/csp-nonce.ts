@@ -20,9 +20,7 @@ function candidateNonce(candidate: NonceCandidate): string {
  * guaranteed to satisfy `style-src`; the any-element fallback is best-effort
  * because a script nonce may be under a different directive.
  */
-export function selectNonce(
-  candidates: readonly NonceCandidate[]
-): string {
+export function selectNonce(candidates: readonly NonceCandidate[]): string {
   for (const candidate of candidates) {
     if (candidate.tagName !== 'style' && candidate.tagName !== 'link') continue;
     const nonce = candidateNonce(candidate);

@@ -40,13 +40,17 @@ function findParts(): Parts | null {
 }
 
 /** The video duration, with the same fallbacks as the skip logic: media, player response, segment end. */
-function getDuration(video: HTMLVideoElement, segments: readonly Segment[]): number {
+function getDuration(
+  video: HTMLVideoElement,
+  segments: readonly Segment[]
+): number {
   if (Number.isFinite(video.duration) && video.duration > 0) {
     return video.duration;
   }
 
-  const response = (window as Window & { ytInitialPlayerResponse?: InitialPlayerResponse })
-    .ytInitialPlayerResponse;
+  const response = (
+    window as Window & { ytInitialPlayerResponse?: InitialPlayerResponse }
+  ).ytInitialPlayerResponse;
   const length = Number(response?.videoDetails?.lengthSeconds);
   if (Number.isFinite(length) && length > 0) return length;
 
@@ -204,7 +208,10 @@ export default class SegmentMarkers {
   }
 
   private isOwnNode(node: Node): boolean {
-    const el = node.nodeType === Node.ELEMENT_NODE ? (node as Element) : node.parentElement;
+    const el =
+      node.nodeType === Node.ELEMENT_NODE
+        ? (node as Element)
+        : node.parentElement;
     if (!el) return false;
     return (
       el.hasAttribute(CONTAINER_ATTR) ||
@@ -233,7 +240,9 @@ export default class SegmentMarkers {
       trackRect.top - hostRect.top,
       trackRect.width,
       trackRect.height,
-      segments.map((s) => `${s.category}:${s.segment[0]}:${s.segment[1]}`).join('|')
+      segments
+        .map((s) => `${s.category}:${s.segment[0]}:${s.segment[1]}`)
+        .join('|')
     ].join(';');
     if (key === this.lastKey && container.childElementCount > 0) return;
     this.lastKey = key;

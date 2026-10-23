@@ -91,6 +91,8 @@
   border-radius: 50%;
   flex-shrink: 0;
   margin-right: 0.6vh;
+  /* Dark category dots (outro, hook) need a 3:1 boundary on the #0f0f0f plate (WCAG 1.4.11). */
+  box-shadow: 0 0 0 1px rgb(255 255 255 / 65%);
 }
 
 .sb-segment-category {

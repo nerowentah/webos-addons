@@ -108,6 +108,7 @@ test('migrateStoredConfig drops retired keys and keeps the rest', async () => {
     showYtxButton: true,
     upgradeThumbnails: true,
     enableScrollSeek: true,
+    fixMultilineTitles: true,
     subtitleTranslateLang: 'de',
     subtitleAutoEnable: true,
     shortcut_key_red: 'x',

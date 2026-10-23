@@ -1,5 +1,5 @@
 /* Shared dark plate hue and panel alpha (panel, badge). Off and
-   QNED share the neutral translucent base; html.oled-theme-active (ui.ts)
+   QNED share the neutral translucent base; html.oled-theme-active (panel-care.ts)
    overrides both to true black. Comma form: rgba() rejects space-separated
    channels in a var().
 

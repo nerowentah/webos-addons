@@ -8,6 +8,7 @@ export const NATIVE_CAST_MARKER = 'nativeCastV1';
 
 // Retired options. configRead() throws on unknown keys, so leftover values must go.
 const RETIRED_KEYS: readonly string[] = [
+  'fixMultilineTitles', // YouTube's own plates handle titles
   'uiTheme', // Classic Red is the only theme
   'removeBlackBorders', // the Liquid Glass toggle
   'showWatch', // the on-screen clock is gone
