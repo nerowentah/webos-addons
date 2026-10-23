@@ -23,6 +23,7 @@ const def = (
 export const REMOTE_KEYS = Object.freeze({
   ENTER: def(13, 'Enter', 'Enter'),
   BACK: def(461, 'Back', ''),
+  ESCAPE: def(27, 'Escape', 'Escape'),
   LEFT: def(37, 'ArrowLeft', 'ArrowLeft'),
   UP: def(38, 'ArrowUp', 'ArrowUp'),
   RIGHT: def(39, 'ArrowRight', 'ArrowRight'),

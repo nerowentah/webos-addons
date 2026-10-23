@@ -10,12 +10,15 @@ import { initBadge } from './badge';
 import { showOptionsPanel } from './panel-controller';
 import { initPanelCare } from './panel-care';
 import { initPanelKeys } from './panel-keys';
+import { initCobaltBack } from '../core/cobalt-back';
 import { panelState, setSponsorBlockPanelSync } from './panel-state';
 
 export { showNotification } from './notifications';
 export { setSponsorBlockPanelSync };
 
 initPanelKeys();
+// After the panel's handler, so an open panel still consumes Back first.
+initCobaltBack();
 
 initBadge(() => showOptionsPanel(!panelState.visible));
 
