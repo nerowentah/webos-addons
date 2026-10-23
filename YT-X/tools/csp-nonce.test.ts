@@ -45,10 +45,7 @@ test('selectNonce falls back to any element and then an empty string', () => {
     'script-nonce'
   );
   assert.equal(
-    selectNonce([
-      { tagName: 'style', attr: '' },
-      { tagName: 'script' }
-    ]),
+    selectNonce([{ tagName: 'style', attr: '' }, { tagName: 'script' }]),
     ''
   );
   assert.equal(selectNonce([]), '');

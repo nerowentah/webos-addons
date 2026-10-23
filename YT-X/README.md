@@ -306,16 +306,16 @@ webOS builds the app's User-Agent from the template in `assets/appinfo.json`
 YouTube picks its stylesheets from that UA before any userscript runs, so it can
 only be chosen at build time, not from the settings panel:
 
-| `--ua`             | UA                                         | Playback plates                                                              |
-| ------------------ | ------------------------------------------ | ---------------------------------------------------------------------------- |
-| `cobalt` (default) | PS4 Cobalt UA plus the same LG device tail | YouTube's Cobalt variant: transparent title card and tray, translucent pills |
-| `webos`            | the template in `appinfo.json`             | YouTube's LG variant: opaque black title card and tray                       |
+| `--ua`            | UA                                         | Playback plates                                                              |
+| ----------------- | ------------------------------------------ | ---------------------------------------------------------------------------- |
+| `cobalt` (opt-in) | PS4 Cobalt UA plus the same LG device tail | YouTube's Cobalt variant: transparent title card and tray, translucent pills |
+| `webos` (default) | the template in `appinfo.json`             | YouTube's LG variant: opaque black title card and tray                       |
 
 ```sh
-npm run deploy:webos       # or: npm run deploy:hd:webos, or YTX_UA=webos npm run deploy
+npm run deploy:cobalt       # or: npm run deploy:hd:cobalt, npm run build:cobalt, or YTX_UA=cobalt npm run deploy
 ```
 
-Builds default to `cobalt` (including `npm run build`, `package` and `deploy`); `--ua webos` or `YTX_UA=webos` selects the template UA. `cobalt` is experimental: its pages carry a stricter CSP, so YT-X stamps its styles with the page's style nonce. On a 65QNED86 (webOS 25) it played 3840-wide video with
+Builds default to `webos` (including `npm run build`, `package` and `deploy`, and so the released package); `--ua cobalt` or `YTX_UA=cobalt` selects the Cobalt UA. `cobalt` is experimental: its pages carry a stricter CSP, so YT-X stamps its styles with the page's style nonce. On a 65QNED86 (webOS 25) it played 3840-wide video with
 YT-X active; other models and remote or pointer behaviour are untested. The
 platform default UA (`Web0S; Linux/SmartTV ... WebAppManager`) still gets the LG
 variant, so it is not offered.

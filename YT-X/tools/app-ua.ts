@@ -12,7 +12,7 @@ const COBALT_UA =
 /** `cobalt` replaces the template in assets/appinfo.json; `webos` keeps it. */
 export const UA_MODES = ['cobalt', 'webos'] as const;
 export type UaMode = (typeof UA_MODES)[number];
-export const DEFAULT_UA_MODE: UaMode = 'cobalt';
+export const DEFAULT_UA_MODE: UaMode = 'webos';
 
 export function resolveUaMode(requested: string | undefined): UaMode {
   if (requested === undefined) return DEFAULT_UA_MODE;

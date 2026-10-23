@@ -8,10 +8,20 @@ import { getVersion } from './version.ts';
 const APP_RESOLUTIONS = ['1920x1080', '1280x720'];
 const DEFAULT_RESOLUTION = '1920x1080';
 
+/** The value after a bare flag; a missing one is an error rather than a silent default. */
+function flagValue(argv: string[], i: number, flag: string): string {
+  const value = argv[i + 1];
+  if (value === undefined || value.startsWith('--')) {
+    console.error(`deploy: ${flag} needs a value`);
+    process.exit(1);
+  }
+  return value;
+}
+
 /** Parse `--resolution <value>` or `--resolution=<value>`. */
 function parseResolution(argv: string[]): string | undefined {
   for (const [i, arg] of argv.entries()) {
-    if (arg === '--resolution') return argv[i + 1];
+    if (arg === '--resolution') return flagValue(argv, i, arg);
     if (arg.startsWith('--resolution=')) {
       return arg.slice('--resolution='.length);
     }
@@ -22,7 +32,7 @@ function parseResolution(argv: string[]): string | undefined {
 /** Parse `--ua <mode>` or `--ua=<mode>`. */
 function parseUa(argv: string[]): string | undefined {
   for (const [i, arg] of argv.entries()) {
-    if (arg === '--ua') return argv[i + 1];
+    if (arg === '--ua') return flagValue(argv, i, arg);
     if (arg.startsWith('--ua=')) return arg.slice('--ua='.length);
   }
   return undefined;

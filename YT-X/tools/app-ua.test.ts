@@ -9,8 +9,8 @@ const TEMPLATE = '$browserName$/$browserVersion$ (webos template)';
 
 const appInfo = () => ({ vendorExtension: { userAgent: TEMPLATE } });
 
-test('resolveUaMode defaults to cobalt and rejects unknown modes', () => {
-  assert.equal(resolveUaMode(undefined), 'cobalt');
+test('resolveUaMode defaults to webos and rejects unknown modes', () => {
+  assert.equal(resolveUaMode(undefined), 'webos');
   assert.equal(resolveUaMode('webos'), 'webos');
   assert.throws(() => resolveUaMode('ps4'), /--ua must be one of/);
 });

@@ -31,7 +31,7 @@ import {
 /** The UA the TV app sends: YouTube serves the LG webOS build (its own CSS/JS) to it, so it is the like-for-like reference. */
 const WEBOS_UA =
   'LG Browser/8.00.00 (webOS.TV-2025), _TV_O18/33.31.75 (LG, 65QNED86ASA.ATSFLJD, wireless)';
-/** The PS4 Cobalt UA serves a different build; kept as a cross-build reference. */
+/** The PS4 Cobalt UA serves a different build; kept as a cross-build reference. It omits the LG device tail that app-ua.ts adds, since a browser probe has no webOS template variables to fill. */
 const COBALT_UA =
   'Mozilla/5.0 (PS4; Leanback Shell) Cobalt/24.lts.13.1032728-gold v8/8.8.278.8-jit gles Starboard/14';
 const USER_AGENTS = { webos: WEBOS_UA, cobalt: COBALT_UA } as const;

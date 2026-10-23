@@ -202,10 +202,7 @@ test('markerFrame maps segment times onto the track and host', () => {
   // Unknown duration or a collapsed track cannot place a marker.
   assert.equal(markerFrame(track, host, 0, [1, 2]), null);
   assert.equal(markerFrame(track, host, NaN, [1, 2]), null);
-  assert.equal(
-    markerFrame({ ...track, width: 0 }, host, 100, [1, 2]),
-    null
-  );
+  assert.equal(markerFrame({ ...track, width: 0 }, host, 100, [1, 2]), null);
 });
 
 test('toSegment keeps a zero-length highlight but not other points', () => {
