@@ -17,7 +17,7 @@ and Back handling are invisible to it.
    - `role: 'dialog'`
    - `'aria-modal': 'true'`
    - `'aria-labelledby': 'ytx-panel-title'`
-   Keep `tabIndex: 0` as the no-focusable fallback.
+     Keep `tabIndex: 0` as the no-focusable fallback.
 2. Give the heading span an id:
    ```ts
    const elmHeading = createElement(
@@ -45,7 +45,7 @@ and Back handling are invisible to it.
 
 - On TV, with the panel open:
   ```js
-  session.send('Accessibility.getFullAXTree')
+  session.send('Accessibility.getFullAXTree');
   ```
   find the dialog node and confirm `role`, `name`, and `modal`.
 - `node tools/inspect.ts eval "document.querySelector('.ytx-ui-container').getAttribute('role')"`.

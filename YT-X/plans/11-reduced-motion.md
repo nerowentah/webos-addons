@@ -63,7 +63,7 @@ get the 150 ms panel/page/toast transitions and the popup slide.
 - Chrome DevTools → Rendering → Emulate CSS `prefers-reduced-motion: reduce`;
   open/close the panel and inspect computed `transition-duration`.
 - CDP: `Emulation.setEmulatedMedia` with `features:
-  [{name:'prefers-reduced-motion', value:'reduce'}]`.
+[{name:'prefers-reduced-motion', value:'reduce'}]`.
 - On TV, the OS “Reduce motion” setting may or may not map to this media
   query; verify with `matchMedia('(prefers-reduced-motion: reduce)').matches`
   in `inspect.ts`.

@@ -49,7 +49,7 @@ and AT is not told that segment information appeared.
      focus ring language as `.ytx-close-btn`;
    - `outline` must not be removed without a replacement;
    - `.sb-popup-status` visually hidden (1px clip pattern), not `display:none`.
-8. ``suppressed`` (panel open) still clears timers and hides the popup; keep
+8. `suppressed` (panel open) still clears timers and hides the popup; keep
    that path.
 
 ## Acceptance criteria

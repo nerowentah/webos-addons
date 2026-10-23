@@ -44,13 +44,13 @@ browser already toggles those.
    () => {
      const index = modesArray.indexOf(configRead(configKey));
      return { index: index < 0 ? 0 : index, count: modesArray.length };
-   }
+   };
    ```
 3. In `updateDisplay()` (called on init and on every config change):
    - `container.setAttribute('aria-valuemax', String(state.count - 1))`
    - `aria-valuenow = String(state.index)`
    - `aria-valuetext = displayValueGetter()`
-   Keep the visible `valueText` update as-is.
+     Keep the visible `valueText` update as-is.
 4. Add `aria-hidden="true"` to the two `.arrow-btn` spans. They are pointer
    affordances only; the row itself carries the accessible name/value.
 5. In `panel-keys.ts`, handle Space for cycle rows:
@@ -78,8 +78,11 @@ browser already toggles those.
 - With the panel open, evaluate:
   ```js
   const row = document.querySelector('.ytx-cycle-row');
-  [row.getAttribute('role'), row.getAttribute('aria-label'),
-   row.getAttribute('aria-valuetext')]
+  [
+    row.getAttribute('role'),
+    row.getAttribute('aria-label'),
+    row.getAttribute('aria-valuetext')
+  ];
   ```
 - Press Right and re-read `aria-valuetext`.
 - CDP AX tree: one spinbutton per cycle row, with value.

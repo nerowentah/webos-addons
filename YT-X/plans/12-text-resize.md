@@ -28,7 +28,7 @@ browser zoom does not exist.
 
 1. `config.ts`
    - add `export const textScaleModes = { normal: '100%', large: '125%',
-     huge: '150%', maximum: '200%' } as const;`
+huge: '150%', maximum: '200%' } as const;`
    - `export type TextScaleMode = keyof typeof textScaleModes;`
    - default `uiTextScale: 'normal' as TextScaleMode`
    - add `uiTextScale: Object.keys(textScaleModes)` to `enumValues`.
@@ -43,11 +43,15 @@ browser zoom does not exist.
 5. New `src/ui/text-scale.ts`:
    ```ts
    const SCALE: Record<TextScaleMode, string> = {
-     normal: '1', large: '1.25', huge: '1.5', maximum: '2'
+     normal: '1',
+     large: '1.25',
+     huge: '1.5',
+     maximum: '2'
    };
    function apply(): void {
      document.documentElement.style.setProperty(
-       '--ytx-text-scale', SCALE[configRead('uiTextScale')]
+       '--ytx-text-scale',
+       SCALE[configRead('uiTextScale')]
      );
      panelState.panel?.recalcDensity();
    }
@@ -66,8 +70,8 @@ browser zoom does not exist.
    - `.ytx-notification-container`, `.ytx-ui-badge` (`0.8rem`)
    - SponsorBlock `.sb-header-text`, `.sb-header-subtitle`,
      `.sb-segment-category`, `.sb-segment-time`, `.sb-popup-close`
-   Leave layout properties (`width`, `height`, `padding`, `margin`,
-   `min-height`, `border`, `outline`) in `vh`.
+     Leave layout properties (`width`, `height`, `padding`, `margin`,
+     `min-height`, `border`, `outline`) in `vh`.
 7. `sponsorblock-ui.css` uses the same variable; the property is inherited
    from `html`, so no extra wiring is needed.
 8. Density: at 150–200%, labels wrap and the grid steps down via
@@ -97,9 +101,12 @@ browser zoom does not exist.
 - `node tools/inspect.ts eval`:
   ```js
   const p = document.querySelector('.ytx-ui-container');
-  [getComputedStyle(p).fontSize,
-   getComputedStyle(p).getPropertyValue('--ytx-text-scale'),
-   p.scrollWidth, p.clientWidth]
+  [
+    getComputedStyle(p).fontSize,
+    getComputedStyle(p).getPropertyValue('--ytx-text-scale'),
+    p.scrollWidth,
+    p.clientWidth
+  ];
   ```
 - Check `document.documentElement.scrollWidth <= innerWidth`.
 - Run `npm run check:text` (UI label lengths), `npm run lint:css`, type-check.

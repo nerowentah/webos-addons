@@ -25,11 +25,11 @@ focus came from.
    export function showOptionsPanel(
      visible = true,
      opener: HTMLElement | null = null
-   ): void
+   ): void;
    ```
 3. On open (`visible && !panelState.visible`), before moving focus:
    - `openerFocus = opener ?? (document.activeElement instanceof HTMLElement
-     ? document.activeElement : null)`
+? document.activeElement : null)`
    - ignore `<body>`, `<html>`, and anything inside the panel.
 4. On close (`!visible && panelState.visible && panelState.panel`):
    - capture `const target = openerFocus;`
@@ -70,7 +70,7 @@ focus came from.
 - On TV:
   ```js
   // before opening
-  document.activeElement.outerHTML.slice(0, 120)
+  document.activeElement.outerHTML.slice(0, 120);
   ```
   then open/close and re-read `document.activeElement`.
 - Repeat from home, watch, and search.

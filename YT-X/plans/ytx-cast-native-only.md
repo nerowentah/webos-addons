@@ -31,10 +31,10 @@ the setting stops implying it can mask a destination.
 
 Two live advertisements exist at the same time:
 
-| Entry | Source | Evidence |
-| --- | --- | --- |
-| `[LG] webOS TV QNED86ASA` — native Cast | system Cast stack (`appcasting`, `com.webos.chromecast.cell`) | `:8008/setup/eureka_info` returns the name and `ssdp_udn`; `8008`/`8009` open |
-| `[LG] webOS TV QNED86ASA` — app DIAL | `dialAppName: "YouTube"` in `assets/appinfo.json` | SSDP `urn:dial-multiscreen-org:service:dial:1`; `Location: http://172.16.10.15:1626/`; `Application-URL: http://172.16.10.15:36866/apps`; `/apps/YouTube` after removal → 404 with `Origin: https://www.youtube.com` + a browser UA |
+| Entry                                   | Source                                                        | Evidence                                                                                                                                                                                                                            |
+| --------------------------------------- | ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `[LG] webOS TV QNED86ASA` — native Cast | system Cast stack (`appcasting`, `com.webos.chromecast.cell`) | `:8008/setup/eureka_info` returns the name and `ssdp_udn`; `8008`/`8009` open                                                                                                                                                       |
+| `[LG] webOS TV QNED86ASA` — app DIAL    | `dialAppName: "YouTube"` in `assets/appinfo.json`             | SSDP `urn:dial-multiscreen-org:service:dial:1`; `Location: http://172.16.10.15:1626/`; `Application-URL: http://172.16.10.15:36866/apps`; `/apps/YouTube` after removal → 404 with `Origin: https://www.youtube.com` + a browser UA |
 
 Both destinations use the same friendly name, so the phone cannot tell them
 apart by label. The DIAL app endpoint confirms the app name is exactly
@@ -48,11 +48,11 @@ apart by label. The DIAL app endpoint confirms the app name is exactly
 
 ### What controls what
 
-| Lever | Controls | Runtime? |
-| --- | --- | --- |
-| `dialAppName` in `appinfo.json` | whether the app is registered as a DIAL app | No — read at install/registration time |
-| `blockWebosCast` / `block-webos-cast.ts` | whether the page may fetch `/wake_cast_core` | Yes |
-| `appcasting` / `com.webos.chromecast.cell` | native Cast discovery and receiver | No — system service |
+| Lever                                      | Controls                                     | Runtime?                               |
+| ------------------------------------------ | -------------------------------------------- | -------------------------------------- |
+| `dialAppName` in `appinfo.json`            | whether the app is registered as a DIAL app  | No — read at install/registration time |
+| `blockWebosCast` / `block-webos-cast.ts`   | whether the page may fetch `/wake_cast_core` | Yes                                    |
+| `appcasting` / `com.webos.chromecast.cell` | native Cast discovery and receiver           | No — system service                    |
 
 The checkbox gates only the page's wake request. It does **not** stop the
 native Cast device from being advertised, and it cannot remove or rename the
@@ -77,12 +77,12 @@ cast-launch exception.
 
 Rejected alternatives:
 
-| Alternative | Why not |
-| --- | --- |
-| Keep DIAL, hide native Cast | Needs a system/root change to the Cast service; not available to a normal web app |
-| Rename `dialAppName` | Does not change the DIAL device friendly name or reduce the count |
-| Runtime checkbox that masks one entry | `dialAppName` is install-time; native discovery is system-level |
-| Two live variants selected by the checkbox | Not possible from one installed package; would need two packages |
+| Alternative                                | Why not                                                                           |
+| ------------------------------------------ | --------------------------------------------------------------------------------- |
+| Keep DIAL, hide native Cast                | Needs a system/root change to the Cast service; not available to a normal web app |
+| Rename `dialAppName`                       | Does not change the DIAL device friendly name or reduce the count                 |
+| Runtime checkbox that masks one entry      | `dialAppName` is install-time; native discovery is system-level                   |
+| Two live variants selected by the checkbox | Not possible from one installed package; would need two packages                  |
 
 ## Implementation
 
@@ -188,13 +188,13 @@ Run every row with the block **off** (the default). Do not run a row with the
 block on: the Phase 2 cold-start probe with the block on left the TV
 unresponsive, and the phone matrix is for the shipping configuration.
 
-| # | Phone | TV app | Checkbox | Expected |
-| --- | --- | --- | --- | --- |
-| 1 | Android | closed | off | one entry; select → app launches and plays |
-| 2 | Android | running | off | one entry; select → resumes/plays |
-| 3 | iOS | closed | off | one entry; select → app launches and plays |
-| 4 | iOS | running | off | one entry; select → resumes/plays |
-| 5 | either | after TV reboot | off | one entry; cold cast still launches |
+| #   | Phone   | TV app          | Checkbox | Expected                                   |
+| --- | ------- | --------------- | -------- | ------------------------------------------ |
+| 1   | Android | closed          | off      | one entry; select → app launches and plays |
+| 2   | Android | running         | off      | one entry; select → resumes/plays          |
+| 3   | iOS     | closed          | off      | one entry; select → app launches and plays |
+| 4   | iOS     | running         | off      | one entry; select → resumes/plays          |
+| 5   | either  | after TV reboot | off      | one entry; cold cast still launches        |
 
 For each row record:
 

@@ -32,7 +32,7 @@ tell which section a checkbox belongs to.
 3. Add `role="group"` and `'aria-labelledby': headingId` to the returned
    `.ytx-settings-section` container.
 4. Leave all existing CSS selectors alone: `.ytx-settings-section >
-   .section-title` and `.ytx-grid > .section-title` match by class, not tag.
+.section-title` and `.ytx-grid > .section-title` match by class, not tag.
    Verify the default `h2` margin is overridden by the existing
    `margin: 0.6vh 0 0.5vh` rule (`ui.css:463-470`).
 5. Keep heading order: `h1` panel title → `h2` section titles. Do not add an

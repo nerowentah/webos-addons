@@ -18,7 +18,7 @@ so stale text can linger in the accessibility tree.
    - `role: 'status'`
    - `'aria-live': 'polite'`
    - `'aria-atomic': 'false'`
-   `role="status"` already implies polite; keep both for older engines.
+     `role="status"` already implies polite; keep both for older engines.
 2. Keep the existing message structure. `textContent` is safe and updates are
    what trigger the live-region announcement.
 3. Make the removal state actually hidden from AT: in `ui.css`, add
@@ -31,7 +31,7 @@ so stale text can linger in the accessibility tree.
      `opacity: 0; transform: translateX(1.85vh)` and transitions to the normal
      state via a CSS animation, or
    - append it without `message-hidden` and trigger the fade with a keyframe.
-   The text must be in the AX tree at insertion time.
+     The text must be in the AX tree at insertion time.
 5. On `update()`, changing `textContent` is enough; do not recreate the node.
    `aria-atomic="false"` avoids re-reading the whole stack.
 6. Leave `liveMessages` dedupe logic unchanged. Reusing the same visible
