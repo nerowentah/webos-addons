@@ -13,6 +13,7 @@ import {
 import { setSponsorBlockPanelSync, showNotification } from '../../ui/ui';
 import { NOTIFICATIONS } from '../../config/ui-text';
 import sponsorBlockUI from './sponsorblock-ui';
+import { isCobaltUa } from '../../core/cobalt-back';
 import SegmentMarkers from './markers';
 import { fetchJsonWithTimeout } from '../../youtube/hooks/fetch-timeout';
 import {
@@ -629,7 +630,8 @@ function syncForCurrentRoute(): void {
   if (needsReload) {
     uninitializeSponsorblock();
 
-    if (configRead('enableSponsorBlock')) {
+    // The Cobalt page's CSP omits the SponsorBlock servers from connect-src, so every request would only log a violation.
+    if (configRead('enableSponsorBlock') && !isCobaltUa()) {
       const handler = new SponsorBlockHandler(videoID);
       window.sponsorblock = handler;
       void handler.init();
