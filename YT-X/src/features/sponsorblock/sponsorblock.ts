@@ -13,6 +13,7 @@ import {
 import { setSponsorBlockPanelSync, showNotification } from '../../ui/ui';
 import { NOTIFICATIONS } from '../../config/ui-text';
 import sponsorBlockUI from './sponsorblock-ui';
+import SegmentMarkers from './markers';
 import { fetchJsonWithTimeout } from '../../youtube/hooks/fetch-timeout';
 import {
   backoffDelay,
@@ -60,6 +61,7 @@ function delay(ms: number): Promise<void> {
 class SponsorBlockHandler {
   videoID: string;
   video: HTMLVideoElement | null = null;
+  markers: SegmentMarkers | null = null;
   active = true;
 
   attachVideoTimeout: Timer | null = null;
@@ -139,6 +141,7 @@ class SponsorBlockHandler {
 
     if (segments.length === 0) {
       sponsorBlockUI.updateSegments([]);
+      this.markers?.render();
       if (configRead('sbPeriodicRefresh')) {
         // Stay alive with nothing to skip: later submissions are picked up by the refresh.
         if (data !== null) this.consecutiveEmptyChecks++;
@@ -148,6 +151,7 @@ class SponsorBlockHandler {
     }
 
     this.rebuildSegments();
+    this.markers?.render();
     sponsorBlockUI.updateSegments(this.popupSegments(segments));
     sponsorBlockUI.scheduleAutoShow();
     if (this.video && !this.video.paused) this.jumpToHighlight();
@@ -298,6 +302,7 @@ class SponsorBlockHandler {
   watchConfig(): void {
     const skipCallback = () => {
       this.rebuildSegments();
+      this.markers?.render();
       this.scheduleSkip();
     };
     SEGMENT_CATEGORY_KEYS.forEach((key) => {
@@ -331,6 +336,13 @@ class SponsorBlockHandler {
     video.addEventListener('seeked', this.seekedHandler);
     video.addEventListener('volumechange', this.volumeChangeHandler);
     video.addEventListener('ended', this.endedHandler);
+    this.markers?.stop();
+    this.markers = new SegmentMarkers(
+      video,
+      () => this.segments || [],
+      () => this.skippableCategories
+    );
+    this.markers.start();
     if (!video.paused) this.jumpToHighlight();
   }
 
@@ -524,6 +536,7 @@ class SponsorBlockHandler {
     this.segmentsSig = sig;
     this.terminalHandled.clear();
     this.rebuildSegments();
+    this.markers?.render();
     sponsorBlockUI.updateSegments(this.popupSegments(segments));
     sponsorBlockUI.scheduleAutoShow();
 
@@ -555,6 +568,9 @@ class SponsorBlockHandler {
     }
 
     this.lastScheduled = null;
+
+    this.markers?.stop();
+    this.markers = null;
 
     this.leaveMutedSegment();
     this.muteSegments = [];

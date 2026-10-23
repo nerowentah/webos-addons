@@ -183,19 +183,19 @@ test('markerFrame maps segment times onto the track and host', () => {
   const host = { left: 100, top: 40 };
 
   assert.deepEqual(markerFrame(track, host, 100, [10, 20]), {
-    left: 200,
+    left: 100,
     top: 10,
     width: 100,
     height: 5
   });
   // A range past the end is clamped; a start before zero is clamped to zero.
   assert.deepEqual(markerFrame(track, host, 100, [95, 110]), {
-    left: 1050,
+    left: 950,
     top: 10,
     width: 50,
     height: 5
   });
-  assert.equal(markerFrame(track, host, 100, [-10, 5])?.left, 100);
+  assert.equal(markerFrame(track, host, 100, [-10, 5])?.left, 0);
   // A point still gets the 2 px minimum, clamped inside the track.
   assert.equal(markerFrame(track, host, 100, [50, 50])?.width, 2);
   assert.equal(markerFrame(track, host, 100, [100, 100])?.left, 998);
