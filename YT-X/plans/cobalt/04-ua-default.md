@@ -131,10 +131,10 @@ fine.
 
 ## Acceptance criteria
 
-- [ ] `DEFAULT_UA_MODE` is `webos`; the default `dist/appinfo.json` keeps the
+- [x] `DEFAULT_UA_MODE` is `webos`; the default `dist/appinfo.json` keeps the
       template.
-- [ ] `cobalt` is reachable via `--ua cobalt`, `YTX_UA=cobalt`, and the
+- [x] `cobalt` is reachable via `--ua cobalt`, `YTX_UA=cobalt`, and the
       `*:cobalt` scripts.
-- [ ] `compare:chrome` defaults to the same UA as the default build.
-- [ ] A bare `--ua` fails loudly.
-- [ ] README labels Cobalt experimental and lists the tested model.
+- [x] `compare:chrome` defaults to the same UA as the default build.
+- [x] A bare `--ua` fails loudly.
+- [x] README labels Cobalt experimental and lists the tested model.

@@ -7,8 +7,10 @@
   "scripts": {
     "build": "webpack --mode=production",
     "build:cobalt": "webpack --mode=production --env ua=cobalt",
+    "build:hd:cobalt": "webpack --mode=production --env resolution=1280x720 --env ua=cobalt",
     "build:hd": "webpack --mode=production --env resolution=1280x720",
     "package": "ares-package -n dist",
+    "package:cobalt": "npm run build:cobalt && npm run package",
     "package:hd": "npm run build:hd && npm run package",
     "deploy": "node tools/deploy.ts",
     "deploy:hd": "node tools/deploy.ts --resolution 1280x720",

@@ -120,8 +120,8 @@ submitted highlight is the fixture.
 
 ## Acceptance criteria
 
-- [ ] The API request includes `poi`.
+- [x] The API request includes `poi`.
 - [ ] The first play jumps to an ahead highlight exactly once.
 - [ ] A behind highlight never causes a backward seek or suppresses a later one.
 - [ ] `Skip to Highlight` off is a no-op.
-- [ ] New selection tests pass.
+- [x] New selection tests pass.

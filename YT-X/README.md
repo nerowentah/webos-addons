@@ -61,7 +61,7 @@ Both upstream projects are licensed GPL-3.0, which this project matches (see
   user agent (the only signal when `webOS.deviceInfo` is unavailable) and
   applies the matching profile; unclassified panels fall back to
   Off, and the manual setting always overrides detection
-- Panel Care themes only the YT-X settings panel and badge. YouTube's own
+- Panel Care themes only the YT-X settings panel, badge and notifications. YouTube's own
   surfaces (player, guide, browse) are never recoloured, and YT-X's playback
   additions use YouTube's dark-theme palette only: `#0f0f0f`, `#272727`,
   `#ffffff`, `#aaaaaa`, `#717171`, `#ff0000`, `#3ea6ff`

@@ -123,8 +123,8 @@ probe. Update the README from that file. The plan's status line becomes
 
 ## Acceptance criteria
 
-- [ ] The README no longer claims an unverified outcome.
-- [ ] `dist/appinfo.json` has no `dialAppName`.
+- [x] The README no longer claims an unverified outcome.
+- [x] `dist/appinfo.json` has no `dialAppName`.
 - [ ] `/apps/YouTube` is 404 after the change.
 - [ ] Android and iOS each show exactly one destination and cast successfully
       with the app closed and running.

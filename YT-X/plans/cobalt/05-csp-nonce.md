@@ -142,10 +142,10 @@ The test harness has no DOM, so keep the policy pure and testable:
 
 ## Acceptance criteria
 
-- [ ] The `insert-style` observer disconnects on success and after
+- [x] The `insert-style` observer disconnects on success and after
       `NONCE_WAIT_MS`.
 - [ ] `time-remaining` retries the nonce and is styled on the Cobalt build
       even when created early.
-- [ ] `pageNonce()` has a documented style/link-first fallback.
-- [ ] No permanent document-wide observer remains.
-- [ ] Pure nonce-selection tests pass.
+- [x] `pageNonce()` has a documented style/link-first fallback.
+- [x] No permanent document-wide observer remains.
+- [x] Pure nonce-selection tests pass.

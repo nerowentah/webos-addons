@@ -146,4 +146,4 @@ Extend `tools/sponsorblock-segments.test.ts`:
 - [ ] No video restarts after a terminal skip, with `Skip Once` on or off.
 - [ ] A terminal segment is not re-skipped within the same video.
 - [ ] A video ending inside a mute segment restores audio state.
-- [ ] Existing segment/back-off tests pass unchanged.
+- [x] Existing segment/back-off tests pass unchanged.

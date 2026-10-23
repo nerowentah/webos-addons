@@ -137,5 +137,5 @@ and compare marker positions against `currentTime` and the bar geometry.
 - [ ] Markers render for enabled categories on the current TV DOM.
 - [ ] They remain aligned after a re-render and in the 720p build.
 - [ ] No duplicate overlays and no observer loop.
-- [ ] Pure geometry tests pass.
-- [ ] `destroy()` removes the overlay and disconnects the observer.
+- [x] Pure geometry tests pass.
+- [x] `destroy()` removes the overlay and disconnects the observer.

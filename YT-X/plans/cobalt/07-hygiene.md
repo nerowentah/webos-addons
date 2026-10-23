@@ -144,13 +144,13 @@ raise the count.
 
 ## Acceptance criteria
 
-- [ ] The popup dot boundary is ≥3:1 against the plate.
+- [x] The popup dot boundary is ≥3:1 against the plate.
 - [ ] Shorts metadata contrast is measured; the rule is either restored or
       documented as unnecessary.
 - [ ] The stats overlay is measured; the rule is restored or removed with a
       reason.
-- [ ] No dead `qned-theme-active` toggle or stale overlay comments remain.
-- [ ] `RETIRED_KEYS` includes `fixMultilineTitles`.
-- [ ] `package-lock.json` matches `1.0.36`.
-- [ ] `npm run lint:all` is green, including the plans.
-- [ ] README matches the themed surfaces.
+- [x] No dead `qned-theme-active` toggle or stale overlay comments remain.
+- [x] `RETIRED_KEYS` includes `fixMultilineTitles`.
+- [x] `package-lock.json` matches `package.json`.
+- [x] `npm run lint:all` is green, including the plans.
+- [x] README matches the themed surfaces.
