@@ -235,8 +235,10 @@ The app blocks its own `/wake_cast_core` fetch on those firmware versions
 unless the launch came from a cast handoff (`cc2`, `dialLaunch`,
 `pairingCode`, or a webOS relaunch).
 
-The default package omits `dialAppName`, so the app does not register a DIAL
-entry. The phone lists only the TV's native Cast target. The setting labelled
+The default package no longer registers a DIAL name (`dialAppName` is omitted).
+Expected: the phone lists only the TV's native Cast target. Verification on
+Android and iOS is pending; until it is recorded, treat that as intent, not a
+guarantee. The setting labelled
 **Block Cast Wake (webOS 25)** controls only that wake fetch; it cannot add,
 remove, or rename a cast destination. It is **off by default**, because the
 native Cast receiver needs the wake to complete: with the block on, a cold cast
