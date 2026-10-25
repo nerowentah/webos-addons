@@ -1,3 +1,4 @@
+import './platform/cobalt-polyfills';
 import { handleRelaunch } from './core/utils';
 
 document.addEventListener(

@@ -1,3 +1,4 @@
+import { claimHook } from '../../core/hook-once';
 import {
   configRead,
   configAddChangeListener,
@@ -477,7 +478,8 @@ function captionsOff(holder: unknown): void {
 }
 
 const origParse = JSON.parse;
-JSON.parse = function (
+const installParse = claimHook('adblock-parse');
+const adblockParse = function (
   this: unknown,
   text: string,
   reviver?: Parameters<typeof JSON.parse>[1]
@@ -553,3 +555,4 @@ JSON.parse = function (
 
   return r;
 };
+if (installParse) JSON.parse = adblockParse;

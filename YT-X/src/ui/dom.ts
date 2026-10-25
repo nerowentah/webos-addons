@@ -71,6 +71,10 @@ export const createElement = <K extends keyof HTMLElementTagNameMap>(
     else if (ELEMENT_PROP_KEYS.has(key) && val != null) {
       // Allowlisted above: only plain element properties get written.
       (el as unknown as Record<string, unknown>)[key] = val;
+      // Cobalt does not reflect the `type` property to the attribute, and the panel's CSS selects on [type='checkbox'].
+      if (key === 'type' && typeof val === 'string') {
+        el.setAttribute('type', val);
+      }
     } else if (
       typeof val === 'string' &&
       /^[a-z][a-z0-9-]*$/.test(key) &&

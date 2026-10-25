@@ -1,6 +1,12 @@
+import { claimHook } from '../../core/hook-once';
+
 type ParseProcessor = (parsed: object, text: unknown) => void;
 
-const processors: ParseProcessor[] = [];
+// Shared across bundles on the page, so processors registered by a later bundle still run in the wrapper an earlier one installed.
+const hub = globalThis as typeof globalThis & {
+  __ytxParseProcessors?: ParseProcessor[];
+};
+const processors: ParseProcessor[] = (hub.__ytxParseProcessors ??= []);
 
 const originalParse = JSON.parse;
 
@@ -11,16 +17,18 @@ export function registerParseProcessor(processor: ParseProcessor) {
   processors.push(processor);
 }
 
-JSON.parse = function (
-  this: unknown,
-  text: string,
-  reviver?: Parameters<typeof JSON.parse>[1]
-) {
-  const parsed = originalParse.call(this, text, reviver) as unknown;
-  if (parsed !== null && typeof parsed === 'object') {
-    for (const processor of processors) {
-      processor(parsed, text);
+if (claimHook('json-parse')) {
+  JSON.parse = function (
+    this: unknown,
+    text: string,
+    reviver?: Parameters<typeof JSON.parse>[1]
+  ) {
+    const parsed = originalParse.call(this, text, reviver) as unknown;
+    if (parsed !== null && typeof parsed === 'object') {
+      for (const processor of processors) {
+        processor(parsed, text);
+      }
     }
-  }
-  return parsed;
-};
+    return parsed;
+  };
+}

@@ -1,3 +1,5 @@
+import { claimHook } from '../../core/hook-once';
+
 function isPrimitive(
   value: unknown
 ): value is string | number | boolean | null | undefined | symbol | bigint {
@@ -41,4 +43,6 @@ function stringify(
   return originalStringify(processedValue, replacer as never, space);
 }
 
-JSON.stringify = stringify;
+if (claimHook('json-stringify')) {
+  JSON.stringify = stringify;
+}

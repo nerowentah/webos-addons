@@ -25,7 +25,13 @@ const config: Config = {
     // style-loader keeps CSS as JS strings in the bundle, so the loader chain
     // is the only place to minify. This is what stops the source comments and
     // whitespace from shipping in userScript.js.
-    ...(isDevelopment() ? {} : { cssnano: {} })
+    //
+    // colormin is off: it rewrites rgba() as 8-digit hex (#141414f2), which
+    // Cobalt's CSS parser rejects, so the native build lost every translucent
+    // background and border. The few bytes saved are not worth that.
+    ...(isDevelopment()
+      ? {}
+      : { cssnano: { preset: ['default', { colormin: false }] } })
   }
 };
 

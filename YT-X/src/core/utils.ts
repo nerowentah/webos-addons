@@ -162,7 +162,12 @@ export function initPageState(): () => void {
   const bodyObserver = new MutationObserver((mutations) => {
     for (const m of mutations) {
       // Cheap pre-filter: body classes flip constantly for focus/animation state, so only a WEB_PAGE_TYPE_ change matters.
-      const oldV = m.oldValue ?? '';
+      // An engine that drops attributeOldValue (Cobalt) gives null: the filter cannot tell, so re-check the page state itself (it is idempotent).
+      if (m.oldValue === null) {
+        updatePageState();
+        break;
+      }
+      const oldV = m.oldValue;
       const newV = (m.target as Element).getAttribute('class') ?? '';
       if (newV === oldV) continue;
       if (
