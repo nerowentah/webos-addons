@@ -351,6 +351,7 @@ What differs on the native build:
 - SponsorBlock is not built in: YouTube's page CSP for the Cobalt user agent blocks its servers, which is deliberate and not worked around.
 - "Block Cast Wake" is inactive (greyed out); Force Video Codec is likely a no-op because the Cobalt binary negotiates codecs itself.
 - The stock app id `youtube.leanback.v4` is required, the `cobalt` binary stays the stock ELF, and a relaunch needs a full exit first. See the header of `tools/native/native.ts`.
+- Browse previews play on native: the webOS-only muting and the thumbnail rule are not loaded, and `native-previews.ts` lifts the tile's thumbnail layer while a preview plays and puts the player back to full size if it is left on the preview's size after entering a video.
 - Cobalt lacks CSS grid, `:checked`, `var()` and several DOM APIs; the shared code avoids or fills them (`tools/tests/cobalt-css.test.ts`, `src/platform/cobalt-polyfills.ts`).
 - **Playback Speed** (Main tab, 1x-2x) asks the player for the rate, then checks that the media clock really runs faster; a platform that ignores the rate (the webOS browser's hardware video path, measured on a 65QNED86) is put back to 1x with a "not supported" toast. Whether native Cobalt honours it is not yet measured on a TV.
 - RF1705 features such as Return YouTube Dislike, speed ranges and subtitle shortcuts are not YT-X features and stay with RF1705's runtime.
@@ -387,6 +388,31 @@ than appearing as two apps. Nothing else differs: the UI lays out in `vh` and
 scales to the smaller canvas on its own, and playback still happens at the
 panel's own output resolution either way. Install the 720p build on 1080p sets
 to cut graphics memory, or on 720p sets where it is a pixel-for-pixel match.
+
+### Layout of `src/` and `tools/`
+
+The userscript (`src/userScript.ts`, webOS browser) and the native Cobalt bundle
+(`src/native-main.ts`) load the same feature modules in the same order, apart
+from the pieces that exist because the two video planes differ;
+`tools/tests/native-main.test.ts` names them and fails if the lists drift:
+
+| Module                                 | Loaded by | What it fixes                                                          |
+| -------------------------------------- | --------- | ---------------------------------------------------------------------- |
+| `styles/hide-offers.css`               | both      | hides the subscription upsell surface                                  |
+| `styles/inline-preview-fix.css`        | webOS     | keeps the tile thumbnail over an inline preview the panel cannot draw  |
+| `features/playback/previews.ts`        | webOS     | mutes and pauses browse previews (their video is never composited)     |
+| `features/playback/native-previews.ts` | native    | lifts the thumbnail layer over a playing preview; repairs a stuck size |
+
+`tools/` is grouped by purpose, each tool's own test beside it:
+
+| Folder           | Holds                                                                                         |
+| ---------------- | --------------------------------------------------------------------------------------------- |
+| `tools/build/`   | version, UA and resolution selection, packaging, IPK and syntax-floor checks, manifest, audit |
+| `tools/native/`  | native Cobalt packaging, device-string patching, IPK/ar/tar helpers, sign-in identity capture |
+| `tools/device/`  | the on-TV harness: `inspect`, `drive`, `deploy`, `verify-device`, `verify-ytx`                |
+| `tools/compare/` | the Chrome and TV reference comparison                                                        |
+| `tools/tests/`   | unit tests of `src/` code (`npm test` runs every `*.test.ts` under `tools/`)                  |
+| `tools/lib/`     | `load-src` (tests import `src/` modules by path) and the Node resolver hook                   |
 
 ### Quality gates
 
