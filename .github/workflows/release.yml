@@ -61,7 +61,7 @@ jobs:
         run: npm run audit
 
       - name: Package IPK
-        run: npm run package
+        run: npm run package:dist
 
       # IPKs are sideloaded, so users have no other way to verify what they
       # downloaded; publish a checksum file next to each one.

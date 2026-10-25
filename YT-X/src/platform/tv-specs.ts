@@ -81,14 +81,16 @@ const UA = typeof navigator !== 'undefined' ? (navigator.userAgent ?? '') : '';
 function parseModel(ua: string): string | undefined {
   const start = ua.indexOf('(LG, ');
   if (start === -1) return undefined;
-  const end = ua.indexOf(',', start + 5);
+  // The model ends at the next comma, or at the closing bracket when the tail has no network field (the native Cobalt launcher's).
+  const comma = ua.indexOf(',', start + 5);
+  const end = comma === -1 ? ua.indexOf(')', start + 5) : comma;
   if (end === -1) return undefined;
   const model = ua.slice(start + 5, end).trim();
   return model === '' ? undefined : model;
 }
 
 function parseFirmware(ua: string): string | undefined {
-  const match = /_TV_O\d+\/([0-9.]+)/.exec(ua);
+  const match = /_TV_O\d+(?:_\d+)?\/([0-9.]+)/.exec(ua);
   return match?.[1];
 }
 

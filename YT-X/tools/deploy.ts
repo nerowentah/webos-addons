@@ -1,12 +1,12 @@
+// Build, package, install and launch in one go. Defaults to the 1920x1080
+// canvas; `--resolution` takes `fhd`/`hd` or the pixel values.
+
 import { spawnSync } from 'node:child_process';
 import { normalize } from 'node:path';
 import appinfo from '../assets/appinfo.json' with { type: 'json' };
+import { resolveAppResolution } from './app-resolution.ts';
 import { resolveUaMode } from './app-ua.ts';
 import { getVersion } from './version.ts';
-
-/** Build, package, install and launch in one go. webOS canvas: 1920x1080 (default) or 1280x720 (opt-in). */
-const APP_RESOLUTIONS = ['1920x1080', '1280x720'];
-const DEFAULT_RESOLUTION = '1920x1080';
 
 /** The value after a bare flag; a missing one is an error rather than a silent default. */
 function flagValue(argv: string[], i: number, flag: string): string {
@@ -39,21 +39,16 @@ function parseUa(argv: string[]): string | undefined {
 }
 
 const argv = process.argv.slice(2);
-const resolution =
-  parseResolution(argv) ?? process.env['YTX_RESOLUTION'] ?? DEFAULT_RESOLUTION;
 
+let resolution: string;
 let ua: string;
 try {
+  resolution = resolveAppResolution(
+    parseResolution(argv) ?? process.env['YTX_RESOLUTION']
+  );
   ua = resolveUaMode(parseUa(argv) ?? process.env['YTX_UA']);
 } catch (error) {
   console.error(`deploy: ${(error as Error).message}`);
-  process.exit(1);
-}
-
-if (!APP_RESOLUTIONS.includes(resolution)) {
-  console.error(
-    `deploy: resolution must be one of ${APP_RESOLUTIONS.join(', ')}; got ${resolution}`
-  );
   process.exit(1);
 }
 

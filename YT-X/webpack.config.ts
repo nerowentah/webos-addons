@@ -3,28 +3,11 @@ import webpack from 'webpack';
 import type { Configuration } from 'webpack';
 import { basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { resolveAppResolution } from './tools/app-resolution.ts';
 import { applyUserAgent, resolveUaMode, type UaMode } from './tools/app-ua.ts';
 import { getVersionInfo } from './tools/version.ts';
 
 const { version, gitSha, owner } = getVersionInfo();
-
-/**
- * The graphics canvas; webOS accepts only these two values. Picked via
- * `--env resolution=` (not an env var) so it is shell-independent.
- * @see https://webostv.developer.lge.com/develop/specifications/app-resolution
- */
-const DEFAULT_APP_RESOLUTION = '1920x1080';
-const APP_RESOLUTIONS = [DEFAULT_APP_RESOLUTION, '1280x720'];
-
-function resolveAppResolution(requested: string | undefined): string {
-  if (requested === undefined) return DEFAULT_APP_RESOLUTION;
-  if (!APP_RESOLUTIONS.includes(requested)) {
-    throw new Error(
-      `--env resolution must be one of ${APP_RESOLUTIONS.join(', ')}; got ${requested}`
-    );
-  }
-  return requested;
-}
 
 function transformAppInfo(
   input: Buffer,
@@ -113,6 +96,16 @@ const makeConfig = (env: Record<string, string>): Configuration[] => [
       userScript: {
         import: './src/userScript',
         filename: 'webOSUserScripts/[name].js'
+      },
+      // Native Cobalt only: the full bundle, loading each feature module on its own.
+      nativeMain: {
+        import: './src/native-main',
+        filename: 'native/[name].js'
+      },
+      // Native Cobalt only: response hooks that must run before the page.
+      nativeEarly: {
+        import: './src/native-early',
+        filename: 'native/[name].js'
       }
     },
 
