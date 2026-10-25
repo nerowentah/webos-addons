@@ -1,8 +1,14 @@
 # RF1705-02 — Playback-rate quality
 
 Status: measure first, then implement
-Addresses (RF1705 tracker): #107, #81, #46 (partially — see non-goals)
+Addresses (RF1705 tracker): #107, #81 (userscript); #46 is native-only
 Touches: `src/features/playback/video-quality.ts`, `tools/inspect.ts` (probe only)
+
+Native Cobalt note: `#46` is a real defect in Cobalt’s MIME parser, but it
+cannot occur in the userscript because YouTube’s player negotiates MSE. If the
+native port is approved, `#46` moves to
+[`native-cobalt-03`](./native-cobalt/03-feature-parity.md). The userscript
+measurement in this plan still applies to `#81`/`#107`.
 
 ## Problem
 
@@ -12,7 +18,9 @@ together in that tracker:
 
 1. **Cobalt-specific** — `#46`: Cobalt's MIME parser rejects the fractional
    bitrate YouTube puts in the codec string at non-1.0 rates. This cannot occur
-   here: YT-X has no MIME parser, YouTube's own player negotiates MSE.
+   in the userscript: YT-X has no MIME parser, YouTube's own player negotiates
+   MSE. A native Cobalt build does have that parser; do not port the userscript
+   workaround into the native track without a native test.
 2. **Not Cobalt-specific** — the _observation_ that YouTube lowers the optimal
    representation when the playback rate is applied. If the platform advertises
    a 60 fps ceiling, `50 fps × 1.25 = 62.5` exceeds it and 1080p50 stops being
@@ -39,17 +47,17 @@ own quality choice.
 
 ## Non-goals
 
-- Re-implementing Cobalt's bitrate parsing workaround (`#46`). Out of scope by
-  architecture; note it in the tracker reply instead.
+- Re-implementing Cobalt's bitrate parsing workaround (`#46`) in the userscript.
+  It is native-only; note it in the tracker reply instead.
 - Changing YouTube's speed list or adding a speed control (`#106`). Separate
-  effort — see "Follow-ups".
+  effort; native feature parity owns it if the port is approved.
 - Touching the decoder or codec negotiation (`force-codec.ts` owns that).
 
 ## Step 0 — measure on device
 
 Before any code change, capture the actual behaviour:
 
-1. `npm run deploy`
+1. `npm run deploy:fhd`
 2. Play a 50 fps video at 1080p50 with `Default Max Resolution` **on**.
 3. `npm run inspect -- eval` the following and record at 1.0x, then at 1.25x:
    - `document.querySelector('video').playbackRate`

@@ -1,6 +1,6 @@
 # Cobalt-03 — Restore SponsorBlock progress-bar markers
 
-Status: ready to implement
+Status: code committed; 1080p alignment checked on the TV 2026-10-23, 720p and re-render open
 Reference: upstream `05ca3ff` (`webapp/src/sponsorblock.js`)
 Touches: `src/features/sponsorblock/sponsorblock.ts`,
 `src/ui/ui.css` (or a dedicated `sponsorblock.css`),
@@ -137,5 +137,3 @@ and compare marker positions against `currentTime` and the bar geometry.
 - [ ] Markers render for enabled categories on the current TV DOM.
 - [ ] They remain aligned after a re-render and in the 720p build.
 - [ ] No duplicate overlays and no observer loop.
-- [x] Pure geometry tests pass.
-- [x] `destroy()` removes the overlay and disconnects the observer.

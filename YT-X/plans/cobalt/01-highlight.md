@@ -1,6 +1,6 @@
 # Cobalt-01 — SponsorBlock highlight fetch and lifecycle
 
-Status: ready to implement
+Status: code committed; first-play check passed on the TV 2026-10-23; the cases below are open
 Addresses: the rework's new `enableSponsorBlockHighlight` path
 Touches: `src/features/sponsorblock/sponsorblock.ts`,
 `src/features/sponsorblock/segments.ts`,
@@ -120,8 +120,6 @@ submitted highlight is the fixture.
 
 ## Acceptance criteria
 
-- [x] The API request includes `poi`.
 - [ ] The first play jumps to an ahead highlight exactly once.
 - [ ] A behind highlight never causes a backward seek or suppresses a later one.
 - [ ] `Skip to Highlight` off is a no-op.
-- [x] New selection tests pass.

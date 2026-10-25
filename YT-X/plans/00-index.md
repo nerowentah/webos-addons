@@ -5,6 +5,21 @@ pending (0/12 complete at review time).
 
 Location: `YT-X/plans/` — one independently shippable plan per finding.
 
+Other plan tracks: [Cobalt userscript follow-up](./cobalt/00-index.md),
+[RF1705 tracker](./rf1705-00-index.md),
+[native Cobalt port](./native-cobalt/00-index.md), and
+[native-only cast](./ytx-cast-native-only.md).
+
+## Status of every track
+
+| Track                                             | Done                                                             | Outstanding                                                                                      |
+| ------------------------------------------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| WCAG 01-12 (this page)                            | none                                                             | all 12                                                                                           |
+| [Cobalt follow-up](./cobalt/00-index.md)          | highlight `poi`, terminal skip, markers code, hygiene code       | TV checks: highlight cases, restart loop, marker re-render/720p, cast matrix, shorts/stats rules |
+| [RF1705 tracker](./rf1705-00-index.md)            | terminal segments (moved to cobalt/02)                           | playback-rate measure, IPK packaging tools, Homebrew feed, device pass                           |
+| [Native Cobalt port](./native-cobalt/00-index.md) | runtime, injection, identity, cast names, settings audit written | real ad proof, remote input, parity matrix, CI IPK job, more TVs, settings pass on TV            |
+| [Native-only cast](./ytx-cast-native-only.md)     | appinfo, 404, cold start, docs                                   | Android and iOS single-destination matrix                                                        |
+
 ## Order
 
 | #   | Plan                                                         | WCAG                | Priority | Depends on |

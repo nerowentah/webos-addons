@@ -1,8 +1,8 @@
 # Cobalt-02 — Terminal SponsorBlock segments
 
-Status: ready to implement
+Status: code committed; terminal skip checked on the TV 2026-10-23 (`Skip Once` default only)
 Addresses: RF1705 #112, #79, and the #85 fix in upstream `dc071f6`
-Supersedes: [`rf1705-01`](../rf1705-01-sponsorblock-terminal-segments.md)
+Supersedes: the former `rf1705-01` plan (deleted)
 Touches: `src/features/sponsorblock/segments.ts`,
 `src/features/sponsorblock/sponsorblock.ts`,
 `tools/sponsorblock-segments.test.ts`
@@ -146,4 +146,3 @@ Extend `tools/sponsorblock-segments.test.ts`:
 - [ ] No video restarts after a terminal skip, with `Skip Once` on or off.
 - [ ] A terminal segment is not re-skipped within the same video.
 - [ ] A video ending inside a mute segment restores audio state.
-- [x] Existing segment/back-off tests pass unchanged.

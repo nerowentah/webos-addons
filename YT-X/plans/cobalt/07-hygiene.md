@@ -1,12 +1,18 @@
 # Cobalt-07 — Regressions and hygiene
 
-Status: ready to implement
+Status: code committed; shorts and stats-panel decisions open (need a TV screenshot)
 Addresses: the review's P2 findings from the Cobalt/ad-free rework
 Touches: `src/features/sponsorblock/sponsorblock-ui.css`,
 `src/styles/yt-fixes.css`, `src/ui/panel-care.ts`, `src/ui/theme.css`,
 `src/ui/ui.css`, `src/features/sponsorblock/segments.ts`,
 `src/features/sponsorblock/categories.ts`, `src/config/migrate.ts`,
 `package-lock.json`, `plans/cobalt/*.md`
+
+## Scope
+
+This plan covers webview CSS/DOM hygiene. It does not cover native package size
+(`#113`) or native runtime parity; see
+[`plans/native-cobalt/`](../native-cobalt/00-index.md).
 
 ## Problem
 
@@ -126,7 +132,7 @@ raise the count.
 ## Verification
 
 - `npm test`, `npm run lint`, `npm run lint:css`, `npm run type-check`,
-  `npm run build`, `npm run test:compat`, `npm run audit`.
+  `npm run build:fhd`, `npm run test:compat`, `npm run audit`.
 - `npm run lint:all` (including `prettier-check`).
 - Contrast: compute the dot boundary against `#0f0f0f` (≥3:1) and the shorts
   metadata against the thumbnail (≥4.5:1 for normal text).
@@ -144,13 +150,7 @@ raise the count.
 
 ## Acceptance criteria
 
-- [x] The popup dot boundary is ≥3:1 against the plate.
 - [ ] Shorts metadata contrast is measured; the rule is either restored or
       documented as unnecessary.
 - [ ] The stats overlay is measured; the rule is restored or removed with a
       reason.
-- [x] No dead `qned-theme-active` toggle or stale overlay comments remain.
-- [x] `RETIRED_KEYS` includes `fixMultilineTitles`.
-- [x] `package-lock.json` matches `package.json`.
-- [x] `npm run lint:all` is green, including the plans.
-- [x] README matches the themed surfaces.

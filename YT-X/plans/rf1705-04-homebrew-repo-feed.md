@@ -1,8 +1,8 @@
 # RF1705-04 — Homebrew channel feed
 
 Status: ready to implement
-Addresses (RF1705 tracker): #19, #93, #100, #114, and the install-hang reports
-#113 / #17 / #37 (see "Why this ranks high")
+Addresses (RF1705 tracker): #18, #19, #93, #100, #114, and the install-hang
+reports #113 / #17 / #37 (see "Why this ranks high")
 Touches: new `tools/gen-repo.ts`, `tools/gen-manifest.ts`,
 `.github/workflows/release.yml`, `YT-X/README.md`, generated `YT-X/repo.json`
 
@@ -17,6 +17,11 @@ went stale (#93), the URL was wrong (#19), users asked for the feed before it
 existed (#100), and a contributor had to add it (#114). Several users report
 Dev Manager hanging at 95–97% and only succeeding via Homebrew (#113, #17, #37).
 A feed is the installation path that already works for that segment of users.
+
+The schema is package-type agnostic. A native Cobalt IPK can use the same feed,
+but its `manifest.type` and `id` must match the native app; do not publish a
+native package under the web app’s manifest by accident. See
+[`native-cobalt-04`](./native-cobalt/04-packaging-and-release.md).
 
 ## Goal
 
@@ -145,7 +150,7 @@ testers ask for it.
   with the right title, icon and version, and installs.
 - Re-run after a release → the same URL shows the new version without a manual
   edit.
-- `npm run package && npm run manifest` still produce the locally useful
+- `npm run package:fhd && npm run manifest` still produce the locally useful
   (filename-based) manifest.
 
 ## Risks

@@ -276,15 +276,8 @@ package. Do not hack the system Cast service.
 
 ## Acceptance criteria
 
-- [x] `assets/appinfo.json` has no `dialAppName` in the default build.
-- [x] `/apps/YouTube` is no longer registered (404) after the change.
 - [ ] Android shows exactly one TV destination and casts successfully.
 - [ ] iOS shows exactly one TV destination and casts successfully.
-- [x] Cold start (TV app closed, after reboot) still works with the block off.
-- [x] `blockWebosCast` semantics are documented and match the tested behaviour.
-- [x] README no longer claims that removing `dialAppName` hides the TV.
-- [x] The UI label no longer says `Native Cast (SSDP & DIAL)`.
-- [x] Rollback package is known and deployable.
 
 ## Effort
 

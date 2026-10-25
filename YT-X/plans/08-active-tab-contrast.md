@@ -41,7 +41,7 @@
 
 ## Verification
 
-- Build both resolutions (`npm run build`, `npm run build:hd`).
+- Build both resolutions (`npm run build:fhd`, `npm run build:hd`).
 - In Chrome with the YouTube TV reference harness, compute:
   ```js
   const el = document.querySelector('.ytx-tab-btn.active');

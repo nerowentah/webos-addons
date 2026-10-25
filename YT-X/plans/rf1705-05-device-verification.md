@@ -26,10 +26,30 @@ way:
 Each row is a half-hour check. Doing them together, on one build, produces a
 defensible answer for the whole class instead of a fix per bug report.
 
+## Native Cobalt matrix — separate track
+
+This plan verifies the **userscript** in the webview. A native Cobalt package
+has a different runtime and appinfo; its matrix is
+[`native-cobalt-05`](./native-cobalt/05-device-matrix.md). Do not reuse these
+results for a native build.
+
+Native candidates include:
+
+- 4K/UHD: `#2`, `#42`, `#47`
+- launch/crash: `#10`, `#15`, `#20`, `#29`, `#30`, `#32`, `#33`, `#36`,
+  `#41`, `#45`, `#68`, `#84`, `#87`, `#88`, `#92`, `#97`, `#108`
+- build/runtime: `#38`, `#39`, `#40`, `#53`, `#54`, `#65`, `#75`, `#76`,
+  `#83`, `#89`, `#94`, `#95`, `#96`, `#98`
+- live/codec: `#99`, `#102`, `#103`, `#110`, `#111`
+- speed: `#46`, `#81`, `#106`, `#107`
+- input: `#105`
+- packaging/feed: `#7`, `#17`, `#18`, `#19`, `#37`, `#70`, `#82`, `#93`,
+  `#100`, `#113`, `#114`
+
 ## Tooling you already have
 
 ```sh
-npm run deploy                                   # build + install + launch
+npm run deploy:fhd                                # build + install + launch
 npm run inspect                                  # DOM, focus, video, heap
 npm run inspect -- eval "<expr>"                 # one-off probe
 npm run drive -- "down,down,ok" shot.png         # real key/pointer input
@@ -116,7 +136,8 @@ verification is needed beyond a single cast on a webOS 25 set after the change.
 2. Repeat after switching inputs.
 3. If the second launch fails, the relevant knobs are `supportQuickStart` and
    the app's lifecycle handling; `#74`'s native-Cobalt explanation does not
-   apply, so this would be a genuine web-app finding.
+   apply to this web app, so this would be a genuine web-app finding. For the
+   native package, `#74` does apply and is tested in `native-cobalt-05`.
 
 ## 7. Family account picker (#109)
 

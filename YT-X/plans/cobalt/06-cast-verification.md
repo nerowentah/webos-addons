@@ -6,6 +6,13 @@ Addresses: the README's cast claims and the open Phase 2 matrix in
 Touches: `YT-X/README.md`, `YT-X/assets/appinfo.json` (verification only),
 `YT-X/plans/results-<date>.md` (new)
 
+## Scope
+
+This plan verifies the **web app** app id. A native Cobalt port must re-run the
+same matrix under its own native `appinfo.json` (`handlesRelaunch: true`) and
+must not reuse these results. The tracker report `#25` is answered only for the
+path that is actually measured here.
+
 ## Problem
 
 The rework removes `"dialAppName": "YouTube"` from `assets/appinfo.json` and
@@ -25,7 +32,9 @@ is **not** in `YT-X/assets/appinfo.json`. The plan says "do not change
 `handlesRelaunch`", and `block-webos-cast.ts` relies on a `webOSRelaunch` event
 for a cast handoff while the app is already running. If the web app does not
 receive that event without the flag, the cast-while-running row will fail for a
-reason unrelated to DIAL.
+reason unrelated to DIAL. The second-launch report `#74` is related but not
+identical; test it separately rather than treating a cast failure as lifecycle
+proof.
 
 ## Goal
 
@@ -72,6 +81,10 @@ Before the phone matrix, decide and test:
   cast-while-running rows. This is a behaviour fix, not a DIAL change.
 - Do not change any other appinfo field in the same pass.
 
+For a native Cobalt build, `handlesRelaunch: true` is part of the native appinfo
+and is not evidence that the web app has the same behaviour. Re-run the
+cast-while-running rows under the native package.
+
 ### 4. Run the matrix
 
 Run every row from `ytx-cast-native-only.md`; do not infer iOS from Android:
@@ -100,7 +113,7 @@ probe. Update the README from that file. The plan's status line becomes
 
 ## Verification
 
-- `npm run build` then inspect `dist/appinfo.json` for `dialAppName`.
+- `npm run build:fhd` then inspect `dist/appinfo.json` for `dialAppName`.
 - The `curl` probe above.
 - The eight-row matrix.
 - Cast with the TV app closed and running; cold start after a reboot.
@@ -123,8 +136,6 @@ probe. Update the README from that file. The plan's status line becomes
 
 ## Acceptance criteria
 
-- [x] The README no longer claims an unverified outcome.
-- [x] `dist/appinfo.json` has no `dialAppName`.
 - [ ] `/apps/YouTube` is 404 after the change.
 - [ ] Android and iOS each show exactly one destination and cast successfully
       with the app closed and running.

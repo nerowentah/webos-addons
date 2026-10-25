@@ -2,13 +2,19 @@
 
 Status: ready to implement
 Addresses (RF1705 tracker): #70, #82 (packaging ownership/mode class), #74's
-"binary permissions" note
+"binary permissions" note; native-track additions: #7, #17, #37, #53, #54,
+#71, #96, #113
 Touches: `package.json`, new `tools/package.ts`, new `tools/check-ipk.ts`,
 `.github/workflows/release.yml`, `.github/workflows/ci.yml`
 
+Native Cobalt note: this plan covers the **web app** IPK. A native Cobalt package
+has a different payload, ownership and appinfo; see
+[`native-cobalt-04`](./native-cobalt/04-packaging-and-release.md). The mode and
+archive checks here should still run on a native IPK where they apply.
+
 ## Problem
 
-`npm run package` is a bare `ares-package -n dist`. `ares-package` copies modes
+`npm run package:dist` is a bare `ares-package -n dist`. `ares-package` copies modes
 and ownership straight from the filesystem, so the artefact inherits whatever
 the build machine had. I unpacked the committed build
 (`YT-X/youtube.leanback.v4_1.0.35_all.ipk`) and every entry is:
@@ -44,6 +50,23 @@ if it does not.
 - Changing the app id, version scheme or `ares-package` itself.
 - Repacking the outer `ar` container (keeps the plan cross-platform).
 - Chowning to `5000`: see "Ownership" below for why it is deliberately skipped.
+
+## Native Cobalt packaging (separate track)
+
+The native package is built by `tools/native-ipk.ts` / `tools/native.ts` (see
+[`native-cobalt/04`](./native-cobalt/04-packaging-and-release.md)); the web
+`tools/package.ts` and `tools/check-ipk.ts` below are still not written. The native package additionally needs:
+
+- compressed runtime/content-size handling (`#53`, `#54`);
+- ownership and savegame path (`#70`, `#82`);
+- missing AArch64 libraries (`#71`);
+- obsolete packaging paths (`#96`);
+- package-size/install-hang investigation (`#7`, `#17`, `#37`, `#113`);
+- native appinfo fields, Cobalt binary, runtime libraries and fonts.
+
+Do not treat the web-app mode fix as native packaging proof. The native
+packaging plan is
+[`native-cobalt-04`](./native-cobalt/04-packaging-and-release.md).
 
 ## Design
 
@@ -94,11 +117,11 @@ the Node reader is preferred (≈80 lines, no new dependency).
 ### 3. Wiring
 
 - `package.json`: `"package": "node tools/package.ts"`; `"package:hd"` keeps
-  `npm run build:hd && npm run package`.
-- `release.yml`: the existing `npm run package` step now enforces the check;
+  `npm run build:hd && npm run package:dist`.
+- `release.yml`: the existing `npm run package:dist` step now enforces the check;
   keep `SHA256SUMS.txt`.
 - `ci.yml`: add a packaging job (or extend the existing build job) that runs
-  `npm run build && npm run package && node tools/check-ipk.ts ./*.ipk`, so a
+  `npm run build:fhd && npm run package:dist && node tools/check-ipk.ts ./*.ipk`, so a
   mode regression fails a PR instead of reaching a release.
 
 ### Ownership (deliberate decision)
@@ -120,9 +143,9 @@ reasoning in the script comment so a future contributor does not "fix" it.
 
 ## Verification
 
-- `npm run package` on Linux/macOS → `tar -tvzf` on the produced `data.tar.gz`
+- `npm run package:dist` on Linux/macOS → `tar -tvzf` on the produced `data.tar.gz`
   shows `-rw-r--r--` files and `drwxr-xr-x` directories.
-- `npm run package` on Windows → succeeds, prints the skip notice, and the check
+- `npm run package:dist` on Windows → succeeds, prints the skip notice, and the check
   step still runs (it inspects the archive, not the filesystem).
 - CI packaging job green on a clean checkout and red when a mode is
   deliberately set to `0666` in `dist` before packaging.
@@ -140,5 +163,5 @@ reasoning in the script comment so a future contributor does not "fix" it.
 
 - No published `.ipk` contains group/other-writable entries.
 - CI fails on a packaging regression.
-- `npm run package` behaves identically on Windows and POSIX for the parts that
+- `npm run package:dist` behaves identically on Windows and POSIX for the parts that
   matter (the archive check), with the mode step skipped loudly on Windows.
