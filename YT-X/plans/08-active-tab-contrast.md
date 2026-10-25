@@ -5,32 +5,7 @@
 - Files: `src/ui/ui.css`
 - Related: plan 09 (non-colour cue) — ship together if possible
 
-## Problem
-
-`.ytx-tab-btn.active` is `#ff4444` on `rgba(255, 0, 0, 0.15)` over the panel
-(`src/ui/ui.css:365-368`). Composited over the tab-menu plate, that is about
-`#343434`, giving **3.66:1**.
-
-- At 1080p, `2.1vh` is 22.7 px and the weight is 700, so it counts as large
-  text and passes 3:1.
-- In the 720p build, `2.1vh` is 15.1 px bold → normal text, so it needs 4.5:1
-  and fails.
-- The inactive `#b5b5b5` (8.98:1) and focus `#ffffff` (6.90:1) states pass.
-
-## Implementation
-
-1. Change the active tab text to `#ffffff`. White on the tinted plate is
-   about 12.3:1 in both builds. Keep red as an accent in the border/underline
-   (plan 09) rather than as small text.
-2. Leave `.ytx-tab-btn:focus` as-is (`color: #ffffff`), so focus and active no
-   longer differ by text colour; plan 09 supplies the shape cue.
-3. Do not lighten the whole palette: `#ff4444` still passes on the plain panel
-   (5.41:1) and is used for the heading, arrows and close glyph.
-4. If the design requires red active text, the minimum is `#ff6b6b` (4.49:1
-   on `#343434`) — but prefer white plus a red underline, which also satisfies
-   plan 09.
-5. Do not reduce the tab font size to dodge the large-text threshold; that
-   worsens readability at TV distance.
+Status: implemented in code with unit tests; the TV checks below are open.
 
 ## Acceptance criteria
 

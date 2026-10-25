@@ -10,6 +10,7 @@ import { initBadge } from './badge';
 import { showOptionsPanel } from './panel-controller';
 import { initPanelCare } from './panel-care';
 import { initPanelKeys } from './panel-keys';
+import { initTextScale } from './text-scale';
 import { initOpenShortcut } from './shortcut';
 import { initCobaltBack } from '../core/cobalt-back';
 import { panelState, setSponsorBlockPanelSync } from './panel-state';
@@ -25,6 +26,7 @@ initCobaltBack();
 initBadge(() => showOptionsPanel(!panelState.visible));
 
 initPanelCare();
+initTextScale();
 
 // --ytx-ui-scale is owned by tv-specs but measured here (the site's stylesheets
 // are only present in-page), so it re-runs on every specs change and the panel's density relayout rides along.

@@ -42,6 +42,7 @@ export const UI_LABELS = {
   panelCareMode: 'Panel Care Mode',
   disableAnimations: 'Disable Animations',
   forceVideoCodec: 'Video Codec',
+  uiTextScale: 'Text Size',
   skipSegmentsOnce: 'Skip Once',
   enableSponsorBlockFiller: 'Skip Tangents',
   enableSponsorBlockHook: 'Skip Hook',
@@ -71,10 +72,15 @@ export const PANEL = {
 export const SPONSOR_POPUP: {
   title: string;
   subtitle: string;
+  dismissLabel: string;
+  segmentsFound: (n: number) => string;
   categories: Record<SegmentCategory, string>;
 } = {
   title: 'SponsorBlock',
   subtitle: 'Segments found for this video',
+  dismissLabel: 'Dismiss',
+  segmentsFound: (n) =>
+    `${n} segment${n === 1 ? '' : 's'} found for this video`,
   categories: {
     sponsor: 'Sponsor',
     intro: 'Intermission/Intro',

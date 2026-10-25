@@ -5,42 +5,7 @@
 - Files: `src/ui/ui.css`
 - Depends on: plan 08 (active text becomes white)
 
-## Problem
-
-The active tab is currently distinguished only by red text and a red-tinted
-background (`src/ui/ui.css:365-368`). All tabs share the same weight, size,
-border and position. A user who cannot distinguish the red tint cannot tell
-which page is selected. Inactive `#b5b5b5` vs active `#ff4444` is a colour-only
-difference.
-
-## Implementation
-
-1. Add a shape cue to the active tab using a pseudo-element, so it survives
-   focus/hover rules that overwrite `box-shadow`:
-   ```css
-   .ytx-tab-btn {
-     position: relative;
-   }
-   .ytx-tab-btn.active::after {
-     content: '';
-     position: absolute;
-     left: 12%;
-     right: 12%;
-     bottom: 0.25vh;
-     height: 0.28vh;
-     border-radius: 0.14vh;
-     background: #ff4444;
-   }
-   ```
-2. Keep the active background tint and white text from plan 08. The underline
-   is the non-colour cue; it is visible in greyscale.
-3. Do not use `border-bottom`: it changes the box height and can shift the tab
-   row. The absolute pseudo-element does not affect layout.
-4. Ensure `.ytx-tab-btn:focus` does not remove the underline: `::after` is not
-   affected by the focus `box-shadow`.
-5. Optional second cue: prepend a small dot or change `font-weight` to 800.
-   Weight alone is weak at TV distance; prefer the underline.
-6. Add `aria-selected` in plan 03 for AT; this plan is the visual counterpart.
+Status: implemented in code with unit tests; the TV checks below are open.
 
 ## Acceptance criteria
 

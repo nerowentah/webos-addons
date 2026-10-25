@@ -28,6 +28,15 @@ export const videoCodecModes = {
 };
 export type VideoCodecMode = keyof typeof videoCodecModes;
 
+/** Text Size: scales YT-X's own text (panel, toasts, badge, popup) only. */
+export const textScaleModes = {
+  normal: '100%',
+  large: '125%',
+  huge: '150%',
+  maximum: '200%'
+};
+export type TextScaleMode = keyof typeof textScaleModes;
+
 /**
  * Panel Care Mode: 'auto' resolves via tv-specs' UA model read (see resolvePanelCareMode); 'oled' is the true-black burn-in treatment, 'qned' a dark-grey, low-contrast UI that limits MiniLED blooming; unknown models resolve to 'off'.
  * Labels must stay this short - they render in the cycle control's one-line, fixed-width value column, where text overflows into the arrows.
@@ -75,6 +84,7 @@ const defaultConfig = {
   panelCareMode: 'auto' as PanelCareMode,
   disableAnimations: false,
   forceVideoCodec: 'auto' as VideoCodecMode,
+  uiTextScale: 'normal' as TextScaleMode,
   skipSegmentsOnce: false,
   enableSponsorBlockFiller: false,
   enableSponsorBlockHook: false,
@@ -97,7 +107,8 @@ export type ConfigChangeListener<K extends ConfigKey = ConfigKey> = (
 
 const enumValues: Partial<Record<ConfigKey, readonly string[]>> = {
   panelCareMode: Object.keys(panelCareModes),
-  forceVideoCodec: Object.keys(videoCodecModes)
+  forceVideoCodec: Object.keys(videoCodecModes),
+  uiTextScale: Object.keys(textScaleModes)
 };
 
 // Created on first use so importing this module touches neither window nor storage.

@@ -57,6 +57,8 @@ Both upstream projects are licensed GPL-3.0, which this project matches (see
 
 ### Interface
 
+- Text Size (100/125/150/200%) scales YT-X's own panel, toasts, badge and popup;
+  YouTube's text is unchanged. YT-X also honours the reduced-motion preference.
 - Panel Care Mode with per-panel profiles: OLED-Care (true black UI) and
   QNED MiniLED-Care (dark comfort UI). Off uses the neutral translucent
   QNED-style plate

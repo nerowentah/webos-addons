@@ -2,7 +2,7 @@
 // relayout. Behaviour on close is injected, so this module never imports the
 // controller that creates it.
 
-import { panelCareModes } from '../config/config';
+import { panelCareModes, textScaleModes } from '../config/config';
 import { PANEL } from '../config/ui-text';
 import { REMOTE_KEYS } from '../core/utils';
 import { SEGMENT_CATEGORIES } from '../features/sponsorblock/categories';
@@ -191,6 +191,7 @@ export function createOptionsPanel(onClose: () => void): OptionsPanel {
             createConfigCheckbox('pointerSettingsButton'),
             createConfigCheckbox('keyboardSearch'),
             createConfigCheckbox('disableAnimations'),
+            createAlignedCycleControl('uiTextScale', textScaleModes),
             createConfigCheckbox('autoAccountSelect'),
             createConfigCheckbox('disableAutoCaptions'),
             createConfigCheckbox('hideLogo'),

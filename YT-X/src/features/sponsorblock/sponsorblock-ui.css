@@ -121,3 +121,36 @@
 .sb-segment-row:focus .sb-segment-time {
   color: #0f0f0f;
 }
+
+.sb-popup-close {
+  position: absolute;
+  top: 0.6vh;
+  right: 0.6vh;
+  width: 3.4vh;
+  height: 3.4vh;
+  padding: 0;
+  border: 0.09vh solid #272727;
+  border-radius: 0.8vh;
+  background: transparent;
+  color: #ffffff;
+  font-size: 2vh;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.sb-popup-close:focus {
+  outline: none;
+  background: #ff0000;
+  box-shadow: 0 0 0 0.19vh #ffffff;
+}
+
+/* Visually hidden, still in the accessibility tree (display: none would drop it). */
+.sb-popup-status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+}

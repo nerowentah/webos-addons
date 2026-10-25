@@ -44,6 +44,13 @@ class SponsorBlockUI {
     const popup = document.createElement('div');
     popup.className = 'sb-segments-popup';
     popup.setAttribute('tabindex', '-1');
+    popup.setAttribute('role', 'region');
+    popup.setAttribute('aria-labelledby', 'sb-popup-title');
+    // Interacting with the popup keeps it up; leaving restarts a full hide timer.
+    popup.addEventListener('focusin', () => this.pauseHide());
+    popup.addEventListener('mouseenter', () => this.pauseHide());
+    popup.addEventListener('focusout', () => this.resumeHide());
+    popup.addEventListener('mouseleave', () => this.resumeHide());
 
     const header = document.createElement('div');
     header.className = 'sb-popup-header';
@@ -54,10 +61,12 @@ class SponsorBlockUI {
     const icon = document.createElement('img');
     icon.className = 'sb-header-icon';
     icon.src = sponsorBlockIcon;
-    icon.alt = 'SponsorBlock';
+    // The adjacent title already names it.
+    icon.alt = '';
 
     const titleText = document.createElement('span');
     titleText.className = 'sb-header-text';
+    titleText.id = 'sb-popup-title';
     titleText.textContent = SPONSOR_POPUP.title;
 
     titleRow.appendChild(icon);
@@ -70,9 +79,25 @@ class SponsorBlockUI {
     header.appendChild(titleRow);
     header.appendChild(subtitle);
 
+    const close = document.createElement('button');
+    close.type = 'button';
+    close.className = 'sb-popup-close';
+    close.textContent = '✕';
+    close.setAttribute('aria-label', SPONSOR_POPUP.dismissLabel);
+    close.addEventListener('click', () => this.dismiss());
+
+    // Visually hidden live region: announces the count once, not every row.
+    const status = document.createElement('p');
+    status.className = 'sb-popup-status';
+    status.setAttribute('role', 'status');
+    status.setAttribute('aria-live', 'polite');
+
     const listContainer = document.createElement('div');
     listContainer.className = 'sb-list-container';
+    listContainer.setAttribute('role', 'list');
 
+    popup.appendChild(close);
+    popup.appendChild(status);
     popup.appendChild(header);
     popup.appendChild(listContainer);
     document.body.appendChild(popup);
@@ -86,6 +111,11 @@ class SponsorBlockUI {
     const container = popup.querySelector('.sb-list-container');
     if (!container) return;
     container.textContent = '';
+    const status = popup.querySelector('.sb-popup-status');
+    if (status) {
+      status.textContent =
+        segments.length > 0 ? SPONSOR_POPUP.segmentsFound(segments.length) : '';
+    }
 
     this.hasSegments = segments.length > 0;
     if (!this.hasSegments) {
@@ -103,6 +133,7 @@ class SponsorBlockUI {
       const row = document.createElement('div');
       row.className = 'sb-segment-row';
       row.setAttribute('tabindex', '-1');
+      row.setAttribute('role', 'listitem');
 
       const color = this.getSegmentColor(segment.category);
       const startTime = formatTime(segment.segment[0]);
@@ -141,6 +172,29 @@ class SponsorBlockUI {
     });
   }
 
+  private armHide(): void {
+    if (this.hideTimer) clearTimeout(this.hideTimer);
+    this.hideTimer = setTimeout(() => {
+      this.hideTimer = null;
+      this.popup?.classList.remove('visible');
+    }, AUTO_HIDE_MS);
+  }
+
+  /** Focus or hover: the popup stays until the user leaves it. */
+  pauseHide(): void {
+    if (this.hideTimer) clearTimeout(this.hideTimer);
+    this.hideTimer = null;
+  }
+
+  resumeHide(): void {
+    if (this.popup?.classList.contains('visible')) this.armHide();
+  }
+
+  dismiss(): void {
+    this.clearTimers();
+    this.popup?.classList.remove('visible');
+  }
+
   clearTimers(): void {
     if (this.showTimer) clearTimeout(this.showTimer);
     if (this.hideTimer) clearTimeout(this.hideTimer);
@@ -165,10 +219,7 @@ class SponsorBlockUI {
 
       this.hasShownOnce = true;
       this.popup?.classList.add('visible');
-      this.hideTimer = setTimeout(() => {
-        this.hideTimer = null;
-        this.popup?.classList.remove('visible');
-      }, AUTO_HIDE_MS);
+      this.armHide();
     }, AUTO_SHOW_DELAY_MS);
   }
 

@@ -43,6 +43,7 @@ export const LIVENESS: Record<ConfigKey, Liveness> = {
   panelCareMode: 'instant',
   disableAnimations: 'instant',
   forceVideoCodec: 'next-load',
+  uiTextScale: 'instant',
   skipSegmentsOnce: 'instant',
   enableSponsorBlockFiller: 'next-load',
   enableSponsorBlockHook: 'next-load',
