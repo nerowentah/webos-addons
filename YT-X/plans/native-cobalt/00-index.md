@@ -32,11 +32,11 @@ config store, settings panel, themes, `tv-specs`. Cobalt-safe CSS is enforced fo
 
 ## Open
 
-| #   | Plan                                                   | Status                |
-| --- | ------------------------------------------------------ | --------------------- |
-| 3   | [Feature parity](./03-feature-parity.md)               | matrix partly filled  |
-| 4   | [Packaging and release](./04-packaging-and-release.md) | CI/feed/rollback open |
-| 5   | [Device matrix](./05-device-matrix.md)                 | one TV only           |
+| #   | Plan                                                   | Status                             |
+| --- | ------------------------------------------------------ | ---------------------------------- |
+| 3   | [Feature parity](./03-feature-parity.md)               | matrix partly filled               |
+| 4   | [Packaging and release](./04-packaging-and-release.md) | CI job written, rollback test open |
+| 5   | [Device matrix](./05-device-matrix.md)                 | one TV only                        |
 
 Also open: live ad-response proof, Magic Remote pointer/wheel, mute-segment audio, cast list on the phone (cache), more TVs.
 
@@ -47,3 +47,12 @@ Also open: live ad-response proof, Magic Remote pointer/wheel, mute-segment audi
 - Run `npm run lint:all` and `npm run verify` after repository changes. Plans are covered by `prettier-check`.
 
 Identity capture for the Security page check: `npm run capture:identity` (writes `dist/identity-<label>.md`, tokens redacted).
+
+## CSP
+
+- `src/index.html` carries YT-X's own CSP; it applies to the web userscript shell only. The native build has no shell page.
+- On youtube.com the Cobalt UA gets YouTube's CSP (`style-src` nonce, `connect-src` without the SponsorBlock servers). That is deliberate
+  on YouTube's side and is not worked around: SponsorBlock is not built into Cobalt builds (`__YTX_SPONSORBLOCK__` is false for
+  `--env ua=cobalt`).
+- Injected `<style>` elements take the page nonce (`src/core/csp-nonce.ts`); thumbnail probes fall back to image loads after the first
+  `connect-src` violation.

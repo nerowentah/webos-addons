@@ -5,6 +5,31 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
+    inputs:
+      runtime_url:
+        description: 'RF1705 runtime IPK URL (https); builds the native package when set'
+        required: false
+        default: ''
+      runtime_sha256:
+        description: 'sha256 of the runtime IPK'
+        required: false
+        default: ''
+      model:
+        description: 'TV model short name, e.g. QNED86'
+        required: false
+        default: ''
+      model_full:
+        description: 'Full model SKU, e.g. 65QNED86ASA.ATSFLJD'
+        required: false
+        default: ''
+      firmware:
+        description: 'TV firmware version'
+        required: false
+        default: ''
+      year:
+        description: 'TV model year'
+        required: false
+        default: ''
 
 permissions:
   contents: read
@@ -68,7 +93,78 @@ jobs:
       - name: Checksums
         run: sha256sum ./*.ipk > SHA256SUMS.txt
 
+      # Homebrew Channel: the single-app manifest and the repository feed,
+      # both pointing at this release's IPK.
+      - name: Homebrew manifest and feed
+        run: |
+          base="https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}"
+          ipk="$(ls ./*.ipk | head -n1)"
+          node tools/gen-manifest.ts youtube.leanback.v4.manifest.json --ipk-url "$base/$(basename "$ipk")"
+          node tools/gen-repo.ts --base-url "$base"
+
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" ./*.ipk SHA256SUMS.txt --generate-notes --title "$GITHUB_REF_NAME"
+        run: gh release create "$GITHUB_REF_NAME" ./*.ipk SHA256SUMS.txt youtube.leanback.v4.manifest.json repo.json --generate-notes --title "$GITHUB_REF_NAME"
+
+  # Native Cobalt package: manual only. The RF1705 runtime is a third-party
+  # binary that is never stored in this repository; supply its download URL and
+  # sha256 when dispatching.
+  native:
+    if: github.event_name == 'workflow_dispatch' && inputs.runtime_url != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    defaults:
+      run:
+        working-directory: YT-X
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: YT-X/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Fetch RF1705 runtime
+        env:
+          RUNTIME_URL: ${{ inputs.runtime_url }}
+          RUNTIME_SHA256: ${{ inputs.runtime_sha256 }}
+        run: |
+          curl --fail --location --proto '=https' -o "$RUNNER_TEMP/runtime.ipk" "$RUNTIME_URL"
+          echo "$RUNTIME_SHA256  $RUNNER_TEMP/runtime.ipk" | sha256sum --check -
+
+      - name: Build and package native
+        env:
+          MODEL: ${{ inputs.model }}
+          FIRMWARE: ${{ inputs.firmware }}
+          YEAR: ${{ inputs.year }}
+          MODEL_FULL: ${{ inputs.model_full }}
+        run: |
+          npm run build:fhd:cobalt
+          args=(--runtime "$RUNNER_TEMP/runtime.ipk")
+          [ -n "$MODEL_FULL" ] && args+=(--model-full "$MODEL_FULL")
+          if [ -n "$MODEL" ]; then
+            args+=(--device-strings --model "$MODEL")
+            [ -n "$FIRMWARE" ] && args+=(--firmware "$FIRMWARE")
+            [ -n "$YEAR" ] && args+=(--year "$YEAR")
+          fi
+          node tools/native.ts package "${args[@]}"
+          sha256sum dist-native/*.ipk > dist-native/SHA256SUMS.txt
+
+      # A private draft release holds the package: it embeds a third-party
+      # runtime, so it is not published automatically.
+      - name: Attach to a draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "native-$GITHUB_RUN_NUMBER" dist-native/*.ipk dist-native/SHA256SUMS.txt --draft --prerelease --title "native-$GITHUB_RUN_NUMBER" --notes "Native Cobalt package; contains the RF1705 runtime."

@@ -43,7 +43,7 @@ Start with 1 and 2 (same file, real user-visible bugs), then 4 and 5
 phones and produces the documentation result.
 
 `02-terminal-segments.md` replaced the former `rf1705-01` plan (deleted).
-`rf1705-03` (IPK packaging) and `rf1705-04` (Homebrew feed) stay separate
+`rf1705-04` (Homebrew feed) stays separate
 and are not duplicated here.
 
 ## Shared conventions

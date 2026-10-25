@@ -51,8 +51,8 @@ Both upstream projects are licensed GPL-3.0, which this project matches (see
 - Auto-skip sponsors, intros, outros, interaction reminders, self-promotion,
   non-music sections, recaps, tangents/jokes, and hook/greetings
 - Skip segments only once
-- Not available on the experimental Cobalt user-agent build: its page CSP blocks
-  the SponsorBlock servers, so the feature stays off there (see
+- Not built into the Cobalt builds (user-agent and native): YouTube's page CSP
+  for that user agent blocks the SponsorBlock servers (see
   [User agent](#user-agent))
 
 ### Interface
@@ -114,6 +114,10 @@ changes what the build is allowed to emit.
 Prebuilt `.ipk` releases are published on
 [nerowentah/webos-addons](https://github.com/nerowentah/webos-addons/releases);
 to build from source instead, continue below.
+
+In the Homebrew Channel, add the repository
+`https://github.com/nerowentah/webos-addons/releases/latest/download/repo.json`
+to install and update from the TV. Each release also carries `SHA256SUMS.txt`.
 
 1. Clone the repository:
 
@@ -323,7 +327,7 @@ Besides the userscript, YT-X can run inside RF1705's native Cobalt runtime
 ([youtube-webos-cobalt-adfree](https://github.com/RF1705/youtube-webos-cobalt-adfree)
 IPK, not bundled here). It replaces the stock `youtube.leanback.v4` app and is
 separate from the userscript: the same settings panel and ad hooks, but the Cobalt
-player and codecs. SponsorBlock is off and "Block Cast Wake" is inactive there.
+player and codecs. SponsorBlock is not included and "Block Cast Wake" is inactive there.
 
 ```sh
 npm run build:fhd:cobalt
@@ -332,7 +336,11 @@ node tools/native.ts update --model-full 65QNED86ASA.ATSFLJD --key <ssh key>   #
 ```
 
 `setup` reinstalls and signs you out; use `update` while iterating. To go back to the
-web app, run `npm run deploy:fhd`. Status and open items:
+web app, run `npm run deploy:fhd`.
+To roll back a bad native build, run `node tools/native.ts clean` and reinstall the
+stock app (or `npm run deploy:fhd` for YT-X). The release workflow can also build the
+native package: dispatch it with the runtime's download URL and sha256; it lands in a
+draft pre-release, never in a normal release. Status and open items:
 [`plans/native-cobalt/`](plans/native-cobalt/00-index.md).
 
 ### User agent

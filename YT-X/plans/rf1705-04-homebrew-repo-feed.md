@@ -1,6 +1,6 @@
 # RF1705-04 — Homebrew channel feed
 
-Status: ready to implement
+Status: generator, release upload and README line implemented (`tools/gen-repo.ts`, `tools/feed.ts`, `release.yml`); open: verify the first tagged release installs through the Homebrew Channel, and the optional beta entry
 Addresses (RF1705 tracker): #18, #19, #93, #100, #114, and the install-hang
 reports #113 / #17 / #37 (see "Why this ranks high")
 Touches: new `tools/gen-repo.ts`, `tools/gen-manifest.ts`,

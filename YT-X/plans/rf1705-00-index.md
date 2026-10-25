@@ -22,12 +22,11 @@ extra userscript work.
 
 ## Order
 
-| #   | Plan                                                           | Type                | Blocked by                       |
-| --- | -------------------------------------------------------------- | ------------------- | -------------------------------- |
-| 2   | [Playback-rate quality](./rf1705-02-playback-rate-quality.md)  | measure → fix       | step 0 (device)                  |
-| 3   | [IPK packaging integrity](./rf1705-03-ipk-packaging.md)        | release engineering | —                                |
-| 4   | [Homebrew channel feed](./rf1705-04-homebrew-repo-feed.md)     | release engineering | 3 (needs a trustworthy artefact) |
-| 5   | [Device verification pass](./rf1705-05-device-verification.md) | investigation       | —                                |
+| #   | Plan                                                           | Type                | Blocked by           |
+| --- | -------------------------------------------------------------- | ------------------- | -------------------- |
+| 2   | [Playback-rate quality](./rf1705-02-playback-rate-quality.md)  | measure → fix       | step 0 (device)      |
+| 4   | [Homebrew channel feed](./rf1705-04-homebrew-repo-feed.md)     | release engineering | first tagged release |
+| 5   | [Device verification pass](./rf1705-05-device-verification.md) | investigation       | —                    |
 
 Terminal segments (former plan 1) moved to [`cobalt/02`](./cobalt/02-terminal-segments.md).
 Start with 3 (independent, mechanical). 5 runs on hardware and produces the input for 2.
@@ -45,7 +44,7 @@ open item is represented in the categories below.
   YT-X is a userscript with its own ad blocking; none applies here.
 - Closed PRs: `#27` workflow permissions and `#34` form-data CVE (upstream CI and
   dependency hygiene), `#62` Shorts blocker reload, `#77` rooted Store overlay
-  (native packaging, see rf1705-03). `#78` and `#80` are the SponsorBlock marker
+  (native packaging, see native-cobalt/04). `#78` and `#80` are the SponsorBlock marker
   fixes already ported by [cobalt/03](./cobalt/03-progress-bar-markers.md).
 
 **Out of scope for the userscript (no action here)** — issues that live inside

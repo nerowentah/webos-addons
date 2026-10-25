@@ -1,6 +1,6 @@
 # Native Cobalt-04 — Packaging and release
 
-Status: `tools/native.ts` packages and installs (done); CI release, feed and rollback open
+Status: `tools/native.ts` packages and installs; a manual `release.yml` job builds it into a draft pre-release; open: verify that job once with a real runtime, and test the rollback on the TV
 Addresses: native appinfo, runtime payload, compression, ownership, feed and
 rollback
 Touches: native `appinfo.json`, package contents, release workflow, Homebrew feed
