@@ -16,7 +16,8 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { connect, connectToPort, HarnessError, runCli } from './inspect.ts';
 import type { Session } from './inspect.ts';
-import { press, sleep } from './drive.ts';
+import { setTimeout as sleep } from 'node:timers/promises';
+import { press } from './drive.ts';
 
 export type Suite = 'web' | 'native';
 

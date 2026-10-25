@@ -8,8 +8,9 @@
  * `ok`. Record the build sha, TV model and webOS version in the PR.
  */
 import { spawnSync } from 'node:child_process';
+import { setTimeout as sleep } from 'node:timers/promises';
 import { connect, diagnostics, runCli, HarnessError } from './inspect.ts';
-import { press, click, sleep } from './drive.ts';
+import { press, click } from './drive.ts';
 
 const argv = process.argv.slice(2);
 const di = argv.indexOf('-d');

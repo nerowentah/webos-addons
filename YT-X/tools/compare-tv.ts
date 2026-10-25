@@ -10,13 +10,13 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { setTimeout as sleep } from 'node:timers/promises';
 import { parseArgs } from 'node:util';
 import {
   collectSnapshot,
   DEFAULT_TIME_S,
   seekAndPause,
   showControls,
-  sleep,
   VIEWPORT
 } from './compare-chrome.ts';
 import { press } from './drive.ts';

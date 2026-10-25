@@ -21,6 +21,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { parseArgs } from 'node:util';
+import { setTimeout as sleep } from 'node:timers/promises';
 import {
   connectToPort,
   HarnessError,
@@ -359,8 +360,6 @@ function launchChrome(opts: {
   ];
   return spawn(opts.chrome, args, { stdio: 'ignore' });
 }
-
-export const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /* eslint-disable no-await-in-loop -- polling and ordered key events */
 export async function waitFor(

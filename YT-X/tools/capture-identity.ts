@@ -9,6 +9,7 @@
 // identity dump only.
 import { writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { setTimeout as sleep } from 'node:timers/promises';
 import {
   connect,
   connectToWebSocket,
@@ -26,9 +27,6 @@ import {
 } from './identity-capture.ts';
 
 const POLL_MS = 2000;
-
-const sleep = (ms: number): Promise<void> =>
-  new Promise((resolve) => setTimeout(resolve, ms));
 
 function option(argv: readonly string[], name: string): string | undefined {
   const i = argv.indexOf(name);

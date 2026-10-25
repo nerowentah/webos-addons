@@ -39,6 +39,7 @@ import { spawnSync } from 'node:child_process';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { setTimeout as sleep } from 'node:timers/promises';
 import {
   patchDeviceStrings,
   untestedRuntimeNote,
@@ -180,9 +181,6 @@ function push(device: Device, key: string, local: string, to: string): void {
   );
   if (result.status !== 0) throw new Error(`scp failed: ${result.stderr}`);
 }
-
-const sleep = (ms: number): Promise<void> =>
-  new Promise((resolve) => setTimeout(resolve, ms));
 
 function isRunning(device: string): boolean {
   return ares('ares-launch', ['-d', device, '-r'], true).includes(APP_ID);

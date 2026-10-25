@@ -8,6 +8,7 @@
  * Screenshots exclude the hardware video plane (see inspect.ts).
  */
 import { writeFileSync } from 'node:fs';
+import { setTimeout as sleep } from 'node:timers/promises';
 import {
   connect,
   diagnostics,
@@ -30,9 +31,6 @@ const KEYS: Record<string, { code: number; key: string; domCode: string }> = {
   yellow: { code: 405, key: 'ColorF2Yellow', domCode: '' },
   blue: { code: 406, key: 'ColorF3Blue', domCode: '' }
 };
-
-export const sleep = (ms: number): Promise<void> =>
-  new Promise((r) => setTimeout(r, ms));
 
 export async function press(session: Session, token: string): Promise<void> {
   const k = KEYS[token];
