@@ -357,6 +357,8 @@ What differs on the native build:
 
 Sign-in and cast names: YT-X rewrites the sign-in `device_model` to the full SKU (`--model-full`) so Google files the TV under "Television", and the lounge screen is named `[YT-X] webOS TV <model>`. The system Cast receiver keeps its own name (`[LG] webOS TV <model>`). Google keeps one screen record per registration, so every `setup` leaves an old entry on phones; remove old TVs under Settings > Watch on TV, and prefer `update` over `setup`.
 
+Debugging the native build: the runtime ships no `/json` debugger endpoint (every path on port 9222 answers 404), but its WebDriver server on `[::1]:4444` runs scripts in the page and takes screenshots; forward it with `ssh -L 14444:[::1]:4444 <tv>` and use the standard `/session` endpoints. YT-X's scripts are injected from a `file://` origin, so the page reports their uncaught errors as a bare `Script error.`; failures YT-X catches on purpose are kept in `window.__ytxFails`. To find a misbehaving module without rebuilding, put module names (as listed in `src/native-main.ts`, comma-separated) in `localStorage['ytx-skip']` and relaunch.
+
 Check a running build with `npm run verify:ytx -- --suite native --port 19222` (see below). `npm run capture:identity` writes a redacted sign-in identity report to `dist/`.
 
 ### User agent

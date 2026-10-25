@@ -1,7 +1,8 @@
 /* The inline hover preview never renders on this panel (LG's hardware video
  * plane does not composite it), so the tile would go black; previews.ts holds
- * the paired audio teardown. */
-.fade-out-during-inline {
+ * the paired audio teardown. The native Cobalt build (html.ytx-native, set in
+ * native-main.ts) does render it, and needs the thumbnail to fade out to show it. */
+html:not(.ytx-native) .fade-out-during-inline {
   opacity: 1 !important;
   visibility: visible !important;
   transition: none !important;

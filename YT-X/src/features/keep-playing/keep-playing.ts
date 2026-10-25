@@ -73,8 +73,10 @@ function findDialogIn(root: ParentNode): Element | null {
 // an ancestor of an affirmative-looking control.
 function findDialogByButton(root: ParentNode): Element | null {
   for (const btn of root.querySelectorAll(CONFIRM_SELECTOR)) {
-    if (!isElementVisible(btn) || !isConfirmLabel(btn.textContent || ''))
+    // Label first: the visibility check reads computed style, and most controls are not a confirm button.
+    if (!isConfirmLabel(btn.textContent || '') || !isElementVisible(btn)) {
       continue;
+    }
     let node: Element | null = btn;
     for (let i = 0; i < 6 && node; i++, node = node.parentElement) {
       const text = node.textContent || '';
@@ -145,6 +147,9 @@ function scanForDialog(): void {
   resumePlayback();
 }
 
+// The observer fires on every DOM change (the progress bar alone mutates constantly); a scan walks the controls, so batch them. The 2 s timer below catches anything this misses.
+const SCAN_BATCH_MS = 750;
+
 let scanScheduled = false;
 
 function scheduleScan(): void {
@@ -153,7 +158,7 @@ function scheduleScan(): void {
   setTimeout(() => {
     scanScheduled = false;
     scanForDialog();
-  }, 50);
+  }, SCAN_BATCH_MS);
 }
 
 /** Wrap `video.pause` so only an idle-triggered pause is swallowed. */

@@ -5,8 +5,18 @@
 // `ytx-modules`) for the debug port; a failure also lands in `ytx-err`.
 //
 // Keep the module list equal to userScript.ts: tools/native-main.test.ts checks.
+//
+// Debugging: `localStorage['ytx-skip']` holds module names (comma-separated, as in
+// the list below) to leave out, so a misbehaving module can be found by bisecting
+// from the debug port without rebuilding. Empty by default.
 import './platform/cobalt-polyfills';
 import { handleRelaunch } from './core/utils';
+import { reattachOnRebuild } from './core/reattach';
+
+// Marks the page for CSS that differs on the native build (styles/yt-fixes.css).
+reattachOnRebuild(() => {
+  document.documentElement.classList.add('ytx-native');
+});
 
 document.addEventListener(
   'webOSRelaunch',
@@ -138,10 +148,26 @@ function save(host: NativeGlobals): void {
 
 // Started in order but not awaited one by one: a module that waits for a
 // YouTube object (top-level await) must not hold the ones after it.
+function skippedModules(): string[] {
+  try {
+    return (window.localStorage.getItem('ytx-skip') ?? '')
+      .split(',')
+      .map((name) => name.trim())
+      .filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
 function loadAll(): void {
   const host = window as unknown as NativeGlobals;
   const status = (host.__ytxModules ??= {});
+  const skipped = skippedModules();
   for (const [name, load] of modules) {
+    if (skipped.includes(name)) {
+      status[name] = 'skipped';
+      continue;
+    }
     status[name] = 'loading';
     load().then(
       () => {
