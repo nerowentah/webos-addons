@@ -11,6 +11,9 @@
 // CSS gaps (grid, :checked, :focus-within, structural pseudos, var(), 8-digit
 // hex, @keyframes on transform that aborts the app) are guarded by
 // tools/cobalt-css.test.ts. The shared code uses all of the above, so fill them in.
+// These gaps are the legacy Cobalt engine's (23.lts, in RF1705's runtime), whose
+// supported-features list names only a partial DOM4 and URL; the newer
+// Blink-based Cobalt lacks none of them, so the fills are no-ops there.
 
 if (typeof Element !== 'undefined' && !Element.prototype.remove) {
   Element.prototype.remove = function remove(this: Element): void {
