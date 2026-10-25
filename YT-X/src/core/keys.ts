@@ -68,8 +68,10 @@ export const COLOR_CODE_MAP = Object.freeze({
 });
 
 // Stamped onto every synthesised KeyboardEvent so our listeners can tell them
-// from a real press; `isTrusted` is not set reliably on all engines. Registered
-// symbol, so a second bundle copy still agrees on the flag.
+// from a real press; `isTrusted` is not set reliably on all engines (the legacy
+// Cobalt engine has no such property, so real presses read `undefined` there and
+// only an explicit `false` can mean untrusted). Registered symbol, so a second
+// bundle copy still agrees on the flag.
 export const SYNTHETIC_KEY_FLAG: unique symbol = Symbol.for(
   'ytx.syntheticKey'
 ) as never;
@@ -77,7 +79,7 @@ export const SYNTHETIC_KEY_FLAG: unique symbol = Symbol.for(
 /** Whether `evt` was produced by `sendKey` rather than a real press. */
 export function isSyntheticKey(evt: Event): boolean {
   return (
-    !evt.isTrusted ||
+    (evt as { isTrusted?: boolean }).isTrusted === false ||
     (evt as unknown as Record<symbol, unknown>)[SYNTHETIC_KEY_FLAG] === true
   );
 }

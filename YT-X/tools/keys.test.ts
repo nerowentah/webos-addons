@@ -66,7 +66,7 @@ test('COLOR_CODE_MAP rejects non-colour codes', () => {
   assert.equal(COLOR_CODE_MAP.get(13), undefined);
 });
 
-test('isSyntheticKey trusts only real events without the flag', () => {
+test('isSyntheticKey flags explicit untrusted events and our own', () => {
   const real = { isTrusted: true };
   assert.equal(isSyntheticKey(real), false);
 
@@ -75,6 +75,10 @@ test('isSyntheticKey trusts only real events without the flag', () => {
 
   const flagged = { isTrusted: true, [SYNTHETIC_KEY_FLAG]: true };
   assert.equal(isSyntheticKey(flagged), true);
+
+  // The legacy Cobalt engine has no isTrusted: a real press reads undefined.
+  assert.equal(isSyntheticKey({}), false);
+  assert.equal(isSyntheticKey({ [SYNTHETIC_KEY_FLAG]: true }), true);
 });
 
 test('GREEN (including the 172 alternate) opens the panel, only when it should', () => {
