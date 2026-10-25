@@ -84,12 +84,35 @@ function run(
 
 const ipk = `./${appinfo.id}_${getVersion()}_all.ipk`;
 
+/** The TV's model and firmware (`ares-device -i`), which a sideloaded app's UA variables do not carry. */
+function readDeviceIdentity(): string[] {
+  const result = spawnSync(
+    process.execPath,
+    [normalize('./node_modules/@webos-tools/cli/bin/ares-device.js'), '-i'],
+    { encoding: 'utf8' }
+  );
+  const field = (name: string) =>
+    new RegExp('^' + name + String.raw`\s*:\s*(\S+)`, 'm').exec(
+      result.stdout
+    )?.[1];
+  const model = field('modelName');
+  const firmware = field('firmwareVersion');
+  if (!model || !firmware) {
+    console.warn(
+      '[deploy] device info unavailable; the UA keeps its variables'
+    );
+    return [];
+  }
+  return ['--env', `model=${model}`, '--env', `firmware=${firmware}`];
+}
+
 run('build', 'webpack', [
   '--mode=production',
   '--env',
   `resolution=${resolution}`,
   '--env',
-  `ua=${ua}`
+  `ua=${ua}`,
+  ...(ua === 'cobalt' ? readDeviceIdentity() : [])
 ]);
 run('package', 'ares-package', ['-n', 'dist']);
 run('install', 'ares-install', [normalize(ipk)]);

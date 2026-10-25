@@ -368,10 +368,10 @@ webOS builds the app's User-Agent from the template in `assets/appinfo.json`
 YouTube picks its stylesheets from that UA before any userscript runs, so it can
 only be chosen at build time, not from the settings panel:
 
-| `--ua`            | UA                                         | Playback plates                                                              |
-| ----------------- | ------------------------------------------ | ---------------------------------------------------------------------------- |
-| `cobalt` (opt-in) | PS4 Cobalt UA plus the same LG device tail | YouTube's Cobalt variant: transparent title card and tray, translucent pills |
-| `webos` (default) | the template in `appinfo.json`             | YouTube's LG variant: opaque black title card and tray                       |
+| `--ua`            | UA                                                      | Playback plates                                                              |
+| ----------------- | ------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| `cobalt` (opt-in) | Cobalt UA (`Web0S; Linux`) plus the same LG device tail | YouTube's Cobalt variant: transparent title card and tray, translucent pills |
+| `webos` (default) | the template in `appinfo.json`                          | YouTube's LG variant: opaque black title card and tray                       |
 
 ```sh
 npm run deploy:fhd:cobalt   # or: npm run deploy:hd:cobalt, or YTX_UA=cobalt npm run deploy:fhd

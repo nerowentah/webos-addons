@@ -4,7 +4,13 @@ import type { Configuration } from 'webpack';
 import { basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { resolveAppResolution } from './tools/app-resolution.ts';
-import { applyUserAgent, resolveUaMode, type UaMode } from './tools/app-ua.ts';
+import {
+  applyUserAgent,
+  COBALT_UA,
+  resolveUaMode,
+  type DeviceIdentity,
+  type UaMode
+} from './tools/app-ua.ts';
 import { getVersionInfo } from './tools/version.ts';
 
 const { version, gitSha, owner } = getVersionInfo();
@@ -12,13 +18,24 @@ const { version, gitSha, owner } = getVersionInfo();
 function transformAppInfo(
   input: Buffer,
   resolution: string,
-  ua: UaMode
+  ua: UaMode,
+  device?: DeviceIdentity
 ): string {
   const appInfo = JSON.parse(input.toString()) as Record<string, unknown>;
   appInfo['version'] = version;
   appInfo['resolution'] = resolution;
-  applyUserAgent(appInfo, ua);
+  applyUserAgent(appInfo, ua, device);
   return JSON.stringify(appInfo, null, 2);
+}
+
+/** The TV's real model and firmware when deploy passes them (`--env model=... --env firmware=...`). */
+function deviceIdentity(
+  env: Record<string, string>
+): DeviceIdentity | undefined {
+  const { model, firmware } = env;
+  return model && firmware
+    ? { modelName: model, firmwareVersion: firmware }
+    : undefined;
 }
 
 const makeConfig = (env: Record<string, string>): Configuration[] => [
@@ -53,7 +70,8 @@ const makeConfig = (env: Record<string, string>): Configuration[] => [
                 return transformAppInfo(
                   input,
                   resolveAppResolution(env['resolution']),
-                  resolveUaMode(env['ua'])
+                  resolveUaMode(env['ua']),
+                  deviceIdentity(env)
                 );
               }
               return input;
@@ -62,7 +80,10 @@ const makeConfig = (env: Record<string, string>): Configuration[] => [
               keys: {
                 version,
                 resolution: resolveAppResolution(env['resolution']),
-                ua: resolveUaMode(env['ua'])
+                ua: resolveUaMode(env['ua']),
+                uaTemplate: COBALT_UA,
+                model: env['model'] ?? '',
+                firmware: env['firmware'] ?? ''
               }
             }
           }

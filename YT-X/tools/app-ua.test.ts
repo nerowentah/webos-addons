@@ -26,9 +26,21 @@ test('cobalt mode swaps in a Cobalt UA that keeps the TV variables', () => {
   applyUserAgent(info, 'cobalt');
   const ua = info.vendorExtension.userAgent;
   assert.match(ua, /Cobalt\//);
+  assert.doesNotMatch(ua, /PS4/);
   for (const v of ['$firmwareVersion$', '$modelName$', '$networkMode$']) {
     assert.ok(ua.includes(v), v);
   }
+});
+
+test('cobalt mode bakes in the TV identity when given', () => {
+  const info = appInfo();
+  applyUserAgent(info, 'cobalt', {
+    modelName: '65QNED86ASA.ATSFLJD',
+    firmwareVersion: '33.31.75'
+  });
+  const ua = info.vendorExtension.userAgent;
+  assert.match(ua, /_TV_O18\/33\.31\.75 \(LG, 65QNED86ASA\.ATSFLJD, /);
+  assert.ok(ua.includes('$networkMode$'));
 });
 
 test('cobalt mode needs a vendorExtension object', () => {
