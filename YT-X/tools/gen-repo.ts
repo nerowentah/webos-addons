@@ -1,6 +1,9 @@
 // Writes the Homebrew Channel repository feed for the release IPK.
 // Usage: node tools/gen-repo.ts --base-url <release-download-url> [--out repo.json]
 // Run from YT-X/ after `npm run package:fhd`; the IPK must be in the cwd.
+// A beta entry would share the app id and so replace stable on the TV unless it
+// gets its own id (and manifest.type/id must match the app: never publish a native
+// package under the web app's entry).
 
 import fs from 'node:fs';
 import path from 'node:path';

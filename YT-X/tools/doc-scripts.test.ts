@@ -1,16 +1,17 @@
-// Docs and plans must only name npm scripts that exist: package.json scripts
+// Docs must only name npm scripts that exist: package.json scripts
 // were renamed once (build -> build:fhd, package -> package:dist) and the docs
 // kept the old names.
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import pkg from '../package.json' with { type: 'json' };
 
 const root = new URL('..', import.meta.url).pathname.replace(/^\/(\w:)/, '$1');
 
 function markdownFiles(dir: string): string[] {
+  if (!existsSync(dir)) return [];
   return readdirSync(dir).flatMap((name) => {
     const path = join(dir, name);
     if (name === 'node_modules' || name === 'dist') return [];

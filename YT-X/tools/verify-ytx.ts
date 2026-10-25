@@ -175,7 +175,15 @@ const MANUAL = [
   'Native rollback: `node tools/native.ts clean`, reinstall the stock app',
   'Native release job run once with a real RF1705 runtime (draft pre-release)',
   'First tagged release installs through the Homebrew Channel (repo.json)',
-  'More TVs: other webOS versions, OLED vs non-OLED, ARMv7 vs AArch64'
+  'More TVs: other webOS versions, OLED vs non-OLED, ARMv7 vs AArch64',
+  'Web: playback rate 1.25x keeps 1080p50 with Default Max Resolution on and off (measure first)',
+  'Web: live streams, voice search intent, AV1 with Avoid AV1, family account picker, second launch, fonts',
+  'GREEN opens the panel from home, watch and search; closing returns focus to the opener',
+  'Panel at 1280x720: active tab text 4.5:1, underline visible in greyscale, in Off/OLED/QNED care modes',
+  'Text Size 200%: nothing clipped or overlapping on every tab, at 1080p and 720p',
+  'SponsorBlock popup (web): Dismiss works, hover/focus keeps it open, count announced once',
+  'Reduced motion: matchMedia(prefers-reduced-motion) on the TV, transitions near-instant when set',
+  'Android and iOS show exactly one TV destination and cast successfully (system Cast entry)'
 ];
 
 export function renderReport(
