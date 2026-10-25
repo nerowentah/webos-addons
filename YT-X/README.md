@@ -175,8 +175,11 @@ Follow the prompts:
 Verify with:
 
 ```sh
-npm exec ares-setup-device --list
+npm exec -- ares-setup-device --list
 ```
+
+The `--` matters: without it npm consumes `--list` and ares opens its
+interactive menu instead of printing the list.
 
 Sample output:
 
@@ -208,6 +211,17 @@ mytv (default)  prisoner@192.168.137.102:9922  ssh         tv         EF32E8
 ```sh
 npm run deploy:fhd # Builds 1920x1080, packages, installs, and launches on the default device selected via ares-setup-device.
 ```
+
+Pick another TV with `-d/--device` (or `YTX_DEVICE`), and stop before the
+install with `--dry-run`:
+
+```sh
+npm run deploy:fhd:cobalt -- -d mytv
+node tools/device/deploy.ts --resolution fhd --ua cobalt --dry-run
+```
+
+The same `-d`/`YTX_DEVICE` selection applies to `inspect`, `drive` and
+`verify:device`.
 
 ---
 
@@ -313,7 +327,8 @@ hardware. Every build names its canvas explicitly:
 
 Append `:cobalt` to any of them (`build:hd:cobalt`, `deploy:fhd:cobalt`, …) for
 the Cobalt user agent. `package:dist` packages whatever is already in `dist/`
-without rebuilding.
+without rebuilding. `deploy:native` (below) has no canvas: Cobalt renders at the
+panel's resolution and ignores the web app's `resolution` field.
 
 The tooling accepts the symbolic canvas name or the pixel value, so
 `--resolution hd` and `--resolution 1280x720` are equivalent:
@@ -332,10 +347,20 @@ separate from the userscript: the same settings panel and ad hooks, but the Coba
 player and codecs. SponsorBlock is not included and "Block Cast Wake" is inactive there.
 
 ```sh
-npm run build:fhd:cobalt
-node tools/native/native.ts setup  --runtime <RF1705.ipk> --device-strings --model QNED86   --firmware 33.31.75 --year 2025 --model-full 65QNED86ASA.ATSFLJD --key <ssh key>
-node tools/native/native.ts update --model-full 65QNED86ASA.ATSFLJD --key <ssh key>   # keeps the session
+npm run deploy:native   # build:fhd:cobalt, then inject the scripts; keeps the session
+node tools/native/native.ts setup --runtime <RF1705.ipk> \
+  --device-strings --model QNED86 --firmware 33.31.75 --year 2025
 ```
+
+`deploy:native` / `update` needs no arguments: `--model-full` defaults to the
+selected device's `modelName` from `ares-device -i`, and the SSH key comes from
+ares. ares stores the device's key name and passphrase, so an encrypted `~/.ssh`
+key is decrypted into a temporary copy for the run and deleted afterwards — ssh
+cannot prompt for a passphrase when it has no terminal. `--key <file>` and
+`YTX_SSH_KEY` still override it. The TV's OpenSSH 6.1 only offers `ssh-rsa` host
+keys, which OpenSSH 9 disables by default; the tool passes
+`HostKeyAlgorithms=+ssh-rsa` itself, so plain `ssh` needs the same option.
+Select another TV with `--device <name>` (default `tv`).
 
 `setup` reinstalls and signs you out; use `update` while iterating. To go back to the
 web app, run `npm run deploy:fhd`.

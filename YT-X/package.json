@@ -18,6 +18,7 @@
     "deploy:fhd:cobalt": "node tools/device/deploy.ts --resolution fhd --ua cobalt",
     "deploy:hd": "node tools/device/deploy.ts --resolution hd",
     "deploy:hd:cobalt": "node tools/device/deploy.ts --resolution hd --ua cobalt",
+    "deploy:native": "npm run build:fhd:cobalt && node tools/native/native.ts update",
     "launch": "ares-launch youtube.leanback.v4",
     "inspect": "node tools/device/inspect.ts",
     "capture:identity": "node tools/native/capture-identity.ts",
