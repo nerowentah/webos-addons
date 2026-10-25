@@ -50,6 +50,8 @@ Other plan tracks: [Cobalt userscript follow-up](./cobalt/00-index.md),
 
 ## Definition of done for the batch
 
+Boxes close after the TV pass (`npm run verify:ytx`, then the manual items it lists).
+
 - [ ] Panel exposes a named modal dialog.
 - [ ] Tabs expose tablist/tab/tabpanel with selected state.
 - [ ] Cycle rows expose a name, role and current value.

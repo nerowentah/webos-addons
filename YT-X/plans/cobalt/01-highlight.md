@@ -1,6 +1,7 @@
 # Cobalt-01 — SponsorBlock highlight fetch and lifecycle
 
 Status: code committed; first-play check passed on the TV 2026-10-23; the cases below are open
+Scope: the webOS-UA build only. SponsorBlock is not built into Cobalt builds (user-agent or native).
 Addresses: the rework's new `enableSponsorBlockHighlight` path
 Touches: `src/features/sponsorblock/sponsorblock.ts`,
 `src/features/sponsorblock/segments.ts`,

@@ -1,6 +1,7 @@
 # Cobalt-03 — Restore SponsorBlock progress-bar markers
 
 Status: code committed; 1080p alignment checked on the TV 2026-10-23, 720p and re-render open
+Scope: the webOS-UA build only. SponsorBlock is not built into Cobalt builds (user-agent or native).
 Reference: upstream `05ca3ff` (`webapp/src/sponsorblock.js`)
 Touches: `src/features/sponsorblock/sponsorblock.ts`,
 `src/ui/ui.css` (or a dedicated `sponsorblock.css`),

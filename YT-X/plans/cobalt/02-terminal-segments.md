@@ -1,6 +1,7 @@
 # Cobalt-02 — Terminal SponsorBlock segments
 
 Status: code committed; terminal skip checked on the TV 2026-10-23 (`Skip Once` default only)
+Scope: the webOS-UA build only. SponsorBlock is not built into Cobalt builds (user-agent or native).
 Addresses: RF1705 #112, #79, and the #85 fix in upstream `dc071f6`
 Supersedes: the former `rf1705-01` plan (deleted)
 Touches: `src/features/sponsorblock/segments.ts`,
