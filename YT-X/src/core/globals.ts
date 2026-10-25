@@ -13,9 +13,6 @@ export interface PageUpdateDetail {
 export interface WebOSDeviceInfo {
   modelName?: string;
   version?: string;
-  versionMajor?: number;
-  versionMinor?: number;
-  versionDot?: number;
   /** webOS TV version in X.X.X format. */
   sdkVersion?: string;
 
@@ -33,30 +30,14 @@ export interface WebOSDeviceInfo {
    * Whether the panel is OLED; marked `Optional*` upstream ("On the previous version of webOS TV that does not support this property, return undefined"), so callers must handle undefined rather than treating it as false.
    */
   oled?: boolean;
-
-  hdr10?: boolean;
-  dolbyVision?: boolean;
-  dolbyAtmos?: boolean;
-  ddrSize?: string;
-  brandName?: string;
-  manufacturer?: string;
-  mainboardMaker?: string;
-  platformBizType?: string;
-  /** Added for webOS TV 26 and above (webOSTV.js v1.2.13). */
-  tuner?: boolean;
 }
 
 type WebOSDeviceInfoCallback = (info: WebOSDeviceInfo) => void;
 
 type WebOSDeviceInfoFn = (callback: WebOSDeviceInfoCallback) => void;
 
-type WebOSAppInfo = { resolution?: string; [key: string]: unknown };
-
-type WebOSAppInfoCallback = (info?: WebOSAppInfo) => void;
-
 export interface WebOSApi {
   libVersion?: string;
-  platform?: { tv?: boolean; chrome?: number };
   /** Documented as a callback method; also probed as a plain object. */
   deviceInfo?: WebOSDeviceInfoFn | WebOSDeviceInfo;
   /**
@@ -65,12 +46,4 @@ export interface WebOSApi {
   service?: {
     request?: (params: Record<string, unknown>) => Promise<unknown>;
   };
-  systemInfo?: {
-    country?: string;
-    smartServiceCountry?: string;
-    timezone?: string;
-  };
-  fetchAppId?: () => string;
-  fetchAppRootPath?: () => string;
-  fetchAppInfo?: (callback: WebOSAppInfoCallback, path?: string) => void;
 }
