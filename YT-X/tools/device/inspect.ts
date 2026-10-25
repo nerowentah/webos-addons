@@ -3,7 +3,7 @@
  *
  *   node tools/device/inspect.ts                 diagnostics JSON
  *   node tools/device/inspect.ts eval "<expr>"   evaluate in the page
- *   (add `-d <device>` anywhere to pick an ares device)
+ *   (add `-d <device>` or set YTX_DEVICE to pick an ares device)
  *
  * Gotchas:
  *  - Screenshots cannot capture the hardware video plane; assert playback via
@@ -14,10 +14,16 @@
  *    harness before the app.
  */
 import { spawn } from 'node:child_process';
-import { normalize } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import appinfo from '../../assets/appinfo.json' with { type: 'json' };
 
-const ARES_INSPECT = './node_modules/@webos-tools/cli/bin/ares-inspect.js';
+// Resolved against this file, not the cwd: the harness runs from the repo root too.
+const ARES_INSPECT = fileURLToPath(
+  new URL(
+    '../../node_modules/@webos-tools/cli/bin/ares-inspect.js',
+    import.meta.url
+  )
+);
 const STARTUP_TIMEOUT_MS = 30_000;
 
 export class HarnessError extends Error {}
@@ -100,8 +106,9 @@ function exceptionMessage(details: ExceptionDetails): string {
 export async function connect({
   device
 }: { device?: string | undefined } = {}): Promise<Session> {
-  const args = [normalize(ARES_INSPECT), '-a', appinfo.id];
-  if (device) args.push('-d', device);
+  const target = device ?? process.env['YTX_DEVICE'];
+  const args = [ARES_INSPECT, '-a', appinfo.id];
+  if (target) args.push('-d', target);
   const child = spawn(process.execPath, args, {
     stdio: ['ignore', 'pipe', 'pipe']
   });

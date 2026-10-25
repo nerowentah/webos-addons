@@ -8,10 +8,14 @@
 // is localStorage), so the gid 5000 the Cobalt runtime needs buys nothing here.
 //
 // Usage: node tools/build/package.ts
+//
+// Paths resolve against the app directory, so the tool works from any cwd and
+// the .ipk always lands beside package.json (deploy looks for it there).
 
 import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { normalize } from 'node:path';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import appinfo from '../../assets/appinfo.json' with { type: 'json' };
 import { checkIpk } from './check-ipk.ts';
 import {
@@ -36,19 +40,24 @@ export function normalizeModes(ipk: Buffer): Buffer {
 }
 
 if (import.meta.main) {
-  if (!existsSync('dist/appinfo.json')) {
+  const appDir = fileURLToPath(new URL('../..', import.meta.url));
+  const dist = join(appDir, 'dist');
+  if (!existsSync(join(dist, 'appinfo.json'))) {
     console.error('package: dist/appinfo.json is missing; run a build first');
     process.exit(1);
   }
-  const entry = normalize(
-    './node_modules/@webos-tools/cli/bin/ares-package.js'
+  const entry = join(
+    appDir,
+    'node_modules/@webos-tools/cli/bin/ares-package.js'
   );
-  const result = spawnSync(process.execPath, [entry, '-n', 'dist'], {
-    stdio: 'inherit'
-  });
+  const result = spawnSync(
+    process.execPath,
+    [entry, '-n', dist, '--outdir', appDir],
+    { stdio: 'inherit' }
+  );
   if (result.status !== 0) process.exit(result.status ?? 1);
 
-  const file = `${appinfo.id}_${getVersion()}_all.ipk`;
+  const file = join(appDir, `${appinfo.id}_${getVersion()}_all.ipk`);
   writeFileSync(file, normalizeModes(readFileSync(file)));
   const problems = checkIpk(readFileSync(file), file);
   for (const p of problems) console.error(`package: ${file}: ${p}`);
