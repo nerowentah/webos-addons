@@ -3,7 +3,7 @@
 let panelExitTimer: ReturnType<typeof setTimeout> | null = null;
 let panelEntranceRaf: number | null = null;
 
-export function cancelPanelAnimation(): void {
+function cancelPanelAnimation(): void {
   if (panelExitTimer) {
     clearTimeout(panelExitTimer);
     panelExitTimer = null;

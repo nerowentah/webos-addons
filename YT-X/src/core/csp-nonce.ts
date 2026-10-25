@@ -4,7 +4,7 @@
 /** How long to wait for YouTube to put a nonce in the DOM before giving up. */
 export const NONCE_WAIT_MS = 5000;
 
-export interface NonceCandidate {
+interface NonceCandidate {
   tagName: string;
   nonce?: string;
   attr?: string;
@@ -34,7 +34,7 @@ export function selectNonce(candidates: readonly NonceCandidate[]): string {
 }
 
 /** The page nonce, style/link first; '' when none is in the DOM yet. */
-export function pageNonce(): string {
+function pageNonce(): string {
   try {
     const candidates: NonceCandidate[] = [];
     for (const el of document.querySelectorAll<HTMLElement>('[nonce]')) {

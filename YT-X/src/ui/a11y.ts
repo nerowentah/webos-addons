@@ -12,7 +12,7 @@ export const PAGE_IDS = [
 
 export const PANEL_TITLE_ID = 'ytx-panel-title';
 
-export const tabId = (index: number): string => `ytx-tab-${index}`;
+const tabId = (index: number): string => `ytx-tab-${index}`;
 
 /**
  * Attributes of one tab button. Every tab stays tabIndex 0 (set by the

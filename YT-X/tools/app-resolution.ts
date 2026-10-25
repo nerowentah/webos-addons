@@ -10,7 +10,7 @@
  * @see https://webostv.developer.lge.com/develop/specifications/app-resolution
  */
 
-export const APP_RESOLUTION_ALIASES = {
+const APP_RESOLUTION_ALIASES = {
   fhd: '1920x1080',
   hd: '1280x720'
 } as const;

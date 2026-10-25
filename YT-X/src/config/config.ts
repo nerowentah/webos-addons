@@ -26,7 +26,7 @@ export const videoCodecModes = {
   hevc: 'HEVC (H.265)',
   no_av1: 'Avoid AV1'
 };
-export type VideoCodecMode = keyof typeof videoCodecModes;
+type VideoCodecMode = keyof typeof videoCodecModes;
 
 /** Text Size: scales YT-X's own text (panel, toasts, badge, popup) only. */
 export const textScaleModes = {
@@ -35,7 +35,7 @@ export const textScaleModes = {
   huge: '150%',
   maximum: '200%'
 };
-export type TextScaleMode = keyof typeof textScaleModes;
+type TextScaleMode = keyof typeof textScaleModes;
 
 /**
  * Panel Care Mode: 'auto' resolves via tv-specs' UA model read (see resolvePanelCareMode); 'oled' is the true-black burn-in treatment, 'qned' a dark-grey, low-contrast UI that limits MiniLED blooming; unknown models resolve to 'off'.
@@ -98,8 +98,10 @@ export type BoolKey = {
   [K in ConfigKey]: ConfigValues[K] extends boolean ? K : never;
 }[ConfigKey];
 
-export type ConfigChangeDetail<K extends ConfigKey = ConfigKey> =
-  StoreChangeDetail<ConfigValues, K>;
+type ConfigChangeDetail<K extends ConfigKey = ConfigKey> = StoreChangeDetail<
+  ConfigValues,
+  K
+>;
 
 export type ConfigChangeListener<K extends ConfigKey = ConfigKey> = (
   evt: CustomEvent<ConfigChangeDetail<K>>

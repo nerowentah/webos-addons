@@ -10,9 +10,9 @@ const COBALT_UA =
   'Mozilla/5.0 (PS4; Leanback Shell) Cobalt/24.lts.13.1032728-gold v8/8.8.278.8-jit gles Starboard/14, _TV_O18/$firmwareVersion$ (LG, $modelName$, $networkMode$)';
 
 /** `cobalt` replaces the template in assets/appinfo.json; `webos` keeps it. */
-export const UA_MODES = ['cobalt', 'webos'] as const;
+const UA_MODES = ['cobalt', 'webos'] as const;
 export type UaMode = (typeof UA_MODES)[number];
-export const DEFAULT_UA_MODE: UaMode = 'webos';
+const DEFAULT_UA_MODE: UaMode = 'webos';
 
 export function resolveUaMode(requested: string | undefined): UaMode {
   if (requested === undefined) return DEFAULT_UA_MODE;

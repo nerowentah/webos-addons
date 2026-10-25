@@ -21,7 +21,7 @@ function logLounge(via: string, url: string): void {
   if (log.length > 6) log.shift();
 }
 
-export function installDeviceModelHook(fullModel: string): void {
+function installDeviceModelHook(fullModel: string): void {
   if (!fullModel || !claimHook('device-model')) return;
 
   const proto = XMLHttpRequest.prototype;

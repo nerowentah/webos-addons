@@ -181,7 +181,7 @@ export function redactRequest(request: RawRequest): RedactedRequest {
 }
 
 /** Which requests are worth recording: sign-in, pairing and account traffic. */
-export const INTERESTING_URL =
+const INTERESTING_URL =
   '/o/oauth2|accounts\\.google|get_pairing|/device|youtubei/v1/(account|att|get_pairing|browse\\?.*sign)|/signin|identity|/pair';
 
 /** Page script that keeps matching requests in `window.__ytxCapture`, headers included. */

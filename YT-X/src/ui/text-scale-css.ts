@@ -3,7 +3,7 @@
 // rule carries an explicit, already-multiplied font-size. tools/text-scale.test.ts
 // checks every base size here against the stylesheet that defines it.
 
-export interface ScaledText {
+interface ScaledText {
   /** The selector exactly as it is written in the owning stylesheet. */
   selector: string;
   /** Its font-size there, in `unit`. */

@@ -1,7 +1,7 @@
 import { REMOTE_KEYS, isSyntheticKey, sendKey } from './keys';
 
 /** Whether this page was served to the Cobalt user agent (a build-time choice, see tools/app-ua.ts). */
-export function isCobaltUa(userAgent: string = navigator.userAgent): boolean {
+function isCobaltUa(userAgent: string = navigator.userAgent): boolean {
   return /\bCobalt\//.test(userAgent);
 }
 

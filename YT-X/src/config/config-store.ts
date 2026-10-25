@@ -2,7 +2,7 @@
 // migration are injected so it runs under `node --test`.
 
 /** The slice of Storage the store uses. */
-export interface StorageLike {
+interface StorageLike {
   getItem(key: string): string | null;
   setItem(key: string, value: string): void;
 }

@@ -156,7 +156,7 @@ let stopPageState: (() => void) | null = null;
 /**
  * Starts tracking the WEB_PAGE_TYPE_* class on <body>, dispatching `ytx-page-update` on change. Idempotent; works before <body> exists and follows a replaced <body>. Returns the teardown (also `teardownPageState`).
  */
-export function initPageState(): () => void {
+function initPageState(): () => void {
   if (stopPageState) return stopPageState;
 
   const bodyObserver = new MutationObserver((mutations) => {
@@ -211,10 +211,6 @@ export function initPageState(): () => void {
     _isSearchPage = false;
   };
   return stopPageState;
-}
-
-export function teardownPageState(): void {
-  stopPageState?.();
 }
 
 if (typeof document !== 'undefined') initPageState();
