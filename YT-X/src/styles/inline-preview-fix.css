@@ -1,0 +1,9 @@
+/* webOS browser only (userScript.ts; the native build does not load it).
+ * The inline hover preview never renders on this panel (LG's hardware video
+ * plane does not composite it), so the tile would go black; previews.ts holds
+ * the paired audio teardown. */
+.fade-out-during-inline {
+  opacity: 1 !important;
+  visibility: visible !important;
+  transition: none !important;
+}

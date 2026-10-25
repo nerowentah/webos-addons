@@ -1,0 +1,5 @@
+/* Hide the "offer" surface, where this build renders its subscription upsells
+ * (Premium trials, upgrade prompts) when one is actually served. */
+ytlr-offer-button-list-renderer {
+  display: none !important;
+}

@@ -4,19 +4,14 @@
 // module after it. Each result is kept in `window.__ytxModules` (and localStorage
 // `ytx-modules`) for the debug port; a failure also lands in `ytx-err`.
 //
-// Keep the module list equal to userScript.ts: tools/native-main.test.ts checks.
+// Keep the module list equal to userScript.ts, apart from the web-only and
+// native-only modules named in tools/native-main.test.ts, which checks it.
 //
 // Debugging: `localStorage['ytx-skip']` holds module names (comma-separated, as in
 // the list below) to leave out, so a misbehaving module can be found by bisecting
 // from the debug port without rebuilding. Empty by default.
 import './platform/cobalt-polyfills';
 import { handleRelaunch } from './core/utils';
-import { reattachOnRebuild } from './core/reattach';
-
-// Marks the page for CSS that differs on the native build (styles/yt-fixes.css).
-reattachOnRebuild(() => {
-  document.documentElement.classList.add('ytx-native');
-});
 
 document.addEventListener(
   'webOSRelaunch',
@@ -64,8 +59,8 @@ const modules: ReadonlyArray<readonly [string, Loader]> = [
     () => import(/* webpackMode: "eager" */ './platform/screensaver-fix')
   ],
   [
-    './styles/yt-fixes.css',
-    () => import(/* webpackMode: "eager" */ './styles/yt-fixes.css')
+    './styles/hide-offers.css',
+    () => import(/* webpackMode: "eager" */ './styles/hide-offers.css')
   ],
   [
     './features/playback/video-quality',
@@ -90,8 +85,9 @@ const modules: ReadonlyArray<readonly [string, Loader]> = [
       import(/* webpackMode: "eager" */ './features/playback/playback-speed')
   ],
   [
-    './features/playback/previews',
-    () => import(/* webpackMode: "eager" */ './features/playback/previews')
+    './features/playback/native-previews',
+    () =>
+      import(/* webpackMode: "eager" */ './features/playback/native-previews')
   ],
   [
     './features/keep-playing/keep-playing',
