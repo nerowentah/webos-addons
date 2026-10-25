@@ -44,6 +44,7 @@ export const LIVENESS: Record<ConfigKey, Liveness> = {
   disableAnimations: 'instant',
   forceVideoCodec: 'next-load',
   uiTextScale: 'instant',
+  playbackSpeed: 'instant',
   skipSegmentsOnce: 'instant',
   enableSponsorBlockFiller: 'next-load',
   enableSponsorBlockHook: 'next-load',

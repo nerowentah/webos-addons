@@ -352,6 +352,7 @@ What differs on the native build:
 - "Block Cast Wake" is inactive (greyed out); Force Video Codec is likely a no-op because the Cobalt binary negotiates codecs itself.
 - The stock app id `youtube.leanback.v4` is required, the `cobalt` binary stays the stock ELF, and a relaunch needs a full exit first. See the header of `tools/native.ts`.
 - Cobalt lacks CSS grid, `:checked`, `var()` and several DOM APIs; the shared code avoids or fills them (`tools/cobalt-css.test.ts`, `src/platform/cobalt-polyfills.ts`).
+- **Playback Speed** (Main tab, 1x-2x) asks the player for the rate, then checks that the media clock really runs faster; a platform that ignores the rate (the webOS browser's hardware video path, measured on a 65QNED86) is put back to 1x with a "not supported" toast. Whether native Cobalt honours it is not yet measured on a TV.
 - RF1705 features such as Return YouTube Dislike, speed ranges and subtitle shortcuts are not YT-X features and stay with RF1705's runtime.
 
 Sign-in and cast names: YT-X rewrites the sign-in `device_model` to the full SKU (`--model-full`) so Google files the TV under "Television", and the lounge screen is named `[YT-X] webOS TV <model>`. The system Cast receiver keeps its own name (`[LG] webOS TV <model>`). Google keeps one screen record per registration, so every `setup` leaves an old entry on phones; remove old TVs under Settings > Watch on TV, and prefer `update` over `setup`.

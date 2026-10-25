@@ -2,7 +2,11 @@
 // relayout. Behaviour on close is injected, so this module never imports the
 // controller that creates it.
 
-import { panelCareModes, textScaleModes } from '../config/config';
+import {
+  panelCareModes,
+  playbackSpeedModes,
+  textScaleModes
+} from '../config/config';
 import { PANEL, SPONSOR_POPUP } from '../config/ui-text';
 import { REMOTE_KEYS } from '../core/utils';
 import { SEGMENT_CATEGORIES } from '../features/sponsorblock/categories';
@@ -165,6 +169,7 @@ export function createOptionsPanel(onClose: () => void): OptionsPanel {
         createConfigCheckbox('showTimeRemaining'),
         createConfigCheckbox('loadRowsAhead'),
         createVideoCodecControl(),
+        createAlignedCycleControl('playbackSpeed', playbackSpeedModes),
         createConfigCheckbox('keepPlaying')
       ],
       true

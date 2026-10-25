@@ -49,6 +49,16 @@ export const panelCareModes: Record<PanelCareMode, string> = {
 };
 export type { PanelCareMode };
 
+/** Playback Speed: the rates the panel cycles through; the key is the rate itself. */
+export const playbackSpeedModes = {
+  '1': '1x',
+  '1.25': '1.25x',
+  '1.5': '1.5x',
+  '1.75': '1.75x',
+  '2': '2x'
+};
+type PlaybackSpeedMode = keyof typeof playbackSpeedModes;
+
 const defaultConfig = {
   enableAdBlock: true,
   keepPlaybackTracking: true,
@@ -85,6 +95,7 @@ const defaultConfig = {
   disableAnimations: false,
   forceVideoCodec: 'auto' as VideoCodecMode,
   uiTextScale: 'normal' as TextScaleMode,
+  playbackSpeed: '1' as PlaybackSpeedMode,
   skipSegmentsOnce: false,
   enableSponsorBlockFiller: false,
   enableSponsorBlockHook: false,
@@ -110,7 +121,8 @@ export type ConfigChangeListener<K extends ConfigKey = ConfigKey> = (
 const enumValues: Partial<Record<ConfigKey, readonly string[]>> = {
   panelCareMode: Object.keys(panelCareModes),
   forceVideoCodec: Object.keys(videoCodecModes),
-  uiTextScale: Object.keys(textScaleModes)
+  uiTextScale: Object.keys(textScaleModes),
+  playbackSpeed: Object.keys(playbackSpeedModes)
 };
 
 // Created on first use so importing this module touches neither window nor storage.

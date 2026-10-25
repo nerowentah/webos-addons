@@ -75,6 +75,11 @@ const modules: ReadonlyArray<readonly [string, Loader]> = [
     () => import(/* webpackMode: "eager" */ './features/playback/force-codec')
   ],
   [
+    './features/playback/playback-speed',
+    () =>
+      import(/* webpackMode: "eager" */ './features/playback/playback-speed')
+  ],
+  [
     './features/playback/previews',
     () => import(/* webpackMode: "eager" */ './features/playback/previews')
   ],

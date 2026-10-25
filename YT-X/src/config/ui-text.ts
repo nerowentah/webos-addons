@@ -43,6 +43,7 @@ export const UI_LABELS = {
   disableAnimations: 'Disable Animations',
   forceVideoCodec: 'Video Codec',
   uiTextScale: 'Text Size',
+  playbackSpeed: 'Playback Speed',
   skipSegmentsOnce: 'Skip Once',
   enableSponsorBlockFiller: 'Skip Tangents',
   enableSponsorBlockHook: 'Skip Hook',
@@ -103,6 +104,7 @@ export const SPONSOR_POPUP: {
 export const NOTIFICATIONS = {
   codecReload: (mode: string) => `Codec: ${mode} — reload to apply`,
   codecUnavailable: 'Codec unavailable — staying on Auto',
+  speedUnsupported: 'Playback speed not supported here',
   skipping: (name: string) => `Skipping ${name}`,
   muted: (name: string) => `Muted ${name} segment`,
   playingIn: (label: string) => `Playing in ${label}`,

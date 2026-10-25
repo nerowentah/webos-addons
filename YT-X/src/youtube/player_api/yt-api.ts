@@ -62,6 +62,11 @@ export interface YTPlayer extends HTMLElement {
 
   setPlaybackQualityRange(min: string, max: string, formatId?: string): void;
 
+  /** 1 is normal speed; the platform may ignore a change (see playback-speed.ts). */
+  setPlaybackRate(rate: number): void;
+
+  getPlaybackRate(): number;
+
   getVideoData(): VideoData;
 
   getPlayerStateObject(): PlayerStateObject;

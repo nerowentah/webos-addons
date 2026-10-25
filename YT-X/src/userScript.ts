@@ -23,6 +23,7 @@ import './features/playback/video-quality';
 import './youtube/mods/lang-settings-fix';
 import './features/adblock/remove-endscreen';
 import './features/playback/force-codec';
+import './features/playback/playback-speed';
 import './features/playback/previews';
 import './features/keep-playing/keep-playing';
 import './youtube/hooks';

@@ -233,7 +233,8 @@ function createGenericControlRow(
 }
 
 /** Config options that hold one of a fixed set of modes. */
-type CycleKey = 'panelCareMode' | 'forceVideoCodec' | 'uiTextScale';
+type CycleKey =
+  'panelCareMode' | 'forceVideoCodec' | 'uiTextScale' | 'playbackSpeed';
 
 function createCycleControl<K extends CycleKey>(
   configKey: K,
