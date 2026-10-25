@@ -1,74 +1,64 @@
 // Build, package, install and launch in one go. Defaults to the 1920x1080
 // canvas; `--resolution` takes `fhd`/`hd` or the pixel values.
+//
+//   node tools/device/deploy.ts [--resolution fhd|hd] [--ua cobalt|webos]
+//        [-d|--device <name>] [--dry-run]
+//
+// `-d`/`--device` (or YTX_DEVICE) picks the ares device and is forwarded to
+// `ares-device -i`, `ares-install` and `ares-launch`. `--dry-run` stops after
+// packaging and prints the commands it would run.
+//
+// Every path is resolved against the app directory, so the tool works from any
+// cwd (`node YT-X/tools/device/deploy.ts` from the repo root included). The
+// package step is tools/build/package.ts, not raw ares-package: it rewrites the
+// host's file modes and must pass check-ipk, so deploy installs the same
+// artifact CI publishes.
 
 import { spawnSync } from 'node:child_process';
-import { normalize } from 'node:path';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import appinfo from '../../assets/appinfo.json' with { type: 'json' };
 import { resolveAppResolution } from '../build/app-resolution.ts';
 import { resolveUaMode } from '../build/app-ua.ts';
 import { getVersion } from '../build/version.ts';
+import { deviceArg, hasFlag, optionValue } from './args.ts';
 
-/** The value after a bare flag; a missing one is an error rather than a silent default. */
-function flagValue(argv: string[], i: number, flag: string): string {
-  const value = argv[i + 1];
-  if (value === undefined || value.startsWith('--')) {
-    console.error(`deploy: ${flag} needs a value`);
+const APP_DIR = fileURLToPath(new URL('../..', import.meta.url));
+
+const WEBPACK = 'node_modules/webpack/bin/webpack.js';
+const PACKAGE = 'tools/build/package.ts';
+/** ares entrypoints; node runs the .js directly, which avoids the .cmd shims. */
+const ares = (tool: string) => `node_modules/@webos-tools/cli/bin/${tool}.js`;
+
+interface Options {
+  resolution: string;
+  ua: string;
+  device: string | undefined;
+  dryRun: boolean;
+}
+
+function parse(): Options {
+  const argv = process.argv.slice(2);
+  try {
+    return {
+      resolution: resolveAppResolution(
+        optionValue(argv, ['--resolution']) ?? process.env['YTX_RESOLUTION']
+      ),
+      ua: resolveUaMode(optionValue(argv, ['--ua']) ?? process.env['YTX_UA']),
+      device: deviceArg(argv),
+      dryRun: hasFlag(argv, '--dry-run')
+    };
+  } catch (error) {
+    console.error(`deploy: ${(error as Error).message}`);
     process.exit(1);
   }
-  return value;
 }
 
-/** Parse `--resolution <value>` or `--resolution=<value>`. */
-function parseResolution(argv: string[]): string | undefined {
-  for (const [i, arg] of argv.entries()) {
-    if (arg === '--resolution') return flagValue(argv, i, arg);
-    if (arg.startsWith('--resolution=')) {
-      return arg.slice('--resolution='.length);
-    }
-  }
-  return undefined;
-}
-
-/** Parse `--ua <mode>` or `--ua=<mode>`. */
-function parseUa(argv: string[]): string | undefined {
-  for (const [i, arg] of argv.entries()) {
-    if (arg === '--ua') return flagValue(argv, i, arg);
-    if (arg.startsWith('--ua=')) return arg.slice('--ua='.length);
-  }
-  return undefined;
-}
-
-const argv = process.argv.slice(2);
-
-let resolution: string;
-let ua: string;
-try {
-  resolution = resolveAppResolution(
-    parseResolution(argv) ?? process.env['YTX_RESOLUTION']
-  );
-  ua = resolveUaMode(parseUa(argv) ?? process.env['YTX_UA']);
-} catch (error) {
-  console.error(`deploy: ${(error as Error).message}`);
-  process.exit(1);
-}
-
-/** Map CLI tools to node entrypoints (skip .cmd shims on Windows). */
-const TOOL_ENTRIES = {
-  webpack: './node_modules/webpack/bin/webpack.js',
-  'ares-package': './node_modules/@webos-tools/cli/bin/ares-package.js',
-  'ares-install': './node_modules/@webos-tools/cli/bin/ares-install.js',
-  'ares-launch': './node_modules/@webos-tools/cli/bin/ares-launch.js'
-};
-
-/** Run a CLI step via node entrypoint. */
-function run(
-  step: string,
-  tool: keyof typeof TOOL_ENTRIES,
-  args: string[]
-): void {
-  const entry = TOOL_ENTRIES[tool];
+/** Run a script with the app directory as cwd. */
+function run(step: string, script: string, args: readonly string[]): void {
   console.log(`\n[deploy] ${step}`);
-  const result = spawnSync(process.execPath, [normalize(entry), ...args], {
+  const result = spawnSync(process.execPath, [join(APP_DIR, script), ...args], {
+    cwd: APP_DIR,
     stdio: 'inherit'
   });
 
@@ -82,38 +72,55 @@ function run(
   }
 }
 
-const ipk = `./${appinfo.id}_${getVersion()}_all.ipk`;
+const deviceFlags = (device: string | undefined): string[] =>
+  device === undefined ? [] : ['-d', device];
 
-/** The TV's model and firmware (`ares-device -i`), which a sideloaded app's UA variables do not carry. */
-function readDeviceIdentity(): string[] {
+/**
+ * The TV's model and firmware (`ares-device -i`). A sideloaded app's UA
+ * variables come back generic ("webOS.TV", firmware 00.00.01), so the Cobalt UA
+ * gets the real values baked in at build time.
+ */
+function readDeviceIdentity(device: string | undefined): string[] {
   const result = spawnSync(
     process.execPath,
-    [normalize('./node_modules/@webos-tools/cli/bin/ares-device.js'), '-i'],
-    { encoding: 'utf8' }
+    [join(APP_DIR, ares('ares-device')), '-i', ...deviceFlags(device)],
+    { cwd: APP_DIR, encoding: 'utf8' }
   );
+  const out = `${result.stdout ?? ''}${result.stderr ?? ''}`;
   const field = (name: string) =>
-    new RegExp('^' + name + String.raw`\s*:\s*(\S+)`, 'm').exec(
-      result.stdout
-    )?.[1];
+    new RegExp('^' + name + String.raw`\s*:\s*(\S+)`, 'm').exec(out)?.[1];
   const model = field('modelName');
   const firmware = field('firmwareVersion');
   if (!model || !firmware) {
     console.warn(
-      '[deploy] device info unavailable; the UA keeps its variables'
+      `[deploy] device info unavailable; the UA keeps its variables\n${out.trim()}`
     );
     return [];
   }
   return ['--env', `model=${model}`, '--env', `firmware=${firmware}`];
 }
 
-run('build', 'webpack', [
+const { resolution, ua, device, dryRun } = parse();
+const ipk = join(APP_DIR, `${appinfo.id}_${getVersion()}_all.ipk`);
+
+run('build', WEBPACK, [
   '--mode=production',
   '--env',
   `resolution=${resolution}`,
   '--env',
   `ua=${ua}`,
-  ...(ua === 'cobalt' ? readDeviceIdentity() : [])
+  ...(ua === 'cobalt' ? readDeviceIdentity(device) : [])
 ]);
-run('package', 'ares-package', ['-n', 'dist']);
-run('install', 'ares-install', [normalize(ipk)]);
-run('launch', 'ares-launch', [appinfo.id]);
+run('package', PACKAGE, []);
+
+if (dryRun) {
+  console.log('\n[deploy] dry run; would run:');
+  console.log(`  ares-install ${[...deviceFlags(device), ipk].join(' ')}`);
+  console.log(
+    `  ares-launch ${[...deviceFlags(device), appinfo.id].join(' ')}`
+  );
+  process.exit(0);
+}
+
+run('install', ares('ares-install'), [...deviceFlags(device), ipk]);
+run('launch', ares('ares-launch'), [...deviceFlags(device), appinfo.id]);
