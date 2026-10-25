@@ -9,12 +9,14 @@ delete process.env['NPM_CONFIG_ALLOW_SCRIPTS'];
 // the entry is re-evaluated or dropped.
 const REVIEW_BY = new Map([
   ['GHSA-vfj7-8cjw-p6xm', '2026-12-01'],
-  ['GHSA-hp3w-g68c-fv3c', '2027-03-01']
+  ['GHSA-hp3w-g68c-fv3c', '2027-03-01'],
+  ['GHSA-27r3-jxmh-p828', '2026-12-01']
 ]);
 
 const ACCEPTED = new Set([
   'GHSA-vfj7-8cjw-p6xm', // braces: devDeps only, latest fixed missing.
-  'GHSA-hp3w-g68c-fv3c' // sprintf-js: devDep only, no fix.
+  'GHSA-hp3w-g68c-fv3c', // sprintf-js: devDep only, no fix.
+  'GHSA-27r3-jxmh-p828' // body-parser: only inside @webos-tools/cli (local ares tooling), no request-facing server; DoS only.
 ]);
 
 /** The slice of `npm audit --json` this gate reads. */

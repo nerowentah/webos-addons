@@ -225,7 +225,11 @@ export async function connectToWebSocket(
   };
 
   await send('Runtime.enable');
-  await send('Performance.enable');
+  try {
+    await send('Performance.enable');
+  } catch {
+    // Cobalt's debugger has no Performance domain; diagnostics() then lacks metrics.
+  }
 
   return {
     send,
