@@ -1,6 +1,6 @@
 # Native Cobalt-03 — Feature parity
 
-Status: matrix below partly filled from the 2026-10-23/24 TV runs
+Status: every YT-X feature has a verdict; rows marked pending or untested need the TV
 Addresses: product features that behave differently under native Cobalt
 Touches: webapp features, config, UI input
 
@@ -34,15 +34,20 @@ because its code loads.
 
 ## Matrix so far (LG 65QNED86 only)
 
-| Feature                                             | Native status                                                                        |
-| --------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| Ad blocking                                         | Adapted: response hooks in the preload; synthetic payload proven, live response open |
-| Settings panel, themes, Panel Care                  | Included (flex layout, no grid; Auto resolves to QNED)                               |
-| Thumbnail quality, keyboard search                  | Adapted: need the `requestIdleCallback` / `closest` polyfills                        |
-| Shorts, members-only, end screens                   | Included (shared hooks), not individually device-tested                              |
-| SponsorBlock                                        | Not built into Cobalt builds (YouTube's page CSP blocks its servers; deliberate)     |
-| Block Cast Wake                                     | Dropped on native (greyed out; nothing to block)                                     |
-| Magic Remote pointer/wheel, voice, speed, subtitles | Untested                                                                             |
+| Feature                                            | Native status                                                                        |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Ad blocking                                        | Adapted: response hooks in the preload; synthetic payload proven, live response open |
+| Settings panel, themes, Panel Care                 | Included (flex layout, no grid; Auto resolves to QNED)                               |
+| Thumbnail quality, keyboard search                 | Adapted: need the `requestIdleCallback` / `closest` polyfills                        |
+| Shorts, members-only, end screens                  | Included (shared hooks), not individually device-tested                              |
+| SponsorBlock                                       | Not built into Cobalt builds (YouTube's page CSP blocks its servers; deliberate)     |
+| Block Cast Wake                                    | Dropped on native (greyed out; nothing to block)                                     |
+| Keep Playing, account-selector bypass              | Included (shared hooks via the module loader); TV check pending                      |
+| Force quality, force codec                         | Adapted: Cobalt negotiates codecs itself, so Force Video Codec is likely a no-op     |
+| Show Time Remaining, Text Size, accessibility      | Included (Cobalt-safe CSS, no `var()`); TV check pending (`npm run verify:ytx`)      |
+| Return YouTube Dislike, speed ranges, subtitles    | Deferred: not YT-X features; RF1705 owns them in its runtime                         |
+| Sponsored QR blocking, startup page, Homebrew feed | Deferred (QR, startup page); feed: the web package only, native is a manual job      |
+| Magic Remote pointer/wheel, voice                  | Untested: platform input, record per control on the TV                               |
 
 ## Required decisions
 
