@@ -14,7 +14,6 @@ import './features/adblock/adblock';
 import './youtube/hooks/json-stringify';
 import './features/adblock/shorts';
 import './features/adblock/members-only';
-import './features/sponsorblock/sponsorblock';
 import './ui/ui';
 import './styles/font-fix.css';
 import './features/adblock/thumbnail-quality';
@@ -31,3 +30,10 @@ import './platform/block-webos-cast';
 import './youtube/mods/auto-account-select';
 import './ui/time-remaining';
 import './features/keyboard-search/keyboard-search';
+
+// Cobalt builds drop SponsorBlock: the page CSP there blocks its servers.
+if (__YTX_SPONSORBLOCK__) {
+  void import(
+    /* webpackMode: "eager" */ './features/sponsorblock/sponsorblock'
+  );
+}

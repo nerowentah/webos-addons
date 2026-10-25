@@ -659,8 +659,17 @@ export function thumbnailHookRequired(): boolean {
   return enabled;
 }
 
+/** Set by the first connect-src violation: the page's CSP (Cobalt) forbids XHR to the image host, so later probes load the image instead of re-raising a violation each time. */
+let headBlockedByCsp = false;
+if (typeof document !== 'undefined') {
+  document.addEventListener('securitypolicyviolation', (e) => {
+    if (e.violatedDirective.startsWith('connect-src')) headBlockedByCsp = true;
+  });
+}
+
 /** Whether the URL exists, by a HEAD request: true, false, UNKNOWN (timeout), or null when the HEAD could not tell (no readable Content-Length, or a request error - which is also what a cross-origin 404 without CORS headers looks like), in which case the caller loads the image instead. A grey placeholder answered 200 with a tiny body is missing. */
 function headExists(url: string): Promise<ProbeAnswer> {
+  if (headBlockedByCsp) return Promise.resolve(null);
   return new Promise<ProbeAnswer>((resolve) => {
     let xhr: XMLHttpRequest;
     try {

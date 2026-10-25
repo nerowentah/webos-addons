@@ -239,23 +239,30 @@ export function createOptionsPanel(onClose: () => void): OptionsPanel {
       pageSponsor.appendChild(
         createSection(PANEL.sections.adBlocking, [
           createConfigCheckbox('enableAdBlock'),
-          createConfigCheckbox('enableSponsorBlock')
+          ...(__YTX_SPONSORBLOCK__
+            ? [createConfigCheckbox('enableSponsorBlock')]
+            : [])
         ])
       );
 
-      pageSponsor.appendChild(
-        createSection(
-          PANEL.sections.sponsorBlock,
-          [
-            ...SEGMENT_CATEGORIES.map((c) => createConfigCheckbox(c.configKey)),
-            createConfigCheckbox('enableMutedSegments'),
-            createConfigCheckbox('sbPeriodicRefresh'),
-            createConfigCheckbox('skipSegmentsOnce')
-          ],
-          true,
-          PANEL.attribution
-        )
-      );
+      // Cobalt builds carry no SponsorBlock (the page CSP blocks its servers).
+      if (__YTX_SPONSORBLOCK__) {
+        pageSponsor.appendChild(
+          createSection(
+            PANEL.sections.sponsorBlock,
+            [
+              ...SEGMENT_CATEGORIES.map((c) =>
+                createConfigCheckbox(c.configKey)
+              ),
+              createConfigCheckbox('enableMutedSegments'),
+              createConfigCheckbox('sbPeriodicRefresh'),
+              createConfigCheckbox('skipSegmentsOnce')
+            ],
+            true,
+            PANEL.attribution
+          )
+        );
+      }
       elmContainer.appendChild(pageSponsor);
     }
   ];

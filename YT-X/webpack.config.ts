@@ -196,7 +196,10 @@ const makeConfig = (env: Record<string, string>): Configuration[] => [
       new webpack.DefinePlugin({
         __YTX_VERSION__: JSON.stringify(version),
         __YTX_GITSHA__: JSON.stringify(gitSha),
-        __YTX_OWNER__: JSON.stringify(owner)
+        __YTX_OWNER__: JSON.stringify(owner),
+        __YTX_SPONSORBLOCK__: JSON.stringify(
+          resolveUaMode(env['ua']) !== 'cobalt'
+        )
       })
     ],
 

@@ -16,7 +16,6 @@ because its code loads.
 - logo/end-screen removal;
 - force quality and force codec;
 - Keep Playing;
-- SponsorBlock skip/mute/highlight/markers;
 - Panel Care;
 - account-selector bypass;
 - settings panel and keyboard/pointer input.
@@ -41,7 +40,7 @@ because its code loads.
 | Settings panel, themes, Panel Care                  | Included (flex layout, no grid; Auto resolves to QNED)                               |
 | Thumbnail quality, keyboard search                  | Adapted: need the `requestIdleCallback` / `closest` polyfills                        |
 | Shorts, members-only, end screens                   | Included (shared hooks), not individually device-tested                              |
-| SponsorBlock                                        | Dropped on Cobalt (page CSP blocks the servers), by design                           |
+| SponsorBlock                                        | Not built into Cobalt builds (YouTube's page CSP blocks its servers; deliberate)     |
 | Block Cast Wake                                     | Dropped on native (greyed out; nothing to block)                                     |
 | Magic Remote pointer/wheel, voice, speed, subtitles | Untested                                                                             |
 

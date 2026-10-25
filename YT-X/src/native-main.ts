@@ -39,11 +39,6 @@ const modules: ReadonlyArray<readonly [string, Loader]> = [
     './features/adblock/members-only',
     () => import(/* webpackMode: "eager" */ './features/adblock/members-only')
   ],
-  [
-    './features/sponsorblock/sponsorblock',
-    () =>
-      import(/* webpackMode: "eager" */ './features/sponsorblock/sponsorblock')
-  ],
   ['./ui/ui', () => import(/* webpackMode: "eager" */ './ui/ui')],
   [
     './styles/font-fix.css',

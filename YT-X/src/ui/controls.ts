@@ -22,21 +22,11 @@ export function syncConfigCheckboxes(): void {
   for (const sync of checkboxSyncs) sync();
 }
 
-/**
- * Settings that do nothing on the native build, shown greyed and not
- * toggleable: the cast wake is a web-app request, and SponsorBlock is off
- * there (the Cobalt page's CSP blocks its servers).
- */
-const NATIVE_INACTIVE: readonly string[] = [
-  'blockWebosCast',
-  'enableMutedSegments',
-  'sbPeriodicRefresh',
-  'skipSegmentsOnce'
-];
+/** Settings that do nothing on the native build: the cast wake is a web-app request. */
+const NATIVE_INACTIVE: readonly string[] = ['blockWebosCast'];
 
 const isNativeInactive = (key: BoolKey): boolean =>
-  isNativeBuild() &&
-  (key.startsWith('enableSponsorBlock') || NATIVE_INACTIVE.includes(key));
+  isNativeBuild() && NATIVE_INACTIVE.includes(key);
 
 export function createConfigCheckbox(key: BoolKey): HTMLLabelElement {
   const inactive = isNativeInactive(key);
