@@ -3,18 +3,30 @@
  *
  *   npm run verify:device [-- -d <device>] [--skip-deploy]
  *
+ * `-d`/`--device` may also come from YTX_DEVICE.
+ *
  * Checks: app rendered, no broken images, single <video>, Back closes an open
  * settings overlay without navigating or throwing, and <video> advances after
  * `ok`. Record the build sha, TV model and webOS version in the PR.
  */
 import { spawnSync } from 'node:child_process';
 import { setTimeout as sleep } from 'node:timers/promises';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { connect, diagnostics, runCli, HarnessError } from './inspect.ts';
 import { press, click } from './drive.ts';
+import { deviceArg } from './args.ts';
 
+const APP_DIR = fileURLToPath(new URL('../..', import.meta.url));
 const argv = process.argv.slice(2);
-const di = argv.indexOf('-d');
-const device = di >= 0 ? argv.splice(di, 2)[1] : undefined;
+
+let device: string | undefined;
+try {
+  device = deviceArg(argv);
+} catch (error) {
+  console.error(`verify:device: ${(error as Error).message}`);
+  process.exit(1);
+}
 
 const failures: string[] = [];
 const check = (ok: boolean, label: string): void => {
@@ -24,9 +36,14 @@ const check = (ok: boolean, label: string): void => {
 
 runCli(async () => {
   if (!argv.includes('--skip-deploy')) {
-    const r = spawnSync(process.execPath, ['tools/device/deploy.ts'], {
-      stdio: 'inherit'
-    });
+    const r = spawnSync(
+      process.execPath,
+      [
+        join(APP_DIR, 'tools/device/deploy.ts'),
+        ...(device === undefined ? [] : ['-d', device])
+      ],
+      { cwd: APP_DIR, stdio: 'inherit' }
+    );
     if (r.status !== 0) throw new HarnessError('deploy failed');
     await sleep(8000);
   }
