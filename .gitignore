@@ -3,6 +3,7 @@ node_modules/
 
 # Build output
 YT-X/dist/
+YT-X/dist-native/
 
 # webOS packages
 *.ipk
