@@ -7,7 +7,7 @@ Touches: `src/features/playback/video-quality.ts`, `tools/inspect.ts` (probe onl
 Native Cobalt note: `#46` is a real defect in Cobalt’s MIME parser, but it
 cannot occur in the userscript because YouTube’s player negotiates MSE. If the
 native port is approved, `#46` moves to
-[`native-cobalt-03`](./native-cobalt/03-feature-parity.md). The userscript
+the README's [native Cobalt section](../README.md#native-cobalt-build-experimental). The userscript
 measurement in this plan still applies to `#81`/`#107`.
 
 ## Problem

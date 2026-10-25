@@ -30,7 +30,7 @@ defensible answer for the whole class instead of a fix per bug report.
 
 This plan verifies the **userscript** in the webview. A native Cobalt package
 has a different runtime and appinfo; its matrix is
-[`native-cobalt-05`](./native-cobalt/05-device-matrix.md). Do not reuse these
+the README's [native Cobalt section](../README.md#native-cobalt-build-experimental). Do not reuse these
 results for a native build.
 
 Native candidates include:
@@ -137,7 +137,7 @@ verification is needed beyond a single cast on a webOS 25 set after the change.
 3. If the second launch fails, the relevant knobs are `supportQuickStart` and
    the app's lifecycle handling; `#74`'s native-Cobalt explanation does not
    apply to this web app, so this would be a genuine web-app finding. For the
-   native package, `#74` does apply and is tested in `native-cobalt-05`.
+   native package, `#74` does apply and is covered by the manual list in `npm run verify:ytx`.
 
 ## 7. Family account picker (#109)
 

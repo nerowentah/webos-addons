@@ -5,20 +5,19 @@ Source review: current working tree, 2026-10-22. All 12 plans are implemented in
 
 Location: `YT-X/plans/` — one independently shippable plan per finding.
 
-Other plan tracks: [Cobalt userscript follow-up](./cobalt/00-index.md),
-[RF1705 tracker](./rf1705-00-index.md),
-[native Cobalt port](./native-cobalt/00-index.md), and
-[native-only cast](./ytx-cast-native-only.md).
+Other plan tracks: [RF1705 tracker](./rf1705-00-index.md) and
+[native-only cast](./ytx-cast-native-only.md). The Cobalt and native Cobalt
+plans were folded into the code and the README; their open TV checks are the
+manual list printed by `npm run verify:ytx`.
 
 ## Status of every track
 
-| Track                                             | Done                                                             | Outstanding                                                                                      |
-| ------------------------------------------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| WCAG 01-12 (this page)                            | none                                                             | all 12                                                                                           |
-| [Cobalt follow-up](./cobalt/00-index.md)          | highlight `poi`, terminal skip, markers code, hygiene code       | TV checks: highlight cases, restart loop, marker re-render/720p, cast matrix, shorts/stats rules |
-| [RF1705 tracker](./rf1705-00-index.md)            | terminal segments (moved to cobalt/02)                           | playback-rate measure, IPK packaging tools, Homebrew feed, device pass                           |
-| [Native Cobalt port](./native-cobalt/00-index.md) | runtime, injection, identity, cast names, settings audit written | real ad proof, remote input, parity matrix, CI IPK job, more TVs, settings pass on TV            |
-| [Native-only cast](./ytx-cast-native-only.md)     | appinfo, 404, cold start, docs                                   | Android and iOS single-destination matrix                                                        |
+| Track                                         | Done                                                          | Outstanding                                                                 |
+| --------------------------------------------- | ------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| WCAG 01-12 (this page)                        | all 12 in code with unit tests                                | TV checks (AX tree, 720p contrast, 200% text, popup)                        |
+| [RF1705 tracker](./rf1705-00-index.md)        | terminal segments, IPK packaging check, feed generator        | playback-rate measure, first-release Homebrew check, device pass            |
+| [Native-only cast](./ytx-cast-native-only.md) | appinfo, 404, cold start, docs                                | Android and iOS single-destination matrix                                   |
+| Cobalt and native Cobalt                      | folded into code comments, README and `verify:ytx` (no plans) | manual list in `npm run verify:ytx` (ad proof, remote input, rollback, ...) |
 
 ## Order
 

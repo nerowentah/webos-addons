@@ -21,7 +21,7 @@ A feed is the installation path that already works for that segment of users.
 The schema is package-type agnostic. A native Cobalt IPK can use the same feed,
 but its `manifest.type` and `id` must match the native app; do not publish a
 native package under the web app’s manifest by accident. See
-[`native-cobalt-04`](./native-cobalt/04-packaging-and-release.md).
+the README's [native Cobalt section](../README.md#native-cobalt-build-experimental).
 
 ## Goal
 

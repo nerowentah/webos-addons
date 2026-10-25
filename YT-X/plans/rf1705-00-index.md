@@ -13,7 +13,7 @@ out of scope here. These plans cover only what is genuinely live in the
 userscript codebase, plus the release-engineering gaps the tracker exposed.
 
 If a native Cobalt port is approved, the runtime, build, hardware and feature
-items move to [`plans/native-cobalt/`](./native-cobalt/00-index.md); they are not
+items belong to the README's [native Cobalt section](../README.md#native-cobalt-build-experimental); they are not
 extra userscript work.
 
 > Unrelated batch in this folder: [WCAG 2.2 AA](./00-index.md) (plans 01–12) and
@@ -28,7 +28,7 @@ extra userscript work.
 | 4   | [Homebrew channel feed](./rf1705-04-homebrew-repo-feed.md)     | release engineering | first tagged release |
 | 5   | [Device verification pass](./rf1705-05-device-verification.md) | investigation       | —                    |
 
-Terminal segments (former plan 1) moved to [`cobalt/02`](./cobalt/02-terminal-segments.md).
+Terminal segments (former plan 1) are implemented in `src/features/sponsorblock/segments.ts`.
 Start with 3 (independent, mechanical). 5 runs on hardware and produces the input for 2.
 
 ## Tracker mapping
@@ -44,8 +44,8 @@ open item is represented in the categories below.
   YT-X is a userscript with its own ad blocking; none applies here.
 - Closed PRs: `#27` workflow permissions and `#34` form-data CVE (upstream CI and
   dependency hygiene), `#62` Shorts blocker reload, `#77` rooted Store overlay
-  (native packaging, see native-cobalt/04). `#78` and `#80` are the SponsorBlock marker
-  fixes already ported by [cobalt/03](./cobalt/03-progress-bar-markers.md).
+  (native packaging, see the README native section). `#78` and `#80` are the SponsorBlock marker
+  fixes already ported (`src/features/sponsorblock/markers.ts`).
 
 **Out of scope for the userscript (no action here)** — issues that live inside
 the Cobalt/Starboard runtime this app does not contain:
@@ -80,15 +80,15 @@ webOS 5.x.
 
 **Addressed by a plan in this folder**
 
-| Tracker                    | Plan                                                   |
-| -------------------------- | ------------------------------------------------------ |
-| #112, #79                  | 1                                                      |
-| #107, #81                  | 2 (userscript measurement)                             |
-| #70, #82                   | 3 (userscript); native-cobalt-04 for the native app    |
-| #18, #19, #93, #100, #114  | 4                                                      |
-| #35, #99, #102, #103, #110 | 5 (userscript); native-cobalt-05 for the native app    |
-| #25                        | [`ytx-cast-native-only.md`](./ytx-cast-native-only.md) |
-| native candidates above    | [`plans/native-cobalt/`](./native-cobalt/00-index.md)  |
+| Tracker                    | Plan                                                     |
+| -------------------------- | -------------------------------------------------------- |
+| #112, #79                  | 1                                                        |
+| #107, #81                  | 2 (userscript measurement)                               |
+| #70, #82                   | 3 (userscript); README native section for the native app |
+| #18, #19, #93, #100, #114  | 4                                                        |
+| #35, #99, #102, #103, #110 | 5 (userscript); README native section for the native app |
+| #25                        | [`ytx-cast-native-only.md`](./ytx-cast-native-only.md)   |
+| native candidates above    | the README native section                                |
 
 **Added or corrected in the 2026-10-23 refresh** — previously absent or
 under-classified:
