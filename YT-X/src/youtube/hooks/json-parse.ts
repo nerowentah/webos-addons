@@ -1,3 +1,4 @@
+import { recordFailure } from '../../core/diag';
 import { claimHook } from '../../core/hook-once';
 
 type ParseProcessor = (parsed: object, text: unknown) => void;
@@ -25,8 +26,13 @@ if (claimHook('json-parse')) {
   ) {
     const parsed = originalParse.call(this, text, reviver) as unknown;
     if (parsed !== null && typeof parsed === 'object') {
+      // One failing filter must cost only itself: a throw here would reach YouTube's own parse and leave its UI on skeletons.
       for (const processor of processors) {
-        processor(parsed, text);
+        try {
+          processor(parsed, text);
+        } catch (error) {
+          recordFailure('parse-processor', error);
+        }
       }
     }
     return parsed;

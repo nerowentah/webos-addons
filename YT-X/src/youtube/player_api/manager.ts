@@ -2,6 +2,7 @@ import {
   CustomEventTarget,
   TypedCustomEvent
 } from '../../core/custom-event-target';
+import { recordFailure } from '../../core/diag';
 import { getPlayer } from './helpers';
 import type { PlayerStateObject, VideoID, YTPlayer } from './yt-api';
 
@@ -46,7 +47,16 @@ class PlayerManager
     this.dispatchEvent(new TypedCustomEvent('newVideo', { detail: videoID }));
   }
 
+  /** Registered on YouTube's own player, so nothing may escape it (see #updatePlayerState). */
   #handlePlayerStateChange = () => {
+    try {
+      this.#updatePlayerState();
+    } catch (error) {
+      recordFailure('player-state', error);
+    }
+  };
+
+  #updatePlayerState() {
     const current = this.#player.getPlayerStateObject();
     const diff = diffPlayerState(
       this.#lastPlayerState,
@@ -59,7 +69,8 @@ class PlayerManager
 
     const currentVideoID = this.currentVideoID;
     if (this.#lastVideoID !== currentVideoID) {
-      if (!currentVideoID) throw new Error('unexpected `null` video ID');
+      // A state change before the video id is known has nothing to announce yet. Never throw here: this runs inside YouTube's own player listeners, and an exception left its play/pause button on the paused glyph while the video played.
+      if (!currentVideoID) return;
       this.#handleNewVideo(currentVideoID);
       this.#lastVideoID = currentVideoID;
     }
@@ -69,7 +80,7 @@ class PlayerManager
         new TypedCustomEvent<'playbackStart'>('playbackStart')
       );
     }
-  };
+  }
 
   constructor(player: YTPlayer) {
     super();

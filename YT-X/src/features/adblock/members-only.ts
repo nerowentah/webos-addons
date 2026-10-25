@@ -1,3 +1,4 @@
+import { claimHook } from '../../core/hook-once';
 import { configRead } from '../../config/config';
 import { registerParseProcessor } from '../../youtube/hooks/json-parse';
 import {
@@ -52,18 +53,20 @@ let emptiedLists = new Set<unknown[]>();
 /** Every marker the scrub can act on, as raw text: MEMBERS_ONLY style values and the word "member(s)" in a heading. A payload without any is not walked. */
 const MEMBERS_TEXT_RE = /MEMBERS_ONLY|\bmembers?\b/i;
 
-registerParseProcessor((r, text) => {
-  if (!configRead('removeMembersOnly')) {
-    return;
-  }
+if (claimHook('members-only-parse')) {
+  registerParseProcessor((r, text) => {
+    if (!configRead('removeMembersOnly')) {
+      return;
+    }
 
-  if (typeof text === 'string' && !MEMBERS_TEXT_RE.test(text)) {
-    return;
-  }
+    if (typeof text === 'string' && !MEMBERS_TEXT_RE.test(text)) {
+      return;
+    }
 
-  emptiedLists = new Set();
-  scrubMembersOnly(r, 0);
-});
+    emptiedLists = new Set();
+    scrubMembersOnly(r, 0);
+  });
+}
 
 function hasMembersOnlyMarker(node: unknown, depth: number): boolean {
   if (!isContainer(node)) return false;

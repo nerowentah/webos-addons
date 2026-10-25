@@ -1,3 +1,4 @@
+import { claimHook } from '../../core/hook-once';
 import { configRead } from '../../config/config';
 import { registerParseProcessor } from '../../youtube/hooks/json-parse';
 import {
@@ -10,50 +11,53 @@ import {
 
 const SHELF_SHORTS = 'TVHTML5_SHELF_RENDERER_TYPE_SHORTS';
 
-registerParseProcessor((r, text) => {
-  if (!configRead('removeShorts')) {
-    return;
-  }
+if (claimHook('shorts-parse')) {
+  registerParseProcessor((r, text) => {
+    if (!configRead('removeShorts')) {
+      return;
+    }
 
-  const found = findFirstObjects(r, [
-    'gridRenderer',
-    'gridContinuation',
-    'sectionListRenderer'
-  ]);
+    const found = findFirstObjects(r, [
+      'gridRenderer',
+      'gridContinuation',
+      'sectionListRenderer'
+    ]);
 
-  // First page of subscriptions tab
-  const gridRenderer = found['gridRenderer'];
-  if (isRecord(gridRenderer) && isArray(gridRenderer['items'])) {
-    removeShorts(gridRenderer, gridRenderer['items']);
-  }
+    // First page of subscriptions tab
+    const gridRenderer = found['gridRenderer'];
+    if (isRecord(gridRenderer) && isArray(gridRenderer['items'])) {
+      removeShorts(gridRenderer, gridRenderer['items']);
+    }
 
-  // Pagination
-  const gridContinuation = found['gridContinuation'];
-  if (isRecord(gridContinuation) && isArray(gridContinuation['items'])) {
-    removeShorts(gridContinuation, gridContinuation['items']);
-  }
+    // Pagination
+    const gridContinuation = found['gridContinuation'];
+    if (isRecord(gridContinuation) && isArray(gridContinuation['items'])) {
+      removeShorts(gridContinuation, gridContinuation['items']);
+    }
 
-  // Shelf on subscriptions tab
-  const sectionListRenderer = found['sectionListRenderer'];
-  if (
-    isRecord(sectionListRenderer) &&
-    isArray(sectionListRenderer['contents'])
-  ) {
-    removeShelvesWithShorts(
-      sectionListRenderer,
-      sectionListRenderer['contents']
-    );
-  }
+    // Shelf on subscriptions tab
+    const sectionListRenderer = found['sectionListRenderer'];
+    if (
+      isRecord(sectionListRenderer) &&
+      isArray(sectionListRenderer['contents'])
+    ) {
+      removeShelvesWithShorts(
+        sectionListRenderer,
+        sectionListRenderer['contents']
+      );
+    }
 
-  // Side menu (guide): guide entries only appear in the guide payload, so
-  // filtering there cannot touch feed or player content.
-  if (
-    typeof text === 'string' &&
-    (text.includes('guideEntryRenderer') || text.includes('guideShelfRenderer'))
-  ) {
-    removeShortsFromGuide(r, 0);
-  }
-});
+    // Side menu (guide): guide entries only appear in the guide payload, so
+    // filtering there cannot touch feed or player content.
+    if (
+      typeof text === 'string' &&
+      (text.includes('guideEntryRenderer') ||
+        text.includes('guideShelfRenderer'))
+    ) {
+      removeShortsFromGuide(r, 0);
+    }
+  });
+}
 
 function removeShorts(container: JsonObject, items: unknown[]): void {
   container['items'] = items.filter(

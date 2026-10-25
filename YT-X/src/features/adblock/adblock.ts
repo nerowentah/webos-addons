@@ -1,3 +1,4 @@
+import { recordFailure } from '../../core/diag';
 import { claimHook } from '../../core/hook-once';
 import {
   configRead,
@@ -504,6 +505,21 @@ const adblockParse = function (
     return r;
   }
 
+  // The filters are best effort: a throw would reach YouTube's own JSON.parse and leave its UI on skeletons, so a failure hands back what was parsed.
+  try {
+    filterParsed(r, source, reviver);
+  } catch (error) {
+    recordFailure('adblock-parse', error);
+  }
+  return r;
+};
+if (installParse) JSON.parse = adblockParse;
+
+function filterParsed(
+  r: object,
+  source: unknown,
+  reviver: Parameters<typeof JSON.parse>[1] | undefined
+): void {
   // Rows ahead is independent of the filters, so it runs first; whatever the filters do below leaves the raised continuations in place.
   if (loadRowsAhead) {
     const rowsAheadType = detectRowsAheadType(r);
@@ -552,7 +568,4 @@ const adblockParse = function (
 
   // Max Thumbnail Quality: rewrite thumbnail URLs in the parsed body. Always on and run last, so shelves and ad slots removed above are never rewritten. The response type is detected once here and handed to the rewriter.
   upgradeResponseThumbnails(r, detectResponseType(r));
-
-  return r;
-};
-if (installParse) JSON.parse = adblockParse;
+}
