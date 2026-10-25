@@ -51,6 +51,9 @@ Both upstream projects are licensed GPL-3.0, which this project matches (see
 - Auto-skip sponsors, intros, outros, interaction reminders, self-promotion,
   non-music sections, recaps, tangents/jokes, and hook/greetings
 - Skip segments only once
+- Not available on the experimental Cobalt user-agent build: its page CSP blocks
+  the SponsorBlock servers, so the feature stays off there (see
+  [User agent](#user-agent))
 
 ### Interface
 
@@ -128,8 +131,7 @@ to build from source instead, continue below.
 3. Build and package the app:
 
    ```sh
-   npm run build
-   npm run package
+   npm run package:fhd # 1920x1080 canvas; for 1280x720 use package:hd
    ```
 
 4. Install the resulting `.ipk` (created in the project root) using one of:
@@ -198,7 +200,7 @@ mytv (default)  prisoner@192.168.137.102:9922  ssh         tv         EF32E8
 ### Installing to the TV
 
 ```sh
-npm run deploy # Builds 1920x1080, packages, installs, and launches on the default device selected via ares-setup-device.
+npm run deploy:fhd # Builds 1920x1080, packages, installs, and launches on the default device selected via ares-setup-device.
 ```
 
 ---
@@ -229,25 +231,26 @@ luna-send-pub -n 1 'luna://com.webos.service.eim/deleteDevice' '{"appId":"youtub
 ### Casting on webOS 2025
 
 On webOS 2025 firmware (webOS platform ≥ 10 / firmware ≥ 33), the built-in
-Chromecast ("cast core") service conflicts with this app and freezes it
+Chromecast ("cast core") service can conflict with this app and freeze it
 ([webosbrew/youtube-webos#343](https://github.com/webosbrew/youtube-webos/issues/343)).
-The app blocks its own `/wake_cast_core` fetch on those firmware versions
-unless the launch came from a cast handoff (`cc2`, `dialLaunch`,
-`pairingCode`, or a webOS relaunch).
+The app's **Block Cast Wake (webOS 25)** setting blocks its own
+`/wake_cast_core` fetch unless the launch came from a cast handoff (`cc2`,
+`dialLaunch`, `pairingCode`, or a webOS relaunch). It is **off by default**
+because the native Cast receiver needs the wake; with it on, a cold cast start
+left the TV unresponsive in testing. Existing installs are migrated to off
+once. The setting cannot add, remove, or rename a cast destination.
 
 The default package no longer registers a DIAL name (`dialAppName` is omitted).
-Expected: the phone lists only the TV's native Cast target. Verification on
-Android and iOS is pending; until it is recorded, treat that as intent, not a
-guarantee. The setting labelled
-**Block Cast Wake (webOS 25)** controls only that wake fetch; it cannot add,
-remove, or rename a cast destination. It is **off by default**, because the
-native Cast receiver needs the wake to complete: with the block on, a cold cast
-start left the TV unresponsive in testing. Existing installs are migrated to
-off once; re-enable it only if you do not cast.
+On webOS 25 the TV still advertises its system DIAL device, so a phone can show
+a second TV entry next to native Cast. That entry has no registered app and
+cannot launch YouTube-X; the app cannot remove the system advertisement, and
+webOS 25 has no LG Connect Apps toggle for it. Cast to the native Cast entry
+(the one that launches YouTube-X); the other entry fails.
 
-If a phone cannot find the TV, restore `"dialAppName": "YouTube"` in
-`assets/appinfo.json` and rebuild. That restores the app's DIAL entry and is
-the compatibility path for phones that rely on DIAL.
+If a phone cannot find the native Cast entry, restore
+`"dialAppName": "YouTube"` in `assets/appinfo.json` and rebuild. That restores
+the app's DIAL registration so the second entry becomes usable, at the cost of
+the duplicate remaining.
 
 ### Playback plates follow YouTube's own styling
 
@@ -279,8 +282,7 @@ npm install
 ### Building an IPK
 
 ```sh
-npm run build
-npm run package
+npm run package:fhd
 ```
 
 The `.ipk` file is generated in the project directory. Stop here if you plan to
@@ -292,14 +294,46 @@ it with one command.
 
 webOS offers web apps two graphics canvases, `1920x1080` and `1280x720` — there
 is no UHD canvas, and the TV upscales whichever it is given to the panel in
-hardware. The default build declares `1920x1080`; to build the 720p variant:
+hardware. Every build names its canvas explicitly:
+
+| Script        | Canvas    |
+| ------------- | --------- |
+| `build:fhd`   | 1920x1080 |
+| `build:hd`    | 1280x720  |
+| `package:fhd` | 1920x1080 |
+| `package:hd`  | 1280x720  |
+| `deploy:fhd`  | 1920x1080 |
+| `deploy:hd`   | 1280x720  |
+
+Append `:cobalt` to any of them (`build:hd:cobalt`, `deploy:fhd:cobalt`, …) for
+the Cobalt user agent. `package:dist` packages whatever is already in `dist/`
+without rebuilding.
+
+The tooling accepts the symbolic canvas name or the pixel value, so
+`--resolution hd` and `--resolution 1280x720` are equivalent:
 
 ```sh
-npm run build:hd   # or: npm run package:hd
+npm run package:hd # or: npm run build:hd && npm run package:dist
+node tools/deploy.ts --resolution hd
 ```
 
-`npm run deploy` always builds `1920x1080` unless told otherwise; use
-`npm run deploy:hd` (or `--resolution 1280x720`) to deploy the 720p build.
+### Native Cobalt build (experimental)
+
+Besides the userscript, YT-X can run inside RF1705's native Cobalt runtime
+([youtube-webos-cobalt-adfree](https://github.com/RF1705/youtube-webos-cobalt-adfree)
+IPK, not bundled here). It replaces the stock `youtube.leanback.v4` app and is
+separate from the userscript: the same settings panel and ad hooks, but the Cobalt
+player and codecs. SponsorBlock is off and "Block Cast Wake" is inactive there.
+
+```sh
+npm run build:fhd:cobalt
+node tools/native.ts setup  --runtime <RF1705.ipk> --device-strings --model QNED86   --firmware 33.31.75 --year 2025 --model-full 65QNED86ASA.ATSFLJD --key <ssh key>
+node tools/native.ts update --model-full 65QNED86ASA.ATSFLJD --key <ssh key>   # keeps the session
+```
+
+`setup` reinstalls and signs you out; use `update` while iterating. To go back to the
+web app, run `npm run deploy:fhd`. Status and open items:
+[`plans/native-cobalt/`](plans/native-cobalt/00-index.md).
 
 ### User agent
 
@@ -314,10 +348,10 @@ only be chosen at build time, not from the settings panel:
 | `webos` (default) | the template in `appinfo.json`             | YouTube's LG variant: opaque black title card and tray                       |
 
 ```sh
-npm run deploy:cobalt       # or: npm run deploy:hd:cobalt, npm run build:cobalt, or YTX_UA=cobalt npm run deploy
+npm run deploy:fhd:cobalt   # or: npm run deploy:hd:cobalt, or YTX_UA=cobalt npm run deploy:fhd
 ```
 
-Builds default to `webos` (including `npm run build`, `package` and `deploy`, and so the released package); `--ua cobalt` or `YTX_UA=cobalt` selects the Cobalt UA. `cobalt` is experimental: its pages carry a stricter CSP, so YT-X stamps its styles with the page's style nonce. On a 65QNED86 (webOS 25) it played 3840-wide video with
+Builds default to `webos` (every `build:*`, `package:*` and `deploy:*` script, and so the released package); a `:cobalt` suffix, `--ua cobalt` or `YTX_UA=cobalt` selects the Cobalt UA. `cobalt` is experimental: its pages carry a stricter CSP, so YT-X stamps its styles with the page's style nonce. On a 65QNED86 (webOS 25) it played 3840-wide video with
 YT-X active; other models and remote or pointer behaviour are untested. The
 platform default UA (`Web0S; Linux/SmartTV ... WebAppManager`) still gets the LG
 variant, so it is not offered.
@@ -332,7 +366,7 @@ to cut graphics memory, or on 720p sets where it is a pixel-for-pixel match.
 
 ```sh
 npm run lint:all # audit, eslint, type-check, prettier
-npm run verify   # production build plus ES compatibility check
+npm run verify   # production fhd build plus ES compatibility check
 ```
 
 `npm run compare:chrome` is a manual Chrome reference gate; it needs Chrome and
@@ -349,7 +383,7 @@ private class fields are left native because Chrome 74+ supports them.
 
 ### Debugging on the TV
 
-Needs a TV added with `ares-setup-device` and the app installed (`npm run deploy`).
+Needs a TV added with `ares-setup-device` and the app installed (`npm run deploy:fhd`).
 These attach through `ares-inspect` and drive the app over the DevTools protocol.
 
 ```sh
@@ -382,8 +416,8 @@ Limitations:
 
 `npm run compare:chrome` launches Chrome with the YouTube TV URI and the TV's
 webOS user agent (`--ua cobalt` selects the PS4 Cobalt one, a different YouTube
-build), emulates a TV viewport (`--viewport 1280x720` for the hd build, default
-1920x1080), and probes the playback controls over CDP. `--eval <file>` runs a
+build), emulates a TV viewport (`--viewport 1280x720` for the `build:hd` variant,
+default 1920x1080), and probes the playback controls over CDP. `--eval <file>` runs a
 script in the probed page for ad-hoc cascade inspection. YouTube may still serve
 the TV and Chrome different style variants (for example the black title card and
 suggestions tray), so only same-variant values are comparable. It is a manual reference gate, not part of `npm test` or
@@ -424,13 +458,12 @@ player.
 
 ### Dependency notes
 
-Two advisories in the development dependency tree have no upstream fix and are
-accepted, gated by `tools/audit.ts`. Neither ships in the packaged `.ipk`:
+One advisory in the development dependency tree has no upstream fix and is
+accepted, gated by `tools/audit.ts`. It does not ship in the packaged `.ipk`:
 
-| Package      | Advisory                                                                   | Why accepted                                                                       |
-| ------------ | -------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| `braces`     | [`GHSA-vfj7-8cjw-p6xm`](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm) | 3.0.3 is the latest release; reached only via `es-check`/`shelljs` → `fast-glob`   |
-| `sprintf-js` | [`GHSA-hp3w-g68c-fv3c`](https://github.com/advisories/GHSA-hp3w-g68c-fv3c) | 1.1.3 is the latest release; reached only via the `@webos-tools/cli` devDependency |
+| Package  | Advisory                                                                   | Why accepted                                                                     |
+| -------- | -------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| `braces` | [`GHSA-vfj7-8cjw-p6xm`](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm) | 3.0.3 is the latest release; reached only via `es-check`/`shelljs` → `fast-glob` |
 
 The `@webos-tools/cli` devDependency (the official LG webOS CLI, at its latest
 release) also pulls a set of npm-deprecated packages — `npmlog`,
@@ -447,7 +480,7 @@ left as-is.
 ### Build, install, and launch
 
 ```sh
-npm run deploy
+npm run deploy:fhd
 ```
 
 To launch a specific video directly:
