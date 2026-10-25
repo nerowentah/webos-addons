@@ -73,7 +73,7 @@ jobs:
       - name: Build and verify (720p)
         run: npm run build:hd && npm run test:compat
 
-      # Package the production build and run tools/check-ipk.ts on it (modes,
+      # Package the production build and run tools/build/check-ipk.ts on it (modes,
       # stray files, name/version) so a packaging regression fails a PR.
       - name: Package and check IPK
         run: npm run build:fhd && npm run package:dist

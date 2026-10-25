@@ -1,6 +1,6 @@
 // The CSS for Text Size, generated from a table. No custom properties or
 // calc(): Cobalt supports neither var() nor reliable calc() mixing, so each
-// rule carries an explicit, already-multiplied font-size. tools/text-scale.test.ts
+// rule carries an explicit, already-multiplied font-size. tools/tests/text-scale.test.ts
 // checks every base size here against the stylesheet that defines it.
 
 interface ScaledText {

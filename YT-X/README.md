@@ -320,7 +320,7 @@ The tooling accepts the symbolic canvas name or the pixel value, so
 
 ```sh
 npm run package:hd # or: npm run build:hd && npm run package:dist
-node tools/deploy.ts --resolution hd
+node tools/device/deploy.ts --resolution hd
 ```
 
 ### Native Cobalt build (experimental)
@@ -333,25 +333,25 @@ player and codecs. SponsorBlock is not included and "Block Cast Wake" is inactiv
 
 ```sh
 npm run build:fhd:cobalt
-node tools/native.ts setup  --runtime <RF1705.ipk> --device-strings --model QNED86   --firmware 33.31.75 --year 2025 --model-full 65QNED86ASA.ATSFLJD --key <ssh key>
-node tools/native.ts update --model-full 65QNED86ASA.ATSFLJD --key <ssh key>   # keeps the session
+node tools/native/native.ts setup  --runtime <RF1705.ipk> --device-strings --model QNED86   --firmware 33.31.75 --year 2025 --model-full 65QNED86ASA.ATSFLJD --key <ssh key>
+node tools/native/native.ts update --model-full 65QNED86ASA.ATSFLJD --key <ssh key>   # keeps the session
 ```
 
 `setup` reinstalls and signs you out; use `update` while iterating. To go back to the
 web app, run `npm run deploy:fhd`.
-To roll back a bad native build, run `node tools/native.ts clean` and reinstall the
+To roll back a bad native build, run `node tools/native/native.ts clean` and reinstall the
 stock app (or `npm run deploy:fhd` for YT-X). The release workflow can also build the
 native package: dispatch it with the runtime's download URL and sha256; it lands in a
 draft pre-release, never in a normal release.
 
-Engine version: the native build runs on RF1705's runtime 2.0.6, which embeds Cobalt 23.lts.6 (Starboard 13, the legacy engine). YT-X ships no Cobalt of its own, and RF1705 has not released a newer engine; Google's own Cobalt is at 27 LTS (Starboard 18), which would reach YT-X only through a new RF1705 runtime. `tools/native.ts` warns when the runtime IPK is not a tested version (`TESTED_RUNTIMES` in `tools/native-device.ts`), because the injection points and the device-string patches are verified only on those.
+Engine version: the native build runs on RF1705's runtime 2.0.6, which embeds Cobalt 23.lts.6 (Starboard 13, the legacy engine). YT-X ships no Cobalt of its own, and RF1705 has not released a newer engine; Google's own Cobalt is at 27 LTS (Starboard 18), which would reach YT-X only through a new RF1705 runtime. `tools/native/native.ts` warns when the runtime IPK is not a tested version (`TESTED_RUNTIMES` in `tools/native/native-device.ts`), because the injection points and the device-string patches are verified only on those.
 
 What differs on the native build:
 
 - SponsorBlock is not built in: YouTube's page CSP for the Cobalt user agent blocks its servers, which is deliberate and not worked around.
 - "Block Cast Wake" is inactive (greyed out); Force Video Codec is likely a no-op because the Cobalt binary negotiates codecs itself.
-- The stock app id `youtube.leanback.v4` is required, the `cobalt` binary stays the stock ELF, and a relaunch needs a full exit first. See the header of `tools/native.ts`.
-- Cobalt lacks CSS grid, `:checked`, `var()` and several DOM APIs; the shared code avoids or fills them (`tools/cobalt-css.test.ts`, `src/platform/cobalt-polyfills.ts`).
+- The stock app id `youtube.leanback.v4` is required, the `cobalt` binary stays the stock ELF, and a relaunch needs a full exit first. See the header of `tools/native/native.ts`.
+- Cobalt lacks CSS grid, `:checked`, `var()` and several DOM APIs; the shared code avoids or fills them (`tools/tests/cobalt-css.test.ts`, `src/platform/cobalt-polyfills.ts`).
 - **Playback Speed** (Main tab, 1x-2x) asks the player for the rate, then checks that the media clock really runs faster; a platform that ignores the rate (the webOS browser's hardware video path, measured on a 65QNED86) is put back to 1x with a "not supported" toast. Whether native Cobalt honours it is not yet measured on a TV.
 - RF1705 features such as Return YouTube Dislike, speed ranges and subtitle shortcuts are not YT-X features and stay with RF1705's runtime.
 
@@ -402,7 +402,7 @@ Both `compare:tv` and `compare:chrome` seek to `--time` (default 102 s) and
 pause, so frames line up.
 
 `verify` fails if the bundle uses syntax newer than ES2022, and
-`tools/check-syntax-floor.ts` rejects the specific syntax Chrome 79 cannot parse
+`tools/build/check-syntax-floor.ts` rejects the specific syntax Chrome 79 cannot parse
 (optional chaining, nullish coalescing, logical assignment, static blocks).
 Everything else for the Chrome 79 floor comes from Babel via `.browserslistrc`;
 private class fields are left native because Chrome 74+ supports them.
@@ -492,7 +492,7 @@ player.
 ### Dependency notes
 
 One advisory in the development dependency tree has no upstream fix and is
-accepted, gated by `tools/audit.ts`. It does not ship in the packaged `.ipk`:
+accepted, gated by `tools/build/audit.ts`. It does not ship in the packaged `.ipk`:
 
 | Package  | Advisory                                                                   | Why accepted                                                                     |
 | -------- | -------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |

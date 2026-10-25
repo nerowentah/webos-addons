@@ -99,8 +99,8 @@ jobs:
         run: |
           base="https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}"
           ipk="$(ls ./*.ipk | head -n1)"
-          node tools/gen-manifest.ts youtube.leanback.v4.manifest.json --ipk-url "$base/$(basename "$ipk")"
-          node tools/gen-repo.ts --base-url "$base"
+          node tools/build/gen-manifest.ts youtube.leanback.v4.manifest.json --ipk-url "$base/$(basename "$ipk")"
+          node tools/build/gen-repo.ts --base-url "$base"
 
       - name: Publish release
         env:
@@ -159,7 +159,7 @@ jobs:
             [ -n "$FIRMWARE" ] && args+=(--firmware "$FIRMWARE")
             [ -n "$YEAR" ] && args+=(--year "$YEAR")
           fi
-          node tools/native.ts package "${args[@]}"
+          node tools/native/native.ts package "${args[@]}"
           sha256sum dist-native/*.ipk > dist-native/SHA256SUMS.txt
 
       # A private draft release holds the package: it embeds a third-party

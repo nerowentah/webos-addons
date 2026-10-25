@@ -1,5 +1,5 @@
 // Pure accessibility attribute helpers for the options panel. Kept free of the
-// DOM so the roles, ids and values are unit-tested (tools/a11y.test.ts).
+// DOM so the roles, ids and values are unit-tested (tools/tests/a11y.test.ts).
 
 /** Ids of the five settings pages, by tab index (Main, UI, System, Privacy, Adblock). */
 export const PAGE_IDS = [

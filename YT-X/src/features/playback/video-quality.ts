@@ -8,7 +8,7 @@ import { NOTIFICATIONS } from '../../config/ui-text';
 // representation once the rate is applied (50 fps x 1.25 exceeds a 60 fps ceiling),
 // and nothing here listens for `ratechange` to re-assert the choice. Measure at
 // 1.0x and 1.25x with Default Max Resolution on and off before adding code (the
-// manual list in tools/verify-ytx.ts). Cobalt's fractional-bitrate MIME parser
+// manual list in tools/device/verify-ytx.ts). Cobalt's fractional-bitrate MIME parser
 // defect (RF1705 #46) is native-only and cannot occur in the web app.
 //
 // A page without a player (the wait times out) just goes without these features.

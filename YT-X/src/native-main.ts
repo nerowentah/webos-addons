@@ -5,7 +5,7 @@
 // `ytx-modules`) for the debug port; a failure also lands in `ytx-err`.
 //
 // Keep the module list equal to userScript.ts, apart from the web-only and
-// native-only modules named in tools/native-main.test.ts, which checks it.
+// native-only modules named in tools/tests/native-main.test.ts, which checks it.
 //
 // Debugging: `localStorage['ytx-skip']` holds module names (comma-separated, as in
 // the list below) to leave out, so a misbehaving module can be found by bisecting

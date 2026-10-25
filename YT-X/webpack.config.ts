@@ -3,15 +3,15 @@ import webpack from 'webpack';
 import type { Configuration } from 'webpack';
 import { basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { resolveAppResolution } from './tools/app-resolution.ts';
+import { resolveAppResolution } from './tools/build/app-resolution.ts';
 import {
   applyUserAgent,
   COBALT_UA,
   resolveUaMode,
   type DeviceIdentity,
   type UaMode
-} from './tools/app-ua.ts';
-import { getVersionInfo } from './tools/version.ts';
+} from './tools/build/app-ua.ts';
+import { getVersionInfo } from './tools/build/version.ts';
 
 const { version, gitSha, owner } = getVersionInfo();
 
