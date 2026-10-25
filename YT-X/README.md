@@ -344,6 +344,8 @@ stock app (or `npm run deploy:fhd` for YT-X). The release workflow can also buil
 native package: dispatch it with the runtime's download URL and sha256; it lands in a
 draft pre-release, never in a normal release.
 
+Engine version: the native build runs on RF1705's runtime 2.0.6, which embeds Cobalt 23.lts.6 (Starboard 13, the legacy engine). YT-X ships no Cobalt of its own, and RF1705 has not released a newer engine; Google's own Cobalt is at 27 LTS (Starboard 18), which would reach YT-X only through a new RF1705 runtime. `tools/native.ts` warns when the runtime IPK is not a tested version (`TESTED_RUNTIMES` in `tools/native-device.ts`), because the injection points and the device-string patches are verified only on those.
+
 What differs on the native build:
 
 - SponsorBlock is not built in: YouTube's page CSP for the Cobalt user agent blocks its servers, which is deliberate and not worked around.

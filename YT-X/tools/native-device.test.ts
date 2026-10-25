@@ -3,7 +3,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { deviceStringPatches, patchDeviceStrings } from './native-device.ts';
+import {
+  deviceStringPatches,
+  patchDeviceStrings,
+  untestedRuntimeNote
+} from './native-device.ts';
 
 const strings = { model: 'QNED86', firmware: '33.31.75', year: '2025' };
 
@@ -55,4 +59,10 @@ test('a model that does not fit, or a bad year, is refused', () => {
   assert.throws(() =>
     patchDeviceStrings(stockPool(), { ...strings, year: '25' })
   );
+});
+
+test('only the verified RF1705 runtime passes without a warning', () => {
+  assert.equal(untestedRuntimeNote('2.0.6'), undefined);
+  assert.match(untestedRuntimeNote('2.1.0') ?? '', /not one of the tested/);
+  assert.match(untestedRuntimeNote(undefined) ?? '', /unknown version/);
 });

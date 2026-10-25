@@ -39,7 +39,11 @@ import { spawnSync } from 'node:child_process';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { patchDeviceStrings, type DeviceStrings } from './native-device.ts';
+import {
+  patchDeviceStrings,
+  untestedRuntimeNote,
+  type DeviceStrings
+} from './native-device.ts';
 import { buildMain, buildPreload } from './native-preload.ts';
 import {
   readAr,
@@ -222,6 +226,17 @@ function buildPackage(options: PackageOptions): string {
   }
 
   const entries = readTarGz(data.data);
+  const info = entries.find((e) => e.name === `${DATA_ROOT}/appinfo.json`);
+  let runtimeVersion: string | undefined;
+  try {
+    runtimeVersion = (
+      JSON.parse(info?.data.toString('utf8') ?? '{}') as { version?: string }
+    ).version;
+  } catch {
+    runtimeVersion = undefined;
+  }
+  const note = untestedRuntimeNote(runtimeVersion);
+  if (note) console.warn(`native: warning: ${note}`);
   const scripts = nativeScripts();
   const adblock = `${DATA_ROOT}/content/web/adblock`;
   setFile(
