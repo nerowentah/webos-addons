@@ -62,10 +62,8 @@ export const PANEL = {
     playerUiTweaks: 'UI Tweaks',
     system: 'System',
     privacy: 'Privacy',
-    adBlocking: 'Ad Blocking',
-    sponsorBlock: 'SponsorBlock'
-  },
-  attribution: 'Sponsored segments API: sponsor.ajay.app'
+    adBlocking: 'Ad Blocking'
+  }
 };
 
 /** SponsorBlock segment-list popup. */
@@ -73,12 +71,18 @@ export const SPONSOR_POPUP: {
   title: string;
   subtitle: string;
   dismissLabel: string;
+  sectionTitle: string;
+  attribution: string;
+  newSegments: (n: number) => string;
   segmentsFound: (n: number) => string;
   categories: Record<SegmentCategory, string>;
 } = {
   title: 'SponsorBlock',
   subtitle: 'Segments found for this video',
   dismissLabel: 'Dismiss',
+  sectionTitle: 'SponsorBlock',
+  attribution: 'Sponsored segments API: sponsor.ajay.app',
+  newSegments: (n) => `SponsorBlock: ${n} new segment${n === 1 ? '' : 's'}`,
   segmentsFound: (n) =>
     `${n} segment${n === 1 ? '' : 's'} found for this video`,
   categories: {
@@ -101,8 +105,6 @@ export const NOTIFICATIONS = {
   codecUnavailable: 'Codec unavailable — staying on Auto',
   skipping: (name: string) => `Skipping ${name}`,
   muted: (name: string) => `Muted ${name} segment`,
-  sponsorNew: (n: number) =>
-    `SponsorBlock: ${n} new segment${n === 1 ? '' : 's'}`,
   playingIn: (label: string) => `Playing in ${label}`,
   selectedMax: (selected: string, max: string) =>
     `${selected} selected (Max ${max})`

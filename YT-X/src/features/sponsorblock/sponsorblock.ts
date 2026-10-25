@@ -11,7 +11,7 @@ import {
   type ConfigKey
 } from '../../config/config';
 import { setSponsorBlockPanelSync, showNotification } from '../../ui/ui';
-import { NOTIFICATIONS } from '../../config/ui-text';
+import { NOTIFICATIONS, SPONSOR_POPUP } from '../../config/ui-text';
 import sponsorBlockUI from './sponsorblock-ui';
 import SegmentMarkers from './markers';
 import { fetchJsonWithTimeout } from '../../youtube/hooks/fetch-timeout';
@@ -541,7 +541,7 @@ class SponsorBlockHandler {
     sponsorBlockUI.scheduleAutoShow();
 
     if (added > 0) {
-      showNotification(NOTIFICATIONS.sponsorNew(added));
+      showNotification(SPONSOR_POPUP.newSegments(added));
     }
     if (this.video && !this.video.paused) this.jumpToHighlight();
     this.scheduleSkip();

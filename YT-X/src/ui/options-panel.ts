@@ -3,7 +3,7 @@
 // controller that creates it.
 
 import { panelCareModes, textScaleModes } from '../config/config';
-import { PANEL } from '../config/ui-text';
+import { PANEL, SPONSOR_POPUP } from '../config/ui-text';
 import { REMOTE_KEYS } from '../core/utils';
 import { SEGMENT_CATEGORIES } from '../features/sponsorblock/categories';
 import {
@@ -267,7 +267,7 @@ export function createOptionsPanel(onClose: () => void): OptionsPanel {
       if (__YTX_SPONSORBLOCK__) {
         pageSponsor.appendChild(
           createSection(
-            PANEL.sections.sponsorBlock,
+            SPONSOR_POPUP.sectionTitle,
             [
               ...SEGMENT_CATEGORIES.map((c) =>
                 createConfigCheckbox(c.configKey)
@@ -277,7 +277,7 @@ export function createOptionsPanel(onClose: () => void): OptionsPanel {
               createConfigCheckbox('skipSegmentsOnce')
             ],
             true,
-            PANEL.attribution
+            SPONSOR_POPUP.attribution
           )
         );
       }

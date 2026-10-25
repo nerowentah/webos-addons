@@ -23,12 +23,14 @@ interface UiTextModule {
   MAX_LABEL_TEXT: number;
   UI_LABELS: unknown;
   PANEL: unknown;
-  SPONSOR_POPUP: unknown;
+  SPONSOR_POPUP: {
+    newSegments(n: number): string;
+    segmentsFound(n: number): string;
+  };
   NOTIFICATIONS: {
     codecReload(mode: string): string;
     skipping(name: string): string;
     muted(name: string): string;
-    sponsorNew(n: number): string;
     playingIn(label: string): string;
     selectedMax(selected: string, max: string): string;
     [key: string]: unknown;
@@ -89,7 +91,8 @@ async function main(): Promise<void> {
     NOTIFICATIONS.codecReload('Avoid AV1'),
     NOTIFICATIONS.skipping('interaction reminder'),
     NOTIFICATIONS.muted('interaction reminder'),
-    NOTIFICATIONS.sponsorNew(99),
+    SPONSOR_POPUP.newSegments(99),
+    SPONSOR_POPUP.segmentsFound(99),
     NOTIFICATIONS.playingIn('2160p60 HDR'),
     NOTIFICATIONS.selectedMax('2160p60 HDR', '2160p60 HDR')
   ];
