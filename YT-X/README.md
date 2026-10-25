@@ -422,6 +422,13 @@ Limitations:
 - If `inspect` reports `"visibility": "hidden"`, the app is backgrounded and input
   is dropped. `npm run launch` brings it forward.
 
+### Scripted YT-X check
+
+`npm run verify:ytx -- --suite web` (or `--suite native --port 19222` with the debug port
+forwarded) opens the settings panel with GREEN, checks module status, CSP violations and
+the panel's accessibility attributes, and writes `dist/verify-<suite>.md` with the manual
+items that still need a person.
+
 ### Chrome TV reference comparison
 
 `npm run compare:chrome` launches Chrome with the YouTube TV URI and the TV's

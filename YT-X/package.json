@@ -23,6 +23,7 @@
     "capture:identity": "node tools/capture-identity.ts",
     "drive": "node tools/drive.ts",
     "verify:device": "node tools/verify-device.ts",
+    "verify:ytx": "node tools/verify-ytx.ts",
     "compare:chrome": "node tools/compare-chrome.ts",
     "compare:tv": "node tools/compare-tv.ts",
     "manifest": "node tools/gen-manifest.ts youtube.leanback.v4.manifest.json",

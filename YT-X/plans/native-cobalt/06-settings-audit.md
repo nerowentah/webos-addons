@@ -37,3 +37,5 @@ does not hold the others, and the result per module is in `window.__ytxModules` 
 
 - No module reports `error:` on the TV except by design.
 - Every active option has a recorded effect; every inactive one is greyed with a reason.
+
+Scripted pass: `npm run verify:ytx -- --suite native --port 19222` (web: `--suite web`) opens the panel with GREEN, checks module status, CSP violations and the panel's accessibility attributes, and writes `dist/verify-<suite>.md` with the manual items still to do.
