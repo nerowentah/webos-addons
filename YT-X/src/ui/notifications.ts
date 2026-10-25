@@ -34,6 +34,10 @@ function clampText(text: string): string {
 function ensureContainer(): HTMLElement {
   if (notificationContainer) return notificationContainer;
   const container = makeEl('div', 'ytx-notification-container');
+  // Polite live region: a toast's text is announced when it is inserted or changed.
+  container.setAttribute('role', 'status');
+  container.setAttribute('aria-live', 'polite');
+  container.setAttribute('aria-atomic', 'false');
   const careMode = resolvePanelCareMode(configRead('panelCareMode'));
   if (careMode !== 'off')
     container.classList.add(careMode === 'qned' ? 'qned-care' : 'oled-care');
@@ -41,6 +45,9 @@ function ensureContainer(): HTMLElement {
   notificationContainer = container;
   return container;
 }
+
+/** The CSS opacity transition on .message (ui.css); after it the text is hidden from assistive tech. */
+const FADE_MS = 200;
 
 // Live messages, keyed by text, so duplicates are reused rather than stacked.
 const liveMessages = new Map<string, LiveMessage>();
@@ -85,6 +92,12 @@ export function showNotification(
     if (removeTimer) clearTimeout(removeTimer);
     removeTimer = null;
     elmInner.classList.add('message-hidden');
+    // Opacity alone leaves the faded text in the accessibility tree.
+    setTimeout(() => {
+      if (elmInner.classList.contains('message-hidden')) {
+        elmInner.setAttribute('aria-hidden', 'true');
+      }
+    }, FADE_MS);
     forgetCurrent();
     // Always removes the same wrapper node.
     setTimeout(() => elm.remove(), 1000);
@@ -105,6 +118,7 @@ export function showNotification(
     currentText = newText;
     elmInner.textContent = newText;
     elmInner.classList.remove('message-hidden');
+    elmInner.removeAttribute('aria-hidden');
     if (removeTimer) clearTimeout(removeTimer);
     if (newTime > 0) removeTimer = setTimeout(remove, newTime);
     liveMessages.set(newText, { elmInner, handle });

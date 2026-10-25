@@ -54,6 +54,7 @@ export const PANEL = {
   badge: 'YT-X',
   closeGlyph: '✕',
   closeLabel: 'Close settings',
+  tabsLabel: 'Settings sections',
   tabs: ['Main', 'UI', 'System', 'Privacy', 'Adblock'],
   sections: {
     videoPlayer: 'Video Player',

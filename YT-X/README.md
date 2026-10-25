@@ -78,7 +78,7 @@ Both upstream projects are licensed GPL-3.0, which this project matches (see
 
 > [!NOTE]
 > Click the on-screen **YT-X** badge with the Magic Remote pointer to open the
-> configuration screen.
+> configuration screen. On the remote, press **GREEN** to open it.
 
 ---
 

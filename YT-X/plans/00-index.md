@@ -1,7 +1,7 @@
 # YT-X WCAG 2.2 AA — individual implementation plans
 
-Source review: current working tree, 2026-10-22. All 12 findings are still
-pending (0/12 complete at review time).
+Source review: current working tree, 2026-10-22. Plans 01-06 and 10 are implemented in code
+(awaiting their TV checks); 07-09, 11 and 12 are still pending.
 
 Location: `YT-X/plans/` — one independently shippable plan per finding.
 

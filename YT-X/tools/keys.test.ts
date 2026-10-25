@@ -21,10 +21,19 @@ interface KeysModule {
   };
   SYNTHETIC_KEY_FLAG: symbol;
   isSyntheticKey(evt: object): boolean;
+  isOpenPanelKey(
+    evt: { keyCode: number; repeat: boolean },
+    ctx: { synthetic: boolean; panelVisible: boolean; editing: boolean }
+  ): boolean;
 }
 
-const { COLOR_CODE_MAP, isSyntheticKey, REMOTE_KEYS, SYNTHETIC_KEY_FLAG } =
-  await loadSrc<KeysModule>('core/keys.ts');
+const {
+  COLOR_CODE_MAP,
+  isOpenPanelKey,
+  isSyntheticKey,
+  REMOTE_KEYS,
+  SYNTHETIC_KEY_FLAG
+} = await loadSrc<KeysModule>('core/keys.ts');
 
 test('numeric keys are keyCode 48 + n', () => {
   for (let n = 0; n <= 9; n++) {
@@ -66,4 +75,30 @@ test('isSyntheticKey trusts only real events without the flag', () => {
 
   const flagged = { isTrusted: true, [SYNTHETIC_KEY_FLAG]: true };
   assert.equal(isSyntheticKey(flagged), true);
+});
+
+test('GREEN (including the 172 alternate) opens the panel, only when it should', () => {
+  const free = { synthetic: false, panelVisible: false, editing: false };
+  assert.equal(isOpenPanelKey({ keyCode: 404, repeat: false }, free), true);
+  assert.equal(isOpenPanelKey({ keyCode: 172, repeat: false }, free), true);
+  assert.equal(isOpenPanelKey({ keyCode: 403, repeat: false }, free), false);
+  assert.equal(isOpenPanelKey({ keyCode: 404, repeat: true }, free), false);
+  assert.equal(
+    isOpenPanelKey(
+      { keyCode: 404, repeat: false },
+      { ...free, synthetic: true }
+    ),
+    false
+  );
+  assert.equal(
+    isOpenPanelKey(
+      { keyCode: 404, repeat: false },
+      { ...free, panelVisible: true }
+    ),
+    false
+  );
+  assert.equal(
+    isOpenPanelKey({ keyCode: 404, repeat: false }, { ...free, editing: true }),
+    false
+  );
 });

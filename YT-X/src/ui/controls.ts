@@ -10,6 +10,7 @@ import {
 import { gridColumns } from '../core/layout';
 import { isNativeBuild } from '../platform/is-native';
 import { LIVENESS, NEXT_LOAD_NOTICE } from '../config/liveness';
+import { cycleValueAttrs, nextSectionHeadingId } from './a11y';
 import { createElement } from './dom';
 import { showNotification } from './notifications';
 
@@ -134,7 +135,12 @@ export function createSection(
     const cols = gridColumns(labelCount);
     cls = `ytx-grid ytx-grid-${cols}`;
   }
-  const legend = createElement('div', { text: title, class: 'section-title' });
+  const headingId = nextSectionHeadingId();
+  const legend = createElement('h2', {
+    id: headingId,
+    text: title,
+    class: 'section-title'
+  });
   if (note) {
     legend.appendChild(
       createElement('span', { text: note, class: 'section-title-note' })
@@ -142,7 +148,11 @@ export function createSection(
   }
   return createElement(
     'div',
-    { class: 'ytx-settings-section' + (cls ? ` ${cls}` : '') },
+    {
+      class: 'ytx-settings-section' + (cls ? ` ${cls}` : ''),
+      role: 'group',
+      'aria-labelledby': headingId
+    },
     legend,
     ...ordered
   );
@@ -153,11 +163,23 @@ function createGenericControlRow(
   displayValueGetter: () => string,
   onLeft: () => void,
   onRight: () => void,
-  onClick: () => void
+  onClick: () => void,
+  getState: () => { index: number; count: number } = () => ({
+    index: 0,
+    count: 1
+  })
 ): { container: HTMLDivElement; updateDisplay: () => void } {
   const valueText = createElement('span', { class: 'current-value' });
+  const row: { el?: HTMLElement } = {};
   const updateDisplay = () => {
-    valueText.textContent = displayValueGetter();
+    const text = displayValueGetter();
+    valueText.textContent = text;
+    const state = getState();
+    for (const [name, value] of Object.entries(
+      cycleValueAttrs(state.index, state.count, text)
+    )) {
+      row.el?.setAttribute(name, value);
+    }
   };
 
   const container = createElement(
@@ -165,6 +187,8 @@ function createGenericControlRow(
     {
       class: 'ytx-cycle-row',
       tabIndex: 0,
+      role: 'spinbutton',
+      'aria-label': labelText,
       events: {
         click: () => onClick()
       }
@@ -179,6 +203,7 @@ function createGenericControlRow(
       createElement('span', {
         text: '<',
         class: 'arrow-btn arrow-prev',
+        'aria-hidden': 'true',
         events: {
           click: (e) => {
             e.stopPropagation();
@@ -190,6 +215,7 @@ function createGenericControlRow(
       createElement('span', {
         text: '>',
         class: 'arrow-btn',
+        'aria-hidden': 'true',
         events: {
           click: (e) => {
             e.stopPropagation();
@@ -201,6 +227,7 @@ function createGenericControlRow(
   );
 
   container.dataset['sortKey'] = labelText;
+  row.el = container;
 
   return { container, updateDisplay };
 }
@@ -233,7 +260,11 @@ function createCycleControl<K extends CycleKey>(
     displayValueGetter,
     () => cycle('prev'),
     () => cycle('next'),
-    () => cycle('next')
+    () => cycle('next'),
+    () => ({
+      index: Math.max(0, modesArray.indexOf(configRead(configKey))),
+      count: modesArray.length
+    })
   );
 
   configAddChangeListener(configKey, updateDisplay);

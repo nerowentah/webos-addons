@@ -5,41 +5,7 @@
 - Files: `src/ui/controls.ts`
 - Depends on: plan 02 (dialog heading)
 
-## Problem
-
-`createSection()` renders the section title as
-`div.section-title` (`src/ui/controls.ts:91`). The panel has one `h1`, but the
-sections below it are not headings, and the controls are not programmatically
-associated with their section. A screen-reader user cannot jump by heading or
-tell which section a checkbox belongs to.
-
-## Implementation
-
-1. In `createSection()` generate a unique id:
-   ```ts
-   let sectionSeq = 0;
-   const headingId = `ytx-section-${++sectionSeq}-title`;
-   ```
-2. Build the title as an `h2` instead of a `div`, keeping the class:
-   ```ts
-   const legend = createElement('h2', {
-     id: headingId,
-     text: title,
-     class: 'section-title'
-   });
-   ```
-   The note span continues to be appended to it.
-3. Add `role="group"` and `'aria-labelledby': headingId` to the returned
-   `.ytx-settings-section` container.
-4. Leave all existing CSS selectors alone: `.ytx-settings-section >
-.section-title` and `.ytx-grid > .section-title` match by class, not tag.
-   Verify the default `h2` margin is overridden by the existing
-   `margin: 0.6vh 0 0.5vh` rule (`ui.css:463-470`).
-5. Keep heading order: `h1` panel title → `h2` section titles. Do not add an
-   `h3` unless a section nests another section (it does not).
-6. Section ids must be unique across the panel. The counter is module-scoped,
-   and sections are created once (pages build lazily), so the ids are stable
-   for the page lifetime.
+Status: implemented in code with unit tests; the TV checks below are open.
 
 ## Acceptance criteria
 

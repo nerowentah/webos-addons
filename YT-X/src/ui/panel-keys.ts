@@ -93,6 +93,18 @@ function handlePanelNavKey(evt: KeyboardEvent): void {
     return;
   }
 
+  // Space cycles a cycle row too; checkboxes already toggle on Space natively.
+  if (
+    evt.keyCode === 32 &&
+    focused &&
+    inPanel &&
+    focused.classList.contains('ytx-cycle-row')
+  ) {
+    consume(evt);
+    focused.click();
+    return;
+  }
+
   // Checkboxes do not toggle on Enter natively, so the click is issued here and the default suppressed to avoid a second activation.
   if (evt.keyCode === REMOTE_KEYS.ENTER.keyCode && focused && inPanel) {
     if (focused.matches(PANEL_FOCUSABLE_SELECTOR)) {

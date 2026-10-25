@@ -13,6 +13,7 @@ import {
   createVideoCodecControl,
   syncConfigCheckboxes
 } from './controls';
+import { PAGE_IDS, PANEL_TITLE_ID, pageAttrs, tabAttrs } from './a11y';
 import { createElement } from './dom';
 import type { OptionsPanel } from './panel-state';
 
@@ -22,6 +23,11 @@ export function createOptionsPanel(onClose: () => void): OptionsPanel {
       class: 'ytx-ui-container',
       style: { display: 'none' },
       tabIndex: 0,
+      role: 'dialog',
+      // The focus trap in panel-keys.ts and Back-to-close make this truthful;
+      // the app root is deliberately not aria-hidden (it would fight YouTube's focus engine).
+      'aria-modal': 'true',
+      'aria-labelledby': PANEL_TITLE_ID,
       events: {
         keydown: (e) => {
           if (
@@ -52,6 +58,9 @@ export function createOptionsPanel(onClose: () => void): OptionsPanel {
 
   const tabMenu = createElement('div', {
     class: 'ytx-tab-menu',
+    role: 'tablist',
+    'aria-orientation': 'horizontal',
+    'aria-label': PANEL.tabsLabel,
     events: {
       mouseleave: () => {
         const activeTabBtn = tabBtns[activePage];
@@ -71,6 +80,7 @@ export function createOptionsPanel(onClose: () => void): OptionsPanel {
       class: index === 0 ? 'ytx-tab-btn active' : 'ytx-tab-btn',
       text: name,
       tabIndex: 0,
+      ...tabAttrs(index, index === 0),
       events: {
         click: () => setActivePage(index),
         mouseenter: (e) => {
@@ -99,11 +109,13 @@ export function createOptionsPanel(onClose: () => void): OptionsPanel {
     const previous = pages[activePage];
     if (previous) previous.style.display = 'none';
     tabBtns[activePage]?.classList.remove('active');
+    tabBtns[activePage]?.setAttribute('aria-selected', 'false');
 
     activePage = elmContainer.activePage = pageIndex;
     const page = pages[activePage];
     if (page) page.style.display = 'block';
     tabBtns[activePage]?.classList.add('active');
+    tabBtns[activePage]?.setAttribute('aria-selected', 'true');
 
     const activeEl = document.activeElement;
     const isTabFocused = activeEl && activeEl.classList.contains('ytx-tab-btn');
@@ -121,7 +133,7 @@ export function createOptionsPanel(onClose: () => void): OptionsPanel {
   const elmHeading = createElement(
     'h1',
     {},
-    createElement('span', { text: PANEL.heading })
+    createElement('span', { id: PANEL_TITLE_ID, text: PANEL.heading })
   );
   elmContainer.appendChild(elmHeading);
 
@@ -139,7 +151,8 @@ export function createOptionsPanel(onClose: () => void): OptionsPanel {
 
   const pageMain = createElement('div', {
     class: 'ytx-settings-page',
-    id: 'ytx-page-main'
+    id: PAGE_IDS[0],
+    ...pageAttrs(0)
   });
   pages[0] = pageMain;
 
@@ -165,7 +178,8 @@ export function createOptionsPanel(onClose: () => void): OptionsPanel {
     function buildUITweaksPage() {
       const pageUITweaks = createElement('div', {
         class: 'ytx-settings-page',
-        id: 'ytx-page-ui-tweaks',
+        id: PAGE_IDS[1],
+        ...pageAttrs(1),
         style: { display: 'none' }
       });
       pages[1] = pageUITweaks;
@@ -197,7 +211,8 @@ export function createOptionsPanel(onClose: () => void): OptionsPanel {
     function buildSystemPage() {
       const pageSystem = createElement('div', {
         class: 'ytx-settings-page',
-        id: 'ytx-page-system',
+        id: PAGE_IDS[2],
+        ...pageAttrs(2),
         style: { display: 'none' }
       });
       pages[2] = pageSystem;
@@ -214,7 +229,8 @@ export function createOptionsPanel(onClose: () => void): OptionsPanel {
     function buildPrivacyPage() {
       const pagePrivacy = createElement('div', {
         class: 'ytx-settings-page',
-        id: 'ytx-page-privacy',
+        id: PAGE_IDS[3],
+        ...pageAttrs(3),
         style: { display: 'none' }
       });
       pages[3] = pagePrivacy;
@@ -231,7 +247,8 @@ export function createOptionsPanel(onClose: () => void): OptionsPanel {
     function buildSponsorPage() {
       const pageSponsor = createElement('div', {
         class: 'ytx-settings-page',
-        id: 'ytx-page-sponsor',
+        id: PAGE_IDS[4],
+        ...pageAttrs(4),
         style: { display: 'none' }
       });
       pages[4] = pageSponsor;

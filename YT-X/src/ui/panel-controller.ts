@@ -7,7 +7,26 @@ import { applyPanelCareMode } from './panel-care';
 import { animatePanelIn, animatePanelOut } from './panel-animation';
 import { panelState, syncSponsorBlockPanel } from './panel-state';
 
-export function showOptionsPanel(visible = true): void {
+/** Where focus was when the panel opened; restored on close. */
+let openerFocus: HTMLElement | null = null;
+
+function restoreOpenerFocus(target: HTMLElement | null): void {
+  if (!target) return;
+  const apply = () => {
+    if (target.isConnected && target.getClientRects().length > 0) {
+      target.focus();
+    }
+  };
+  // After the panel is hidden, so the focus trap does not fight the move; once more
+  // in case YouTube's focus engine reclaimed focus in between.
+  requestAnimationFrame(apply);
+  setTimeout(apply, 350);
+}
+
+export function showOptionsPanel(
+  visible = true,
+  opener: HTMLElement | null = null
+): void {
   if (panelState.initBlock) {
     return;
   }
@@ -26,6 +45,19 @@ export function showOptionsPanel(visible = true): void {
 
       applyPanelCareMode(configRead('panelCareMode'));
     }
+
+    const candidate =
+      opener ??
+      (document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null);
+    openerFocus =
+      candidate &&
+      candidate !== document.body &&
+      candidate !== document.documentElement &&
+      !panel.contains(candidate)
+        ? candidate
+        : null;
 
     panel.style.display = 'block';
     animatePanelIn(panel);
@@ -50,6 +82,8 @@ export function showOptionsPanel(visible = true): void {
     panelState.panel.blur();
     panelState.visible = false;
     panelState.lastSafeFocus = null;
+    restoreOpenerFocus(openerFocus);
+    openerFocus = null;
   }
 
   setBadgeHidden(panelState.visible);

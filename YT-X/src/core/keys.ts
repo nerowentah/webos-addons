@@ -112,3 +112,21 @@ export function sendKey(
   target.dispatchEvent(makeKeyEvent('keydown', keyDef));
   target.dispatchEvent(makeKeyEvent('keyup', keyDef));
 }
+
+/**
+ * Whether a keydown should open the settings panel: the GREEN colour key (or
+ * the alternate code some remotes send), from a real press, not a repeat, not
+ * while the panel is open and not while the user is typing.
+ */
+export function isOpenPanelKey(
+  evt: { keyCode: number; repeat: boolean },
+  ctx: { synthetic: boolean; panelVisible: boolean; editing: boolean }
+): boolean {
+  return (
+    !ctx.synthetic &&
+    !ctx.panelVisible &&
+    !ctx.editing &&
+    !evt.repeat &&
+    COLOR_CODE_MAP.get(evt.keyCode) === 'green'
+  );
+}
