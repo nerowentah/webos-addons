@@ -4,6 +4,7 @@
 import { configAddChangeListener, configRead } from '../config/config';
 import { PANEL } from '../config/ui-text';
 import { REMOTE_KEYS } from '../core/utils';
+import { reattachOnRebuild } from '../core/reattach';
 
 /** On-screen entry point for the options panel; tabindex = -1 keeps it out of the focus order so it can never steal a tile's hover focus. */
 const configBadge = document.createElement('button');
@@ -26,7 +27,12 @@ export function initBadge(onToggle: () => void): void {
     },
     true
   );
-  document.body.appendChild(configBadge);
+  // The badge outlives a rebuilt <body> (native Cobalt injects before the page is built).
+  reattachOnRebuild(() => {
+    if (!configBadge.isConnected && document.body) {
+      document.body.appendChild(configBadge);
+    }
+  });
 
   // With the Fixed Settings Panel Button off, the badge tracks pointer activity:
   // shown on a real move, fading seconds later, dismissed by

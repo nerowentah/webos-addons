@@ -120,14 +120,44 @@ export function configGetDesc(key: ConfigKey): string {
 }
 
 export function configRead<K extends ConfigKey>(key: K): ConfigValues[K] {
+  installReplay();
   return getStore().read(key);
+}
+
+// The native Cobalt build runs two bundles on one page (early hooks, late UI),
+// each with its own store; a write in one is replayed into the other.
+const ORIGIN_ID = Math.random().toString(36).slice(2);
+const WRITE_EVENT = 'ytx-config-write';
+
+interface WriteBroadcast {
+  origin: string;
+  key: ConfigKey;
+  value: ConfigValues[ConfigKey];
+}
+
+let replayInstalled = false;
+function installReplay(): void {
+  if (replayInstalled || typeof window === 'undefined') return;
+  replayInstalled = true;
+  window.addEventListener(WRITE_EVENT, (evt) => {
+    const detail = (evt as CustomEvent<WriteBroadcast>).detail;
+    if (detail.origin === ORIGIN_ID) return;
+    // Straight to the store: replaying through configWrite would echo it back.
+    getStore().write(detail.key, detail.value as never);
+  });
 }
 
 export function configWrite<K extends ConfigKey>(
   key: K,
   value: ConfigValues[K]
 ): void {
+  installReplay();
   getStore().write(key, value);
+  window.dispatchEvent(
+    new CustomEvent<WriteBroadcast>(WRITE_EVENT, {
+      detail: { origin: ORIGIN_ID, key, value }
+    })
+  );
 }
 
 /** Add a listener for changes in the value of a specified config option. */

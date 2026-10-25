@@ -1,7 +1,8 @@
-/* Shared dark plate hue and panel alpha (panel, badge). Off and
-   QNED share the neutral translucent base; html.oled-theme-active (panel-care.ts)
-   overrides both to true black. Comma form: rgba() rejects space-separated
-   channels in a var().
+/* Dark plate hue and panel alpha (panel, badge). Off and QNED share the
+   neutral translucent base 20,20,20; the OLED care mode (panel-care.ts) swaps
+   it for true black. Written out per rule, not through custom properties:
+   Cobalt (the native build) drops var() and :root custom properties, which
+   left the panel and badge with no background at all.
 
    WCAG AA alpha floors: over a worst-case white backdrop a translucent dark
    plate keeps 4.5:1 only if its alpha stays at or above the text's floor -
@@ -9,17 +10,11 @@
    the 0.95 panel, never the badge). backdrop-filter is DOM-only on webOS and
    does not guarantee contrast; keep the alphas.
 
-   Off/QNED use 20,20,20 / 0.95; OLED overrides to 0,0,0 / 1. --ytx-backdrop
+   Off/QNED use 20,20,20 / 0.95; OLED uses 0,0,0 / 1. The backdrop blur
    is a web-compositor effect only: webOS renders <video> on a separate
    native/hardware plane, so the blur cannot sample live video. The alpha
    background is the actual video treatment. Never add transform, filter or
    will-change to <video> or its ancestors to force blur sampling. */
-:root {
-  --ytx-dark-rgb: 20, 20, 20;
-  --ytx-panel-alpha: 0.95;
-  --ytx-backdrop: blur(0.8vh) saturate(1.1);
-}
-
 /* Classic Red is the only theme, so these are base values, not an override:
    #ff0000 pure - borders/focus/scrollbar; #ff4444 soft - heading/label text;
    #cc0000 dark - filled controls (checkbox, pressed close). A care-mode border
@@ -43,13 +38,18 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background-color: rgba(var(--ytx-dark-rgb), var(--ytx-panel-alpha));
-  backdrop-filter: var(--ytx-backdrop, blur(0.8vh) saturate(1.1));
+  background-color: rgba(20, 20, 20, 0.95);
+  backdrop-filter: blur(0.8vh) saturate(1.1);
   border: 0.09vh solid #3f3f3f;
   border-radius: 1.5vh;
   transition:
     opacity 150ms ease,
     transform 150ms ease;
+}
+
+/* OLED: true black, fully opaque. */
+.ytx-ui-container.oled-care {
+  background-color: rgb(0, 0, 0);
 }
 
 /* Keeps the centering transform in every pose so the slide-up scale reads as
@@ -158,14 +158,14 @@
   animation: ytx-page-in 150ms ease;
 }
 
+/* Opacity only: Cobalt aborts the whole app when this animation interpolates
+   transform (translateY(0.6vh) to none), measured on the TV with the panel open. */
 @keyframes ytx-page-in {
   from {
     opacity: 0;
-    transform: translateY(0.6vh);
   }
   to {
     opacity: 1;
-    transform: none;
   }
 }
 
@@ -193,7 +193,7 @@
   margin: 0 1.1vh 0 0;
   appearance: none;
   -webkit-appearance: none;
-  background: rgba(var(--ytx-dark-rgb), var(--ytx-panel-alpha));
+  background: rgba(20, 20, 20, 0.95);
   border-radius: 0.4vh;
   position: relative;
   cursor: pointer;
@@ -203,20 +203,16 @@
     border-color 150ms ease;
 }
 
-.ytx-ui-container input[type='checkbox']:checked {
-  background: #cc0000;
+/* The checked state is a class set in createConfigCheckbox(), not :checked, and
+   the tick is a background image, not ::after: Cobalt (the native build)
+   supports neither, so those rules were dropped and the box never filled. */
+.ytx-ui-container input[type='checkbox'].ytx-checked {
+  background-color: #cc0000;
+  background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAABRklEQVR42u2YLQyCQBSAiVaj1Wi0Go3GMxqpRCLVdkarkWg1EqlGopVopJzP7c05ptwDDni3vbd9jY33sePeT2CMCXwmEAEREAEREAEREAER+KAAjSjfBN5J10P7IpCY/6G4C0SmOTRngQNQ+SqwA0pjD5ZHaAMUhORPHH/iFZATkr9wvEYXwI2Q/BWYcxOYASkh+QxYuq7ErSvkD86E5O/A2nUr0alC1jgSkn8AW9e9kOp6P38RE5J/Avshmjndp8gAoaFFOFQ3qgkv/yexxy9ri3jIdloRv2BdYotn2hbHMeYB3VJijbeJLc5jDjRtJDLCcynWhVEnMqqELW5YkScZKftK5NgLTToTd5UosAtlMdS3lSix/2e1laBKVDh5sVyrUCQi7nuhJonEl8WWi4518s2ci5lBdqMiIAIiIAIiIAJeCbwAknweN3gtb84AAAAASUVORK5CYII=');
+  background-position: center;
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
   border-color: #ff0000;
-}
-
-.ytx-ui-container input[type='checkbox']:checked::after {
-  content: '✓';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  color: #ffffff;
-  font-size: 1.3vh;
-  font-weight: bold;
 }
 
 .ytx-ui-container input[type='checkbox']:focus {
@@ -254,8 +250,14 @@
   margin-right: 0;
 }
 
+/* label.ytx-focused stands in for :focus-within, which Cobalt does not support
+   (set by createConfigCheckbox()). */
 .ytx-ui-container .ytx-cycle-row:focus,
-.ytx-ui-container label:focus-within {
+.ytx-ui-container label.ytx-inactive {
+  opacity: 0.5;
+}
+
+.ytx-ui-container label.ytx-focused {
   background: rgba(255, 0, 0, 0.18);
   box-shadow: 0 0 0 0.19vh #ff0000;
   outline: none;
@@ -310,9 +312,9 @@
 
 /* Fill and border must differ: left at #555555 both would vanish into each
    other, so the border is restated lighter (#666666, the neutral ramp). */
-.ytx-ui-container.oled-care input[type='checkbox']:checked,
-.ytx-ui-container.qned-care input[type='checkbox']:checked {
-  background: #555555;
+.ytx-ui-container.oled-care input[type='checkbox'].ytx-checked,
+.ytx-ui-container.qned-care input[type='checkbox'].ytx-checked {
+  background-color: #555555;
   border-color: #666666;
 }
 
@@ -406,7 +408,7 @@
   margin-left: 1.1vh;
 }
 
-.ytx-cycle-value > *:first-child {
+.ytx-cycle-value > .arrow-prev {
   margin-left: 0;
 }
 
@@ -450,8 +452,9 @@
    inline styles, so the panel retunes from one place. Columns are a
    per-section opt-in: `ytx-grid` plus a `ytx-grid-2`/`-3` count (layout.ts).
 
-   Grid, not flexbox: the webOS 6 / Chrome 79 floor predates flex `gap`
-   (Chrome 84) but not grid (Chrome 57), so tracks and spans must be grid. */
+   Wrapping flexbox with percentage cells, not grid: Cobalt (the native build)
+   has no CSS grid, and neither it nor the webOS 6 / Chrome 79 floor has flex
+   `gap` (Chrome 84), so the gutters are side margins on the cells. */
 
 .ytx-settings-section {
   margin: 1vh 0 0.5vh;
@@ -480,37 +483,37 @@
   letter-spacing: normal;
 }
 
-/* `minmax(0, 1fr)`, not a bare `1fr`: a bare track's automatic min-content
-   minimum lets a long label widen its cell and break the pairing; zeroing it
-   lets cells shrink and labels wrap. The single-column rows' negative bleed
-   margins are cancelled inside a section below, so they cannot push a cell out. */
+/* Cells are 3 x 31.33% + 6 x 1% side margins = 100%, or 2 x 47% + 4 x 1.5%.
+   Percentages of the section's width, so no calc() mixing units. The cell may
+   shrink (min-width: 0) and its label wraps rather than widening the column. */
 .ytx-ui-container .ytx-grid {
-  display: grid;
+  display: flex;
+  flex-wrap: wrap;
   align-items: stretch;
-  /* Column only - vertical rhythm comes from the row margin. The gap must clear
-     the toggle-to-label inset, or a box reads as belonging to the previous cell. */
-  column-gap: 2.5vh;
+}
+
+.ytx-ui-container .ytx-grid > label {
+  box-sizing: border-box;
+  min-width: 0;
+  margin: 0 1% 0.2vh;
+}
+
+.ytx-ui-container .ytx-grid-3 > label {
+  width: 31.33%;
 }
 
 /* recalcDensity() flags width overflow: three columns drop to two, then one. */
-.ytx-ui-container .ytx-grid-2,
-.ytx-ui-container.ytx-grid-col-2 .ytx-grid-3 {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.ytx-ui-container .ytx-grid-3 {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+.ytx-ui-container .ytx-grid-2 > label,
+.ytx-ui-container.ytx-grid-col-2 .ytx-grid-3 > label {
+  width: 47%;
+  margin: 0 1.5% 0.2vh;
 }
 
 /* Cycle rows span every track: their value column is variable-width, and a
    single cell would crowd the arrows. */
 .ytx-ui-container .ytx-grid > .section-title,
 .ytx-ui-container .ytx-grid > .ytx-cycle-row {
-  grid-column: 1 / -1;
-}
-
-.ytx-ui-container .ytx-grid > label {
-  min-width: 0;
+  width: 100%;
 }
 
 /* Toggle-first (`[ ] Label`) so each box precedes the label it controls and
@@ -528,8 +531,9 @@
 }
 
 /* Stacking un-mirrors the row so it reads label-then-toggle like the rest. */
-.ytx-ui-container.ytx-grid-stack .ytx-grid {
-  grid-template-columns: 1fr;
+.ytx-ui-container.ytx-grid-stack .ytx-grid > label {
+  width: 100%;
+  margin: 0 0 0.2vh;
 }
 
 .ytx-ui-container.ytx-grid-stack .ytx-grid > label .label-content {
@@ -580,8 +584,8 @@
   line-height: 1.2;
   color: #ffffff;
   -webkit-font-smoothing: antialiased;
-  background: rgba(var(--ytx-dark-rgb), 0.72);
-  backdrop-filter: var(--ytx-backdrop, blur(0.8vh) saturate(1.1));
+  background: rgba(20, 20, 20, 0.72);
+  backdrop-filter: blur(0.8vh) saturate(1.1);
   border: 1px solid rgba(255, 255, 255, 0.25);
   border-radius: 999px;
   opacity: 0.85;
@@ -598,16 +602,18 @@
   color: #ffffff;
   /* Double ring: white inner edge against the dark plate, dark outer edge
      against the plate, so the indicator reads over white video as well as
-     black. A single white outline vanishes on a bright frame. */
-  outline: 3px solid #ffffff;
-  outline-offset: 1px;
+     black. Box-shadow, not outline: Cobalt draws outlines square, ignoring the pill radius. */
   box-shadow:
-    0 0 0 1px #ffffff,
-    0 0 0 5px rgba(0, 0, 0, 0.8);
+    0 0 0 3px #ffffff,
+    0 0 0 6px rgba(0, 0, 0, 0.8);
 }
 
 .ytx-ui-badge-hidden {
   display: none;
+}
+
+html.oled-theme-active .ytx-ui-badge {
+  background: rgba(0, 0, 0, 0.72);
 }
 
 /* Pointer-only mode: the badge fades with pointer activity; the panel-open

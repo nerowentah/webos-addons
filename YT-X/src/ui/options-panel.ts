@@ -10,7 +10,8 @@ import {
   createAlignedCycleControl,
   createConfigCheckbox,
   createSection,
-  createVideoCodecControl
+  createVideoCodecControl,
+  syncConfigCheckboxes
 } from './controls';
 import { createElement } from './dom';
 import type { OptionsPanel } from './panel-state';
@@ -91,6 +92,7 @@ export function createOptionsPanel(onClose: () => void): OptionsPanel {
   ];
 
   const setActivePage = (pageIndex: number) => {
+    syncConfigCheckboxes();
     if (pageIndex === activePage) return;
     ensurePage(pageIndex);
 

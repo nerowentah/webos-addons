@@ -21,8 +21,3 @@ html.ytx-hide-logo ytlr-redux-connect-ytlr-logo-entity,
 html.ytx-hide-logo ytlr-logo-entity {
   visibility: hidden !important;
 }
-
-html.oled-theme-active {
-  --ytx-dark-rgb: 0, 0, 0;
-  --ytx-panel-alpha: 1;
-}
