@@ -1,8 +1,16 @@
-// Small DOM gaps in Cobalt's engine. Measured on the TV: Element.remove,
-// Element.closest and HTMLElement.click do not exist. Assumed from Cobalt's
-// supported-features list and filled defensively (a missing one would throw
-// inside the response hooks or the key handlers): requestIdleCallback. The
-// shared code uses all of these, so fill them in.
+// Gaps in Cobalt's engine, measured on the TV or taken from its supported-features
+// list, that the shared code would otherwise trip over.
+//
+// DOM/JS: Element.remove, Element.closest, HTMLElement.click and Node.isConnected
+// are missing, as is the `HTMLInputElement` global; URL has no `searchParams`
+// (use string parsing); requestIdleCallback is filled defensively.
+// Behaviour: checkboxes do not activate on Enter (panel-keys.ts issues the click);
+// text set on a <style> already in the document is ignored (insert-style.ts
+// appends after a microtask); MutationObserver may omit attributeOldValue
+// (core/utils.ts re-checks the page state instead).
+// CSS gaps (grid, :checked, :focus-within, structural pseudos, var(), 8-digit
+// hex, @keyframes on transform that aborts the app) are guarded by
+// tools/cobalt-css.test.ts. The shared code uses all of the above, so fill them in.
 
 if (typeof Element !== 'undefined' && !Element.prototype.remove) {
   Element.prototype.remove = function remove(this: Element): void {

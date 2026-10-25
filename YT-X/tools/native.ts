@@ -18,6 +18,20 @@
 // - Every setup first removes what earlier sessions left behind, so two
 //   generations of the app never share a device.
 // - `update` keeps the stored session; `setup` reinstalls and drops it.
+// - The stock app id `youtube.leanback.v4` is required: another id plays until
+//   Cobalt registers its media luna service, then aborts (LSRegisterPubPriv FAILED).
+// - Close plus relaunch within seconds aborts Cobalt at startup; wait for a full
+//   exit (about 25 s or more) before relaunching.
+// - After a TV reboot the app directory is 775 root and Cobalt dies (SIGILL) when
+//   its storage save fails; a fresh install (`ares-install -r`, then install)
+//   recreates it writable. A reinstall also drops stored sessions.
+// - The IPK needs `cobalt` at mode 755 inside the tar; chmod is not possible as
+//   the ssh user, so the package writer sets it.
+// - Device strings are patched in the stock ELF in place (same length, exactly
+//   one match), never through a wrapper.
+// - Native-only code: src/native-early.ts (hooks before the document),
+//   src/native-main.ts (feature modules, one by one), src/native/ (identity),
+//   src/platform/cobalt-polyfills.ts. `window.__ytxNative` marks the build.
 //
 // Remote commands need an unencrypted SSH key: `--key <file>` or YTX_SSH_KEY.
 

@@ -342,8 +342,19 @@ web app, run `npm run deploy:fhd`.
 To roll back a bad native build, run `node tools/native.ts clean` and reinstall the
 stock app (or `npm run deploy:fhd` for YT-X). The release workflow can also build the
 native package: dispatch it with the runtime's download URL and sha256; it lands in a
-draft pre-release, never in a normal release. Status and open items:
-[`plans/native-cobalt/`](plans/native-cobalt/00-index.md).
+draft pre-release, never in a normal release.
+
+What differs on the native build:
+
+- SponsorBlock is not built in: YouTube's page CSP for the Cobalt user agent blocks its servers, which is deliberate and not worked around.
+- "Block Cast Wake" is inactive (greyed out); Force Video Codec is likely a no-op because the Cobalt binary negotiates codecs itself.
+- The stock app id `youtube.leanback.v4` is required, the `cobalt` binary stays the stock ELF, and a relaunch needs a full exit first. See the header of `tools/native.ts`.
+- Cobalt lacks CSS grid, `:checked`, `var()` and several DOM APIs; the shared code avoids or fills them (`tools/cobalt-css.test.ts`, `src/platform/cobalt-polyfills.ts`).
+- RF1705 features such as Return YouTube Dislike, speed ranges and subtitle shortcuts are not YT-X features and stay with RF1705's runtime.
+
+Sign-in and cast names: YT-X rewrites the sign-in `device_model` to the full SKU (`--model-full`) so Google files the TV under "Television", and the lounge screen is named `[YT-X] webOS TV <model>`. The system Cast receiver keeps its own name (`[LG] webOS TV <model>`). Google keeps one screen record per registration, so every `setup` leaves an old entry on phones; remove old TVs under Settings > Watch on TV, and prefer `update` over `setup`.
+
+Check a running build with `npm run verify:ytx -- --suite native --port 19222` (see below). `npm run capture:identity` writes a redacted sign-in identity report to `dist/`.
 
 ### User agent
 

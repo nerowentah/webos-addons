@@ -1,5 +1,13 @@
 // The page's CSP can carry `style-src 'nonce-...'` (the Cobalt build does; the
 // LG build has no style-src), which blocks any <style> we inject without it.
+//
+// Three policies are in play. index.html carries YT-X's own CSP, for the web
+// userscript shell only (the native build has no shell page). On youtube.com the
+// Cobalt user agent gets YouTube's CSP: a style nonce, and a connect-src without
+// the SponsorBlock servers. That policy is deliberate and is not worked around:
+// SponsorBlock is not built into Cobalt builds (__YTX_SPONSORBLOCK__ is false for
+// `--env ua=cobalt`), and thumbnail probes fall back to image loads after the first
+// connect-src violation. Every injected <style> takes the nonce through this file.
 
 /** How long to wait for YouTube to put a nonce in the DOM before giving up. */
 export const NONCE_WAIT_MS = 5000;

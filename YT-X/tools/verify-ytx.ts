@@ -167,7 +167,15 @@ const MANUAL = [
   'Android and iOS cast destination matrix; stale "LG QNED86" phone entry',
   'Magic Remote pointer, wheel and colour/media keys',
   'Shorts metadata contrast and stats-panel overlap (screenshots)',
-  'Show Time Remaining visible under the seek bar on a watch page'
+  'Show Time Remaining visible under the seek bar on a watch page',
+  'Native: a live ad response has adPlacements/adSlots stripped',
+  'Native: muted-segment audio is restored (web build with segments muted)',
+  'Voice search, playback speed and subtitles on native (separate results)',
+  'Settings persist over a cold boot and a second launch',
+  'Native rollback: `node tools/native.ts clean`, reinstall the stock app',
+  'Native release job run once with a real RF1705 runtime (draft pre-release)',
+  'First tagged release installs through the Homebrew Channel (repo.json)',
+  'More TVs: other webOS versions, OLED vs non-OLED, ARMv7 vs AArch64'
 ];
 
 export function renderReport(

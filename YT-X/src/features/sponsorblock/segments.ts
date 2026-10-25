@@ -75,6 +75,8 @@ export const TERMINAL_TOLERANCE_S = 1;
 
 /** A terminal skip lands this far before the end, so `ended` fires instead of a seek to duration. */
 export const NATURAL_END_TAIL_S = 0.25;
+// A terminal segment is skipped to just before the end, not to it: seeking to
+// `duration` restarts some players, so the tail lets `ended` fire naturally.
 
 /**
  * Where to seek for a segment ending at `end`; null when no seek is needed
