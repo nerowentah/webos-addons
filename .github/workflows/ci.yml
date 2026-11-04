@@ -18,8 +18,16 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  runners:
+    permissions:
+      contents: read
+    uses: nerowentah/scripts/.github/workflows/shared-runner-setup.yml@664f02e7ae7107e9d4982ff6e71f57d337d02e87
+    with:
+      os: linux
+
   build:
-    runs-on: ubuntu-latest
+    needs: runners
+    runs-on: ${{ fromJSON(needs.runners.outputs.linux-runner) }}
     timeout-minutes: 30
     defaults:
       run:
@@ -95,7 +103,8 @@ jobs:
 
   dependency-review:
     if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
+    needs: runners
+    runs-on: ${{ fromJSON(needs.runners.outputs.linux-runner) }}
     timeout-minutes: 10
     steps:
       - name: Harden Runner
