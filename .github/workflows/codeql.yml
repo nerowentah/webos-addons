@@ -23,7 +23,7 @@ jobs:
   runners:
     permissions:
       contents: read
-    uses: nerowentah/scripts/.github/workflows/shared-runner-setup.yml@664f02e7ae7107e9d4982ff6e71f57d337d02e87
+    uses: ./.github/workflows/runner-setup.yml
     with:
       os: linux
 
