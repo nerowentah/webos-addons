@@ -18,7 +18,8 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { homedir, tmpdir } from 'node:os';
+import { homedir } from 'node:os';
+import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
 import { parseArgs } from 'node:util';
 import { setTimeout as sleep } from 'node:timers/promises';
@@ -647,7 +648,7 @@ const HELP = `usage: node tools/compare/compare-chrome.ts [options]
   --url <url>      start URL (default ${DEFAULT_URL})
   --watch <url>    watch URL to probe (default: the Rick Astley mix)
   --time <sec>     seek to this second and pause before probing (default ${DEFAULT_TIME_S})
-  --out <dir>      output dir (default %TEMP%\\ytx-chrome-compare)
+  --out <dir>      output dir (default YT-X/.ytx-compare)
   --tv <file>      optional TV snapshot JSON to report soft DIFFs against
   --attach         attach to Chrome already listening on --port
   --login          open the profile with the desktop UA to sign in, then wait for you to close it
@@ -707,7 +708,8 @@ async function main(): Promise<void> {
       process.env['LOCALAPPDATA'] ?? join(homedir(), '.cache'),
       'ytx-chrome-tv-profile'
     );
-  const out = values.out ?? join(tmpdir(), 'ytx-chrome-compare');
+  const out =
+    values.out ?? fileURLToPath(new URL('../../.ytx-compare', import.meta.url));
   const url = values.login ? LOGIN_URL : values.url;
 
   let child: ChildProcess | undefined;

@@ -8,8 +8,8 @@
  * Start a video on the TV first; this tool does not navigate.
  */
 import { mkdir, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { parseArgs } from 'node:util';
 import {
@@ -36,7 +36,8 @@ async function main(): Promise<void> {
   if (!(timeS >= 0)) {
     throw new HarnessError('--time must be a number of seconds >= 0');
   }
-  const out = values.out ?? join(tmpdir(), 'ytx-chrome-compare');
+  const out =
+    values.out ?? fileURLToPath(new URL('../../.ytx-compare', import.meta.url));
   await mkdir(out, { recursive: true });
 
   const session = await connect({ device: values.d });

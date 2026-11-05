@@ -11,12 +11,12 @@ on:
       labels-linux:
         type: string
         required: false
-        default: ""
+        default: ''
         description: JSON array of self-hosted Linux runner labels (e.g. ["self-hosted","Linux"])
       labels-windows:
         type: string
         required: false
-        default: ""
+        default: ''
         description: JSON array of self-hosted Windows runner labels
     outputs:
       # Pure label resolution, no API calls and no secrets. Every output is always a

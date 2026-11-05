@@ -76,13 +76,17 @@ const IDENTITY_FIELDS = new Set([
 ]);
 
 const SECRET_NAME =
-  /token|secret|code|auth|cookie|visitor|key|sig|password|gaia|session|nonce|credential|sapisid|cpn|sid$/i;
+  /token|secret|code|auth|cookie|visitor|key|sig|password|gaia|session|nonce|credential|sapisid|cpn/i;
 
 const MAX_STRING = 80;
 
 function redactValue(name: string, value: unknown): unknown {
   const lower = name.toLowerCase();
-  if (SECRET_NAME.test(lower) && !IDENTITY_FIELDS.has(lower)) return REDACTED;
+  if (
+    (SECRET_NAME.test(lower) || lower.endsWith('sid')) &&
+    !IDENTITY_FIELDS.has(lower)
+  )
+    return REDACTED;
   if (value === null || typeof value === 'boolean') return value;
   if (typeof value === 'number')
     return IDENTITY_FIELDS.has(lower) ? value : '<number>';
