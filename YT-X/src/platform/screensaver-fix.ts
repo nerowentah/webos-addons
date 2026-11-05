@@ -11,6 +11,7 @@ import {
   isShortsPage,
   getVideo
 } from '../core/utils';
+import { lunaCall, TVPOWER_URI } from './luna';
 
 /** The slice of YouTube's player element this module calls. */
 interface YtPlayerElement extends HTMLElement {
@@ -106,54 +107,7 @@ const playerCtrlObs = new MutationObserver((mutations) => {
 // The Yellow-key keep-alive is ignored by some TVs (NicholasBly/youtube-webos#46),
 // so the power service lets a registered client hold the screensaver off while a
 // video plays; best effort - PalmServiceBridge may be missing or the call refused.
-const TVPOWER_URI = 'luna://com.webos.service.tvpower/power/';
 const SCREENSAVER_CLIENT = 'youtube-extended';
-// A bridge collected before its answer arrives drops the answer; keep each one-shot call referenced until its callback ran.
-const pendingLunaCalls: PalmServiceBridge[] = [];
-
-/** A parsed Luna answer; `null` when the payload was not a JSON object. */
-type LunaResponse = Record<string, unknown> | null;
-
-function lunaCall(
-  method: string,
-  params: Record<string, unknown>,
-  onResponse?: (res: LunaResponse) => void,
-  subscribe = false
-): PalmServiceBridge | null {
-  const Bridge =
-    typeof window !== 'undefined' ? window.PalmServiceBridge : undefined;
-  if (typeof Bridge !== 'function') return null;
-  try {
-    const bridge = new Bridge();
-    if (!subscribe) pendingLunaCalls.push(bridge);
-    bridge.onservicecallback = (msg) => {
-      if (!subscribe) {
-        const i = pendingLunaCalls.indexOf(bridge);
-        if (i !== -1) pendingLunaCalls.splice(i, 1);
-      }
-      if (!onResponse) return;
-      let res: LunaResponse = null;
-      try {
-        const parsed: unknown = JSON.parse(msg);
-        if (typeof parsed === 'object' && parsed !== null) {
-          res = parsed as Record<string, unknown>;
-        }
-      } catch {
-        /* not JSON */
-      }
-      try {
-        onResponse(res);
-      } catch {
-        // A throwing response handler must not break the luna callback.
-      }
-    };
-    bridge.call(TVPOWER_URI + method, JSON.stringify(params));
-    return bridge;
-  } catch {
-    return null;
-  }
-}
-
 function isVideoPlaying(): boolean {
   if (lastPageType !== 'WATCH' && lastPageType !== 'SHORTS') return false;
   const video = getVideo();
@@ -165,7 +119,7 @@ let screenSaverSubscription: PalmServiceBridge | null = null;
 
 function registerScreenSaverRequest(): void {
   screenSaverSubscription = lunaCall(
-    'registerScreenSaverRequest',
+    TVPOWER_URI + 'registerScreenSaverRequest',
     { subscribe: true, clientName: SCREENSAVER_CLIENT },
     (res) => {
       if (!res || res['returnValue'] === false) {
@@ -174,7 +128,7 @@ function registerScreenSaverRequest(): void {
       // The first answer only confirms the subscription; each screensaver the TV is about to start comes with a timestamp to answer.
       if (res['timestamp'] === undefined) return;
       const playing = isVideoPlaying();
-      lunaCall('responseScreenSaverRequest', {
+      lunaCall(TVPOWER_URI + 'responseScreenSaverRequest', {
         clientName: SCREENSAVER_CLIENT,
         ack: !playing,
         timestamp: res['timestamp']

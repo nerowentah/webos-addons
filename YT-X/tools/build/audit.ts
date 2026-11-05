@@ -45,7 +45,7 @@ interface Advisory {
 
 // Only plain npm flags (e.g. --omit=dev) are forwarded: the cmd.exe fallback
 // re-parses argv, so anything else could inject shell syntax.
-const SAFE_ARG = /^--?[A-Za-z][\w-]*(=[\w.@-]+)?$/;
+const SAFE_ARG = /^--?[A-Z][\w-]*(?:=[\w.@-]+)?$/i;
 const extra = process.argv.slice(2);
 const unsafe = extra.filter((a) => !SAFE_ARG.test(a));
 if (unsafe.length > 0) {
