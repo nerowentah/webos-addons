@@ -48,7 +48,7 @@
   "bugs": "https://github.com/nerowentah/webos-addons/issues",
   "homepage": "https://github.com/nerowentah/webos-addons#readme",
   "dependencies": {
-    "@babel/runtime-corejs3": "^8.0.7",
+    "@babel/runtime-corejs3": "^8.0.8",
     "core-js-pure": "^3.51.0",
     "tiny-sha256": "^1.0.2"
   },
