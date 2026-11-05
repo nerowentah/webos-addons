@@ -25,6 +25,7 @@ export function syncConfigCheckboxes(): void {
 
 /** Settings that do nothing on the native build: the cast wake is a web-app request. */
 const NATIVE_INACTIVE: readonly string[] = ['blockWebosCast'];
+// closeOnExit stays active on native: window.close() alone ends Cobalt there.
 
 const isNativeInactive = (key: BoolKey): boolean =>
   isNativeBuild() && NATIVE_INACTIVE.includes(key);
@@ -78,6 +79,26 @@ export function createConfigCheckbox(key: BoolKey): HTMLLabelElement {
   });
 
   return elmLabel;
+}
+
+/** A button styled and navigated like a cycle row (OK/Space click it). */
+export function createActionRow(
+  labelText: string,
+  onActivate: () => void
+): HTMLDivElement {
+  const container = createElement(
+    'div',
+    {
+      class: 'ytx-cycle-row',
+      tabIndex: 0,
+      role: 'button',
+      'aria-label': labelText,
+      events: { click: () => onActivate() }
+    },
+    createElement('span', { text: labelText, class: 'ytx-cycle-label' })
+  );
+  container.dataset['sortKey'] = labelText;
+  return container;
 }
 
 /** Order controls A-Z by `dataset.sortKey`; unkeyed elements group with the keyed control they follow. */

@@ -29,6 +29,7 @@ import './features/playback/previews';
 import './features/keep-playing/keep-playing';
 import './youtube/hooks';
 import './platform/block-webos-cast';
+import './platform/close-on-exit';
 import './youtube/mods/auto-account-select';
 import './ui/time-remaining';
 import './features/keyboard-search/keyboard-search';

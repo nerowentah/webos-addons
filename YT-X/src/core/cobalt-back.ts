@@ -1,3 +1,7 @@
+import { configRead } from '../config/config';
+import { panelState } from '../ui/panel-state';
+import { shouldExitOnBack } from './exit-on-back';
+import { isBlackedOut } from '../platform/screen-off';
 import { REMOTE_KEYS, isSyntheticKey, sendKey } from './keys';
 
 /** Whether this page was served to the Cobalt user agent (a build-time choice, see tools/build/app-ua.ts). */
@@ -17,11 +21,26 @@ export function initCobaltBack(): void {
   window.addEventListener(
     'keydown',
     (evt) => {
-      if (evt.keyCode !== REMOTE_KEYS.BACK.keyCode || isSyntheticKey(evt)) {
+      if (
+        evt.keyCode !== REMOTE_KEYS.BACK.keyCode ||
+        isSyntheticKey(evt) ||
+        isBlackedOut()
+      ) {
         return;
       }
       evt.preventDefault();
       evt.stopImmediatePropagation();
+      // The Escape remap does nothing at the root, so a closing Back has to end the app itself.
+      if (
+        shouldExitOnBack({
+          enabled: configRead('closeOnExit'),
+          panelVisible: panelState.visible,
+          hash: location.hash
+        })
+      ) {
+        window.close();
+        return;
+      }
       sendKey(REMOTE_KEYS.ESCAPE, document.activeElement ?? document.body);
     },
     true

@@ -77,6 +77,8 @@ Both upstream projects are licensed GPL-3.0, which this project matches (see
 ### System
 
 - [Autostart support](#autostart)
+- **Screen Off (Audio Only)**: a System-tab button that turns the TV panel off while audio keeps playing; any remote key wakes it. On the web build the TV powers its panel down; on the native build (no Luna bridge) a black layer covers the screen instead, so the panel stays lit.
+- **Fully Close on Exit** (off by default): when YouTube's exit dialog closes the app, also ask the application manager to close it, so no instance stays in the background (see Autostart).
 
 > [!NOTE]
 > Click the on-screen **YT-X** badge with the Magic Remote pointer to open the
@@ -236,7 +238,7 @@ luna-send-pub -n 1 'luna://com.webos.service.eim/addDevice' '{"appId":"youtube.l
 
 This lets the app appear as an input source and launch automatically if it was
 the last-used app. It stays active in the background for faster startup
-(minor increase in idle memory usage).
+(minor increase in idle memory usage). Turn on **Fully Close on Exit** to close the app instead of leaving it running.
 
 To disable autostart:
 
@@ -374,6 +376,7 @@ Engine version: the native build runs on RF1705's runtime 2.0.6, which embeds Co
 What differs on the native build:
 
 - SponsorBlock is not built in: YouTube's page CSP for the Cobalt user agent blocks its servers, which is deliberate and not worked around.
+- "Screen Off (Audio Only)" shows a black layer instead of switching the panel off (Cobalt has no Luna bridge); "Fully Close on Exit" makes Back on the YouTube home screen call `window.close()`.
 - "Block Cast Wake" is inactive (greyed out); Force Video Codec is likely a no-op because the Cobalt binary negotiates codecs itself.
 - The stock app id `youtube.leanback.v4` is required, the `cobalt` binary stays the stock ELF, and a relaunch needs a full exit first. See the header of `tools/native/native.ts`.
 - Browse previews play on native: the webOS-only muting and the thumbnail rule are not loaded, and `native-previews.ts` lifts the tile's thumbnail layer while a preview plays and puts the player back to full size if it is left on the preview's size after entering a video.
