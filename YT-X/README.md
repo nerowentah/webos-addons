@@ -522,7 +522,7 @@ npm run compare:chrome -- --attach --port 9222
 npm run compare:chrome -- --chrome "C:\Program Files\Google\Chrome\Application\chrome.exe"
 ```
 
-Outputs go to `%TEMP%\ytx-chrome-compare`: `chrome-official.json` and
+Outputs go to `YT-X/.ytx-compare` (gitignored): `chrome-official.json` and
 `chrome-official.png` (plus a cropped `chrome-official-bar.png`). Pass
 `--tv <file>` with a saved TV snapshot to list soft DIFFs against it.
 

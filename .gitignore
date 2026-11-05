@@ -11,3 +11,5 @@ YT-X/dist-native/
 # Editor / OS
 .DS_Store
 Thumbs.db
+
+.ytx-compare/
