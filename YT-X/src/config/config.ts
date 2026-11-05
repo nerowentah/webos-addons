@@ -90,6 +90,7 @@ const defaultConfig = {
   blockWebosCast: false,
   removeEndscreen: false,
   keepPlaying: true,
+  closeOnExit: false,
   autoAccountSelect: false,
   panelCareMode: 'auto' as PanelCareMode,
   disableAnimations: false,

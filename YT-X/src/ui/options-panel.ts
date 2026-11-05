@@ -9,8 +9,10 @@ import {
 } from '../config/config';
 import { PANEL, SPONSOR_POPUP } from '../config/ui-text';
 import { REMOTE_KEYS } from '../core/utils';
+import { canTurnOffScreen, turnOffScreen } from '../platform/screen-off';
 import { SEGMENT_CATEGORIES } from '../features/sponsorblock/categories';
 import {
+  createActionRow,
   createAlignedCycleControl,
   createConfigCheckbox,
   createSection,
@@ -226,7 +228,16 @@ export function createOptionsPanel(onClose: () => void): OptionsPanel {
       pageSystem.appendChild(
         createSection(PANEL.sections.system, [
           createConfigCheckbox('blockWebosCast'),
-          createAlignedCycleControl('panelCareMode', panelCareModes)
+          createConfigCheckbox('closeOnExit'),
+          createAlignedCycleControl('panelCareMode', panelCareModes),
+          ...(canTurnOffScreen()
+            ? [
+                createActionRow(PANEL.screenOff, () => {
+                  onClose();
+                  turnOffScreen();
+                })
+              ]
+            : [])
         ])
       );
 

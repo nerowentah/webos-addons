@@ -103,6 +103,10 @@ const modules: ReadonlyArray<readonly [string, Loader]> = [
     () => import(/* webpackMode: "eager" */ './platform/block-webos-cast')
   ],
   [
+    './platform/close-on-exit',
+    () => import(/* webpackMode: "eager" */ './platform/close-on-exit')
+  ],
+  [
     './youtube/mods/auto-account-select',
     () =>
       import(/* webpackMode: "eager" */ './youtube/mods/auto-account-select')

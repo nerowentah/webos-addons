@@ -39,6 +39,7 @@ export const LIVENESS: Record<ConfigKey, Liveness> = {
   blockWebosCast: 'instant',
   removeEndscreen: 'next-load',
   keepPlaying: 'instant',
+  closeOnExit: 'instant',
   autoAccountSelect: 'instant',
   panelCareMode: 'instant',
   disableAnimations: 'instant',
