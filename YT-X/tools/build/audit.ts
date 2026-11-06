@@ -1,4 +1,6 @@
 import { spawnSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 
 delete process.env['npm_config_allow_scripts'];
 delete process.env['NPM_CONFIG_ALLOW_SCRIPTS'];
@@ -43,8 +45,8 @@ interface Advisory {
   url: string;
 }
 
-// Only plain npm flags (e.g. --omit=dev) are forwarded: the cmd.exe fallback
-// re-parses argv, so anything else could inject shell syntax.
+// Only plain npm flags (e.g. --omit=dev) are forwarded; anything else could
+// change npm's behaviour in unexpected ways.
 const SAFE_ARG = /^--?[A-Z][\w-]*(?:=[\w.@-]+)?$/i;
 const extra = process.argv.slice(2);
 const unsafe = extra.filter((a) => !SAFE_ARG.test(a));
@@ -54,26 +56,39 @@ if (unsafe.length > 0) {
 }
 const args = ['audit', '--json', ...extra];
 
-// Prefer npm's own CLI JS under node: npm_execpath is set when this runs via
-// `npm run audit`, so argv is never re-parsed by a shell on Windows. The
-// cmd.exe path remains only for direct invocation without npm.
-const isWindows = process.platform === 'win32';
-const npmCliPath = process.env['npm_execpath'];
+// Run npm's CLI entry under node directly so argv is never re-parsed by a
+// shell: on Windows `npm` is a .cmd shim, so handing the args to cmd.exe would
+// let shell metacharacters change the command. npm_execpath is set when this
+// runs via `npm run audit`; otherwise look for the npm CLI next to node.
+function resolveNpmCli(): string | undefined {
+  const fromEnv = process.env['npm_execpath'];
+  if (fromEnv && existsSync(fromEnv)) {
+    return fromEnv;
+  }
+  const nodeDir = dirname(process.execPath);
+  return [
+    join(nodeDir, 'node_modules', 'npm', 'bin', 'npm-cli.js'),
+    join(nodeDir, '..', 'lib', 'node_modules', 'npm', 'bin', 'npm-cli.js')
+  ].find((candidate) => existsSync(candidate));
+}
+
+const npmCliPath = resolveNpmCli();
+if (!npmCliPath && process.platform === 'win32') {
+  console.error(
+    'audit: could not locate the npm CLI - run this via `npm run audit`.'
+  );
+  process.exit(1);
+}
+
 const result = npmCliPath
   ? spawnSync(process.execPath, [npmCliPath, ...args], {
       stdio: ['ignore', 'pipe', 'inherit'],
       encoding: 'utf8'
     })
-  : isWindows
-    ? spawnSync(
-        process.env['ComSpec'] ?? 'cmd.exe',
-        ['/d', '/c', 'npm.cmd', ...args],
-        { stdio: ['ignore', 'pipe', 'inherit'], encoding: 'utf8' }
-      )
-    : spawnSync('npm', args, {
-        stdio: ['ignore', 'pipe', 'inherit'],
-        encoding: 'utf8'
-      });
+  : spawnSync('npm', args, {
+      stdio: ['ignore', 'pipe', 'inherit'],
+      encoding: 'utf8'
+    });
 
 if (result.error) {
   console.error(`audit: unable to run npm audit: ${result.error.message}`);
