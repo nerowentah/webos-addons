@@ -1,0 +1,320 @@
+name: Build Cobalt runtime
+
+# Builds the native Cobalt runtime IPK from source, so the native YT-X package
+# does not depend on a third party's prebuilt release. Manual only: the build
+# takes several hours.
+#
+# Every input is pinned:
+# - the webOS port and patches: RF1705/youtube-webos-cobalt-adfree at the commit
+#   in YT-X/tools/native/runtime.lock.json (`source.commit`);
+# - Cobalt: youtube/cobalt at COBALT_COMMIT (the 23.lts.6 tag);
+# - the webOS toolchain: openlgtv/buildroot-nc4 SDK_TAG, checked by sha256.
+#
+# The steps follow that repository's own "Build starterless Cobalt" and "Package
+# starterless Cobalt IPK" workflows at the pinned commit. The result is a
+# pre-release holding the IPK; to adopt it, verify it on a TV and then point
+# runtime.lock.json (url, sha256, size) at the release asset.
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: 'Cobalt build type (the tested 2.0.6 runtime is a devel build)'
+        type: choice
+        options:
+          - devel
+          - gold
+        default: devel
+      build_parallel:
+        description: 'Parallel compiler jobs'
+        type: choice
+        options:
+          - '2'
+          - '4'
+        default: '4'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.build_type }}
+  cancel-in-progress: false
+
+env:
+  UPSTREAM_REPO: RF1705/youtube-webos-cobalt-adfree
+  COBALT_REF: 23.lts.6
+  COBALT_COMMIT: 007628df7bddd86e53d6d151ecd122614916223d
+  SDK_TAG: webos-a38c582
+  SDK_ASSET: arm-webos-linux-gnueabi_sdk-buildroot-x86_64.tar.gz
+  SDK_SHA256: 04ad3311b48b4557a7002aef56ae2e167478e8e129f37daac04649bddf813616
+
+jobs:
+  build:
+    # A hosted runner on purpose: the build needs Docker, tens of GB of disk and
+    # runs third-party build scripts, none of which belongs on a persistent runner.
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    permissions:
+      # For the pre-release at the end; the token is passed to that step only.
+      contents: write
+
+    env:
+      UPSTREAM_DIR: ${{ github.workspace }}/upstream
+      COBALT_SOURCE_DIR: ${{ github.workspace }}/upstream/workdir/cobalt-source
+      SDL2_BUNDLE_DIR: ${{ github.workspace }}/upstream/workdir/deps/SDL2-2.30.12-webos-abi
+      WEBOS_LINUX_SDK_VOLUME: ytaf-webos-linux-sdk
+      COBALT_BUILD_TYPE: ${{ inputs.build_type }}
+      NINJA_PARALLEL: ${{ inputs.build_parallel }}
+      COBALT_BUILD_LOG: ${{ github.workspace }}/output/cobalt-${{ inputs.build_type }}.log
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: YT-X/package-lock.json
+
+      - name: Read the pinned source commit
+        id: pin
+        run: |
+          set -euo pipefail
+          lock=YT-X/tools/native/runtime.lock.json
+          repo="$(jq -r '.source.repo' "$lock")"
+          commit="$(jq -r '.source.commit' "$lock")"
+          cobalt="$(jq -r '.source.cobalt' "$lock")"
+          [ "$repo" = "$UPSTREAM_REPO" ] || { echo "lock source.repo is $repo, this workflow builds $UPSTREAM_REPO" >&2; exit 1; }
+          [ "$cobalt" = "$COBALT_REF" ] || { echo "lock source.cobalt is $cobalt, this workflow builds $COBALT_REF" >&2; exit 1; }
+          [[ "$commit" =~ ^[0-9a-f]{40}$ ]] || { echo "lock source.commit is not a full SHA" >&2; exit 1; }
+          echo "commit=$commit" >> "$GITHUB_OUTPUT"
+          echo "short=${commit:0:12}" >> "$GITHUB_OUTPUT"
+
+      - name: Check out the webOS port at the pinned commit
+        env:
+          UPSTREAM_COMMIT: ${{ steps.pin.outputs.commit }}
+        run: |
+          set -euo pipefail
+          git init "$UPSTREAM_DIR"
+          git -C "$UPSTREAM_DIR" remote add origin "https://github.com/$UPSTREAM_REPO.git"
+          git -C "$UPSTREAM_DIR" fetch --depth 1 origin "$UPSTREAM_COMMIT"
+          git -C "$UPSTREAM_DIR" checkout --detach FETCH_HEAD
+          test "$(git -C "$UPSTREAM_DIR" rev-parse HEAD)" = "$UPSTREAM_COMMIT"
+          for path in scripts/build-starterless-cobalt-docker.sh scripts/build-sdl-webos-docker.sh \
+            scripts/install-webos-starboard-platform.sh scripts/package-starterless-cobalt.sh \
+            starterless-cobalt/appinfo.json cobalt-platform/webos/arm; do
+            test -e "$UPSTREAM_DIR/$path" || { echo "missing in the port: $path" >&2; exit 1; }
+          done
+
+      - name: Free runner disk space
+        run: |
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL || true
+          docker system prune -af || true
+          df -h
+
+      - name: Install host build tools
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y binutils ca-certificates cmake curl findutils git gzip jq make ninja-build patch perl python3 rsync sed xz-utils
+
+      - name: Download the pinned webOS ARM SDK
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/webos-sdk-download"
+          curl --fail --location --proto '=https' \
+            -o "$RUNNER_TEMP/webos-sdk-download/$SDK_ASSET" \
+            "https://github.com/openlgtv/buildroot-nc4/releases/download/$SDK_TAG/$SDK_ASSET"
+          echo "$SDK_SHA256  $RUNNER_TEMP/webos-sdk-download/$SDK_ASSET" | sha256sum --check -
+
+      - name: Prepare the webOS SDK Docker volume
+        run: |
+          set -euo pipefail
+          docker volume rm -f "$WEBOS_LINUX_SDK_VOLUME" >/dev/null 2>&1 || true
+          docker volume create "$WEBOS_LINUX_SDK_VOLUME" >/dev/null
+          docker run --rm -e SDK_ASSET -v "$WEBOS_LINUX_SDK_VOLUME:/sdk" -v "$RUNNER_TEMP/webos-sdk-download:/input:ro" ubuntu:24.04 bash -lc '
+            set -euo pipefail
+            apt-get update -qq
+            DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends ca-certificates file findutils gzip sed tar
+            tar -xzf "/input/$SDK_ASSET" -C /sdk
+            /sdk/arm-webos-linux-gnueabi_sdk-buildroot/relocate-sdk.sh
+            rm -f /sdk/arm-webos-linux-gnueabi_sdk-buildroot/bin/wayland-scanner
+            test -f /sdk/arm-webos-linux-gnueabi_sdk-buildroot/share/buildroot/toolchainfile.cmake
+          '
+
+      - name: Check out Cobalt at the pinned commit
+        run: |
+          set -euo pipefail
+          rm -rf "$COBALT_SOURCE_DIR"
+          mkdir -p "$COBALT_SOURCE_DIR"
+          git -C "$COBALT_SOURCE_DIR" init
+          git -C "$COBALT_SOURCE_DIR" remote add origin https://github.com/youtube/cobalt.git
+          git -C "$COBALT_SOURCE_DIR" fetch --depth 1 origin "$COBALT_COMMIT"
+          git -C "$COBALT_SOURCE_DIR" checkout --detach FETCH_HEAD
+          test "$(git -C "$COBALT_SOURCE_DIR" rev-parse HEAD)" = "$COBALT_COMMIT"
+
+      # Cobalt 23's Docker definitions predate today's Compose and Debian mirrors;
+      # these are the port's own adjustments, undone again after the images exist.
+      - name: Prepare legacy Cobalt Docker definitions
+        run: |
+          set -euo pipefail
+          perl -0pi -e 's/^(\s*)<<: \*common-definitions\n\1<<: \*build-volumes/$1<<: [*common-definitions, *build-volumes]/mg' "$COBALT_SOURCE_DIR/docker-compose.yml"
+          sed -i 's#FROM ${BASE_OS:-gcr.io/cloud-marketplace-containers/google/debian10}:${BASE_OS_TAG:-latest}#FROM ${BASE_OS:-debian}:${BASE_OS_TAG:-10-slim}#' "$COBALT_SOURCE_DIR/docker/linux/base/Dockerfile"
+          grep -q 'archive.debian.org/debian-security' "$COBALT_SOURCE_DIR/docker/linux/base/Dockerfile" || perl -0pi -e 's{ENV PYTHONUNBUFFERED 1\n}{ENV PYTHONUNBUFFERED 1\n\nRUN sed -i -e "s|http://security.debian.org/debian-security|http://archive.debian.org/debian-security|" -e "s|http://deb.debian.org/debian|http://archive.debian.org/debian|" -e "s|http://httpredir.debian.org/debian|http://archive.debian.org/debian|" -e "s|deb http://archive.debian.org/debian buster-updates|# deb http://archive.debian.org/debian buster-updates|" /etc/apt/sources.list && printf "%s\\\\n" "Acquire::Check-Valid-Until false;" > /etc/apt/apt.conf.d/99archive\n}' "$COBALT_SOURCE_DIR/docker/linux/base/Dockerfile"
+          perl -0pi -e 's/&& \. \/tmp\/install\.sh/&& bash \/tmp\/install.sh/g; s/nvm install --lts \$\{LTS_VERSION\}/nvm install 16/g; s/nvm alias default \$\{LTS_VERSION\}\/\*/nvm alias default 16\/*/g' "$COBALT_SOURCE_DIR/docker/linux/base/build/Dockerfile"
+
+      - name: Build Cobalt Docker images
+        working-directory: upstream/workdir/cobalt-source
+        env:
+          DOCKER_DEFAULT_PLATFORM: linux/amd64
+        run: |
+          set -euo pipefail
+          docker compose build base
+          docker compose build build-base
+          docker compose build build-evergreen
+          docker image inspect cobalt-build-evergreen:latest >/dev/null
+
+      - name: Add SDL build tools to the Cobalt image
+        run: |
+          set -euo pipefail
+          docker build -t cobalt-build-evergreen:latest - <<'EOF'
+          FROM cobalt-build-evergreen:latest
+          RUN apt update -qqy && apt install -qqy --no-install-recommends cmake gawk libwayland-bin && /opt/clean-after-apt.sh
+          EOF
+
+      - name: Build the patched SDL-webOS bundle
+        working-directory: upstream
+        run: bash scripts/build-sdl-webos-docker.sh
+
+      - name: Restore Cobalt sources after the Docker bootstrap
+        run: |
+          set -euo pipefail
+          git -C "$COBALT_SOURCE_DIR" restore --source=HEAD --worktree -- docker-compose.yml docker/linux/base/Dockerfile docker/linux/base/build/Dockerfile
+          git -C "$COBALT_SOURCE_DIR" diff --quiet -- docker-compose.yml docker/linux/base/Dockerfile docker/linux/base/build/Dockerfile
+
+      - name: Build Cobalt
+        working-directory: upstream
+        run: |
+          set -euo pipefail
+          mkdir -p "$GITHUB_WORKSPACE/output"
+          bash scripts/build-starterless-cobalt-docker.sh
+
+      # The port's packaging script insists on its own web assets being present;
+      # YT-X replaces those three files when it builds the native package.
+      - name: Build the port's web assets
+        working-directory: upstream/webapp
+        run: |
+          set -euo pipefail
+          npm ci --no-audit --no-fund --ignore-scripts
+          npm run build -- --env production
+          test -s output/adblockMain.js
+          test -s output/adblockMain.css
+          test -s output/adblockPreload.js
+
+      - name: Take the ARM C++ runtime libraries from the SDK
+        run: |
+          set -euo pipefail
+          sdk_extract="$RUNNER_TEMP/webos-sdk"
+          runtime_libs="$UPSTREAM_DIR/starterless-cobalt/lib"
+          mkdir -p "$sdk_extract" "$runtime_libs"
+          rm -f "$runtime_libs/libstdc++.so.6" "$runtime_libs/libgcc_s.so.1"
+          tar -xzf "$RUNNER_TEMP/webos-sdk-download/$SDK_ASSET" -C "$sdk_extract"
+          sysroot="$sdk_extract/arm-webos-linux-gnueabi_sdk-buildroot/arm-webos-linux-gnueabi/sysroot"
+          libstdcpp_link="$(find "$sysroot" -name 'libstdc++.so.6' -print -quit)"
+          libgcc_link="$(find "$sysroot" -name 'libgcc_s.so.1' -print -quit)"
+          test -e "$libstdcpp_link"
+          test -e "$libgcc_link"
+          cp -L "$libstdcpp_link" "$runtime_libs/libstdc++.so.6"
+          cp -L "$libgcc_link" "$runtime_libs/libgcc_s.so.1"
+
+      - name: Package the runtime IPK
+        id: package
+        working-directory: upstream
+        env:
+          COBALT_BUILD_DIR: ${{ github.workspace }}/upstream/workdir/cobalt-source/out/webos-arm-sbversion-13_${{ inputs.build_type }}
+          COBALT_RUNTIME_DIR: ${{ github.workspace }}/upstream/starterless-cobalt/lib
+          WEBAPP_OUTPUT_DIR: ${{ github.workspace }}/upstream/webapp/output
+          COBALT_PACKAGE_OUTPUT_DIR: ${{ github.workspace }}/output
+        run: |
+          set -euo pipefail
+          # The tag's appinfo.json still carries an older number; the package is
+          # versioned as the runtime the lock names, like the port's own releases.
+          version="$(jq -r '.version' "$GITHUB_WORKSPACE/YT-X/tools/native/runtime.lock.json")"
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "lock version is not MAJOR.MINOR.PATCH" >&2; exit 1; }
+          jq --arg version "$version" '.version = $version' starterless-cobalt/appinfo.json > starterless-cobalt/appinfo.json.tmp
+          mv starterless-cobalt/appinfo.json.tmp starterless-cobalt/appinfo.json
+          # ares-package for the port's packaging script, installed the way the port installs it.
+          npm install --no-audit --no-fund
+          bash scripts/package-starterless-cobalt.sh
+          package_path="$(find "$COBALT_PACKAGE_OUTPUT_DIR" -maxdepth 1 -type f -name '*.ipk' -print -quit)"
+          test -s "$package_path"
+          echo "path=$package_path" >> "$GITHUB_OUTPUT"
+          echo "name=$(basename "$package_path")" >> "$GITHUB_OUTPUT"
+
+      # The same checks a deploy runs: the injection points YT-X writes into and
+      # the device-string anchors must be present in the binary just built.
+      - name: Smoke-test the runtime with the YT-X packager
+        working-directory: YT-X
+        env:
+          RUNTIME_IPK: ${{ steps.package.outputs.path }}
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts
+          npm run build:fhd:cobalt
+          node tools/native/native.ts package --runtime "$RUNTIME_IPK" \
+            --out "$RUNNER_TEMP/native-smoke" \
+            --device-strings --model QNED86 --firmware 33.31.75 --year 2025
+
+      - name: Write checksums and build metadata
+        env:
+          UPSTREAM_COMMIT: ${{ steps.pin.outputs.commit }}
+          PACKAGE_NAME: ${{ steps.package.outputs.name }}
+        run: |
+          set -euo pipefail
+          cd output
+          sha256sum "$PACKAGE_NAME" > SHA256SUMS.txt
+          {
+            echo "package=$PACKAGE_NAME"
+            echo "size=$(stat -c %s "$PACKAGE_NAME")"
+            echo "sha256=$(awk '{ print $1 }' SHA256SUMS.txt)"
+            echo "port_repository=$UPSTREAM_REPO"
+            echo "port_commit=$UPSTREAM_COMMIT"
+            echo "cobalt_ref=$COBALT_REF"
+            echo "cobalt_commit=$COBALT_COMMIT"
+            echo "starboard_api=13"
+            echo "build_type=$COBALT_BUILD_TYPE"
+            echo "sdk_tag=$SDK_TAG"
+            echo "sdk_sha256=$SDK_SHA256"
+            echo "builder_repository=$GITHUB_REPOSITORY"
+            echo "builder_commit=$GITHUB_SHA"
+          } > runtime-build.txt
+          cat runtime-build.txt >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publish a pre-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          UPSTREAM_COMMIT: ${{ steps.pin.outputs.commit }}
+          SHORT: ${{ steps.pin.outputs.short }}
+          PACKAGE_NAME: ${{ steps.package.outputs.name }}
+        run: |
+          set -euo pipefail
+          tag="runtime-$COBALT_REF-$COBALT_BUILD_TYPE-$SHORT-$GITHUB_RUN_NUMBER"
+          notes="Cobalt runtime for the native YT-X build, built from source by this repository's workflow.
+
+          - webOS port and patches: https://github.com/$UPSTREAM_REPO/tree/$UPSTREAM_COMMIT
+          - Cobalt: https://github.com/youtube/cobalt/tree/$COBALT_COMMIT ($COBALT_REF, Starboard 13, $COBALT_BUILD_TYPE)
+          - webOS SDK: openlgtv/buildroot-nc4 $SDK_TAG
+
+          Licence texts for every bundled component are inside the IPK under content/licenses/.
+          Not verified on a TV yet: verify it before pointing runtime.lock.json at this asset."
+          gh release create "$tag" \
+            "output/$PACKAGE_NAME" output/SHA256SUMS.txt output/runtime-build.txt \
+            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease \
+            --title "$tag" --notes "$notes"
+
+      - name: Show final disk usage
+        if: always()
+        run: df -h
