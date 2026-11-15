@@ -1,15 +1,19 @@
 // Native Cobalt build: package, clean and install on a dev-mode TV.
 //
-//   node tools/native/native.ts package --runtime <RF1705.ipk> [--out dir]
+//   node tools/native/native.ts package [--runtime <ipk>] [--out dir]
 //        [--model-full 65QNED86ASA.ATSFLJD]  (sign-in device_model, via the preload)
 //        [--device-strings [--model QNED86] [--firmware 33.31.75] [--year 2025]]
 //   node tools/native/native.ts clean   [--device tv]
-//   node tools/native/native.ts setup   --runtime <RF1705.ipk>      (clean, install, launch)
+//   node tools/native/native.ts setup   [--runtime <ipk>]           (clean, install, launch)
 //   node tools/native/native.ts update  [--runtime <ipk> [--device-strings ...]]
 //        (swap the two scripts in place; with --runtime also the binary)
-//        --model-full defaults to the selected device's `ares-device -i` modelName.
+//   node tools/native/native.ts deploy  (update when the native app is installed, else setup)
+//        --model-full defaults to the selected device's `ares-device -i` modelName,
+//        and on a device --firmware defaults to its firmwareVersion.
 //
-// The runtime IPK is RF1705's prebuilt Cobalt package and is never committed.
+// The runtime IPK is the prebuilt Cobalt package and is never committed. Without
+// --runtime (or YTX_NATIVE_RUNTIME) `package`, `setup` and `deploy` use the file
+// pinned in runtime.lock.json, downloaded once and verified; see runtime.ts.
 // Run `npm run build:fhd:cobalt` first: the scripts come from dist/.
 //
 // Rules this tool encodes (measured on the TV, and RF1705 issue #74):
@@ -71,6 +75,7 @@ import {
   writeTarGz,
   type ArMember
 } from './native-ipk.ts';
+import { checkRuntimeContract, resolveRuntime } from './runtime.ts';
 
 const APP_ID = 'youtube.leanback.v4';
 const APP_DIR = `/media/developer/apps/usr/palm/applications/${APP_ID}`;
@@ -185,14 +190,35 @@ function aresKey(
   return { key, cleanup: () => rmSync(dir, { recursive: true, force: true }) };
 }
 
-/** The selected TV's full SKU, which the sign-in identity sends as device_model. */
-function readModelFull(deviceName: string): string | undefined {
+interface DeviceInfo {
+  /** The full SKU, which the sign-in identity sends as device_model. */
+  modelFull: string | undefined;
+  firmware: string | undefined;
+}
+
+/** The selected TV's SKU and firmware (`ares-device -i`); empty when it cannot be read. */
+function readDeviceInfo(deviceName: string): DeviceInfo {
   try {
     const out = ares('ares-device', ['-d', deviceName, '-i'], true);
-    return /^modelName\s*:\s*(\S+)/m.exec(out)?.[1];
+    const field = (name: string): string | undefined =>
+      new RegExp(`^${name}\\s*:\\s*(\\S+)`, 'm').exec(out)?.[1];
+    return {
+      modelFull: field('modelName'),
+      firmware: field('firmwareVersion')
+    };
   } catch {
-    return undefined;
+    return { modelFull: undefined, firmware: undefined };
   }
+}
+
+/** Whether the installed app is the native package (it carries the injected scripts). */
+function nativeInstalled(device: Device, key: string): boolean {
+  const out = remote(
+    device,
+    key,
+    `if [ -f '${SCRIPT_DIR}/adblockPreload.js' ]; then echo NATIVE; else echo OTHER; fi`
+  );
+  return out.includes('NATIVE');
 }
 
 function sshArgs(device: Device, key: string): string[] {
@@ -296,6 +322,7 @@ function buildPackage(options: PackageOptions): string {
   }
 
   const entries = readTarGz(data.data);
+  checkRuntimeContract(entries, APP_ID);
   const info = entries.find((e) => e.name === `${DATA_ROOT}/appinfo.json`);
   let runtimeVersion: string | undefined;
   try {
@@ -370,24 +397,23 @@ async function main(): Promise<void> {
   const modelFullFlag = flag(rest, '--model-full');
   const runtime = flag(rest, '--runtime') ?? process.env['YTX_NATIVE_RUNTIME'];
   const out = flag(rest, '--out') ?? repoPath('dist-native');
-  const deviceStrings: DeviceStrings | undefined = rest.includes(
-    '--device-strings'
-  )
-    ? {
-        model: flag(rest, '--model') ?? 'webOS TV',
-        firmware: flag(rest, '--firmware') ?? '1.0',
-        year: flag(rest, '--year') ?? '2025'
-      }
-    : undefined;
+  const firmwareFlag = flag(rest, '--firmware');
+  /** The `--device-strings` values; `firmware` is the fallback when the flag is absent. */
+  const deviceStrings = (firmware = '1.0'): DeviceStrings | undefined =>
+    rest.includes('--device-strings')
+      ? {
+          model: flag(rest, '--model') ?? 'webOS TV',
+          firmware: firmwareFlag ?? firmware,
+          year: flag(rest, '--year') ?? '2025'
+        }
+      : undefined;
 
   let key: string | undefined;
   let cleanupKey: (() => void) | undefined;
   process.on('exit', () => cleanupKey?.());
 
-  const needRuntime = (): string => {
-    if (!runtime) throw new Error('--runtime <RF1705.ipk> is required');
-    return runtime;
-  };
+  /** `--runtime` / YTX_NATIVE_RUNTIME, else the file pinned in runtime.lock.json. */
+  const needRuntime = (): Promise<string> => resolveRuntime(runtime);
   const needKey = (device: Device): string => {
     if (key !== undefined) return key;
     if (keyFlag !== undefined) {
@@ -404,16 +430,39 @@ async function main(): Promise<void> {
     key = derived.key;
     return key;
   };
+  let deviceInfo: DeviceInfo | undefined;
+  const infoOf = (device: Device): DeviceInfo =>
+    (deviceInfo ??= readDeviceInfo(device.name));
   /** `--model-full`, else the selected TV's SKU; `''` when neither is available. */
   const modelFull = (device: Device): string =>
-    modelFullFlag ?? readModelFull(device.name) ?? '';
+    modelFullFlag ?? infoOf(device).modelFull ?? '';
 
-  switch (command) {
+  // `deploy` picks the step the TV needs: `update` keeps the session of an
+  // installed native app; anything else (the web app, the stock app, nothing)
+  // has no native session to keep and gets a full `setup`.
+  let action = command;
+  if (command === 'deploy') {
+    const device = resolveDevice(deviceName);
+    const native = nativeInstalled(device, needKey(device));
+    action = native ? 'update' : 'setup';
+    console.log(
+      native
+        ? 'native: the native app is installed; updating its scripts'
+        : 'native: the native app is not installed; running a full setup'
+    );
+    if (!native && !rest.includes('--device-strings')) {
+      console.log(
+        'native: no --device-strings: the binary keeps its stock platform strings'
+      );
+    }
+  }
+
+  switch (action) {
     case 'package':
       buildPackage({
-        runtime: needRuntime(),
+        runtime: await needRuntime(),
         out,
-        deviceStrings,
+        deviceStrings: deviceStrings(),
         // A release package must not carry this machine's TV identity.
         modelFull: modelFullFlag ?? ''
       });
@@ -426,9 +475,9 @@ async function main(): Promise<void> {
     case 'setup': {
       const device = resolveDevice(deviceName);
       const file = buildPackage({
-        runtime: needRuntime(),
+        runtime: await needRuntime(),
         out,
-        deviceStrings,
+        deviceStrings: deviceStrings(infoOf(device).firmware),
         modelFull: modelFull(device)
       });
       await clean(device, needKey(device));
@@ -453,11 +502,11 @@ async function main(): Promise<void> {
           readAr(readFileSync(runtime)).find((m) => m.name === 'data.tar.gz')
             ?.data ?? Buffer.alloc(0)
         );
+        checkRuntimeContract(entries, APP_ID);
         const elf = entries.find((e) => e.name === `${DATA_ROOT}/cobalt`);
         if (!elf) throw new Error('runtime IPK has no cobalt binary');
-        const body = deviceStrings
-          ? patchDeviceStrings(elf.data, deviceStrings)
-          : elf.data;
+        const strings = deviceStrings(infoOf(device).firmware);
+        const body = strings ? patchDeviceStrings(elf.data, strings) : elf.data;
         const tmp = join(process.env['TEMP'] ?? '.', 'ytx-native-update');
         mkdirSync(tmp, { recursive: true });
         const local = join(tmp, 'cobalt');
@@ -494,7 +543,7 @@ async function main(): Promise<void> {
     }
     default:
       throw new Error(
-        'usage: node tools/native/native.ts <package|clean|setup|update> [options]'
+        'usage: node tools/native/native.ts <package|clean|setup|update|deploy> [options]'
       );
   }
 }
