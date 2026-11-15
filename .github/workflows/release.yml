@@ -6,12 +6,17 @@ on:
       - 'v*'
   workflow_dispatch:
     inputs:
+      native:
+        description: 'Build the native Cobalt package (from the runtime pinned in runtime.lock.json)'
+        type: boolean
+        required: false
+        default: false
       runtime_url:
-        description: 'RF1705 runtime IPK URL (https); builds the native package when set'
+        description: 'Other runtime IPK URL (https) instead of the pinned one; also builds the native package'
         required: false
         default: ''
       runtime_sha256:
-        description: 'sha256 of the runtime IPK'
+        description: 'sha256 of that runtime IPK (required with runtime_url)'
         required: false
         default: ''
       model:
@@ -115,11 +120,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: gh release create "$GITHUB_REF_NAME" ./*.ipk SHA256SUMS.txt youtube.leanback.v4.manifest.json repo.json --generate-notes --title "$GITHUB_REF_NAME"
 
-  # Native Cobalt package: manual only. The RF1705 runtime is a third-party
-  # binary that is never stored in this repository; supply its download URL and
-  # sha256 when dispatching.
+  # Native Cobalt package: manual only. The Cobalt runtime is a third-party
+  # binary that is never stored in this repository. By default it is the file
+  # pinned (URL, sha256, size) in YT-X/tools/native/runtime.lock.json, which
+  # native.ts downloads and verifies; runtime_url + runtime_sha256 override it.
   native:
-    if: github.event_name == 'workflow_dispatch' && inputs.runtime_url != ''
+    if: github.event_name == 'workflow_dispatch' && (inputs.native || inputs.runtime_url != '')
     needs: runners
     runs-on: ${{ fromJSON(needs.runners.outputs.linux-runner) }}
     timeout-minutes: 30
@@ -145,11 +151,13 @@ jobs:
       - name: Install dependencies
         run: npm ci --ignore-scripts
 
-      - name: Fetch RF1705 runtime
+      - name: Fetch the override runtime
+        if: inputs.runtime_url != ''
         env:
           RUNTIME_URL: ${{ inputs.runtime_url }}
           RUNTIME_SHA256: ${{ inputs.runtime_sha256 }}
         run: |
+          [ -n "$RUNTIME_SHA256" ] || { echo "runtime_sha256 is required with runtime_url" >&2; exit 1; }
           curl --fail --location --proto '=https' -o "$RUNNER_TEMP/runtime.ipk" "$RUNTIME_URL"
           echo "$RUNTIME_SHA256  $RUNNER_TEMP/runtime.ipk" | sha256sum --check -
 
@@ -161,7 +169,9 @@ jobs:
           MODEL_FULL: ${{ inputs.model_full }}
         run: |
           npm run build:fhd:cobalt
-          args=(--runtime "$RUNNER_TEMP/runtime.ipk")
+          # Without an override, native.ts fetches and verifies the pinned runtime.
+          args=()
+          [ -f "$RUNNER_TEMP/runtime.ipk" ] && args+=(--runtime "$RUNNER_TEMP/runtime.ipk")
           [ -n "$MODEL_FULL" ] && args+=(--model-full "$MODEL_FULL")
           if [ -n "$MODEL" ]; then
             args+=(--device-strings --model "$MODEL")
@@ -176,4 +186,4 @@ jobs:
       - name: Attach to a draft release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "native-$GITHUB_RUN_NUMBER" dist-native/*.ipk dist-native/SHA256SUMS.txt --draft --prerelease --title "native-$GITHUB_RUN_NUMBER" --notes "Native Cobalt package; contains the RF1705 runtime."
+        run: gh release create "native-$GITHUB_RUN_NUMBER" dist-native/*.ipk dist-native/SHA256SUMS.txt --draft --prerelease --title "native-$GITHUB_RUN_NUMBER" --notes "Native Cobalt package; contains the Cobalt runtime named in YT-X/tools/native/runtime.lock.json (or the override given at dispatch)."
