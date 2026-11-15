@@ -15,6 +15,7 @@
     "./tools",
     "./types",
     "./assets/appinfo.json",
+    "./tools/native/runtime.lock.json",
     "./package.json",
     "./webpack.config.ts",
     "eslint.config.ts",

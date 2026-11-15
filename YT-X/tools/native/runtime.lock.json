@@ -1,0 +1,11 @@
+{
+  "version": "2.0.6",
+  "url": "https://github.com/RF1705/youtube-webos-cobalt-adfree/releases/download/v2.0.6-beta/youtube.leanback.v4_2.0.6_arm.ipk",
+  "sha256": "b04aefc057d0bac230ee69388e31f48dd170ea000b7245ed549a259fde2bc86c",
+  "size": 16890446,
+  "source": {
+    "repo": "RF1705/youtube-webos-cobalt-adfree",
+    "commit": "7f9de1da9a1cd97da55c7b7b507fb8f7c47a0fdc",
+    "cobalt": "23.lts.6"
+  }
+}
