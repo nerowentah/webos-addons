@@ -14,8 +14,8 @@ updates:
     schedule:
       interval: weekly
       day: monday
-      time: "04:00"
-      timezone: "Asia/Kuala_Lumpur"
+      time: '04:00'
+      timezone: 'Asia/Kuala_Lumpur'
     open-pull-requests-limit: 10
     labels:
       - dependencies
@@ -75,8 +75,8 @@ updates:
     directory: /
     schedule:
       interval: monthly
-      time: "04:10"
-      timezone: "Asia/Kuala_Lumpur"
+      time: '04:10'
+      timezone: 'Asia/Kuala_Lumpur'
     labels:
       - dependencies
       - security
