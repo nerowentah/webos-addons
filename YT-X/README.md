@@ -349,14 +349,28 @@ separate from the userscript: the same settings panel and ad hooks, but the Coba
 player and codecs. SponsorBlock is not included and "Block Cast Wake" is inactive there.
 
 ```sh
-npm run deploy:native   # build:fhd:cobalt, then inject the scripts; keeps the session
-node tools/native/native.ts setup --runtime <RF1705.ipk> \
-  --device-strings --model QNED86 --firmware 33.31.75 --year 2025
+npm run deploy:native   # build:fhd:cobalt, then update the scripts (or set up, see below)
+npm run deploy:native -- --device-strings --model QNED86 --year 2025
+node tools/native/native.ts setup --device-strings --model QNED86 --year 2025
 ```
 
-`deploy:native` / `update` needs no arguments: `--model-full` defaults to the
-selected device's `modelName` from `ares-device -i`, and the SSH key comes from
-ares. ares stores the device's key name and passphrase, so an encrypted `~/.ssh`
+`deploy:native` looks at the TV first. When the native app is installed it only
+swaps the two scripts (`update`) and keeps the session; otherwise (the web app,
+the stock app, nothing) it runs a full `setup`, which has no native session to
+lose. Pass `--device-strings` so that a setup also patches the platform strings;
+`--firmware` defaults to the TV's `firmwareVersion`.
+
+The runtime IPK needs no manual download: `tools/native/runtime.lock.json` pins
+one exact file (URL, sha256, size, and the sources it was built from).
+`package`, `setup` and `deploy` fetch it once into
+`node_modules/.cache/ytx-runtime`, verify it on every use, and check that it
+still has the injection points YT-X writes into (`checkRuntimeContract` in
+`tools/native/runtime.ts`). `--runtime <ipk>` or `YTX_NATIVE_RUNTIME` uses
+another file instead. To move to another runtime, change `url`, `sha256`,
+`size` and `version` in the lock together and re-verify on a TV.
+
+`--model-full` defaults to the selected device's `modelName` from
+`ares-device -i`, and the SSH key comes from ares. ares stores the device's key name and passphrase, so an encrypted `~/.ssh`
 key is decrypted into a temporary copy for the run and deleted afterwards — ssh
 cannot prompt for a passphrase when it has no terminal. `--key <file>` and
 `YTX_SSH_KEY` still override it. The TV's OpenSSH 6.1 only offers `ssh-rsa` host
@@ -368,8 +382,9 @@ Select another TV with `--device <name>` (default `tv`).
 web app, run `npm run deploy:fhd`.
 To roll back a bad native build, run `node tools/native/native.ts clean` and reinstall the
 stock app (or `npm run deploy:fhd` for YT-X). The release workflow can also build the
-native package: dispatch it with the runtime's download URL and sha256; it lands in a
-draft pre-release, never in a normal release.
+native package: dispatch it with `native` ticked (it uses the pinned runtime; a
+`runtime_url` plus `runtime_sha256` overrides it); it lands in a draft pre-release,
+never in a normal release.
 
 Engine version: the native build runs on RF1705's runtime 2.0.6, which embeds Cobalt 23.lts.6 (Starboard 13, the legacy engine). YT-X ships no Cobalt of its own, and RF1705 has not released a newer engine; Google's own Cobalt is at 27 LTS (Starboard 18), which would reach YT-X only through a new RF1705 runtime. `tools/native/native.ts` warns when the runtime IPK is not a tested version (`TESTED_RUNTIMES` in `tools/native/native-device.ts`), because the injection points and the device-string patches are verified only on those.
 
