@@ -124,3 +124,13 @@ test('migrateStoredConfig drops retired keys and keeps the rest', async () => {
     blockWebosCast: false
   });
 });
+
+test('migrateStoredConfig drops the retired closeOnExit option', async () => {
+  const { migrateStoredConfig } = await load();
+  const out = migrated(migrateStoredConfig, {
+    closeOnExit: true,
+    hideLogo: true
+  });
+  assert.equal('closeOnExit' in out, false);
+  assert.equal(out['hideLogo'], true);
+});

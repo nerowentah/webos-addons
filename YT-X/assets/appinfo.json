@@ -28,7 +28,8 @@
   "enablePigScreenSaver": false,
   "trustLevel": "netcast",
   "privilegedJail": true,
-  "supportQuickStart": true,
+  "supportQuickStart": false,
+  "closeOnBackground": true,
   "disableBackHistoryAPI": true,
   "supportGIP": true,
   "wolwowlan": true
