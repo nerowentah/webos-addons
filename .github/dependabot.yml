@@ -1,6 +1,12 @@
 # No YAML anchors or aliases anywhere in this file. Dependabot uses its own
 # parser and rejects them outright ("YAML aliases are not supported"), which
 # fails the config-validation check on every Dependabot PR.
+#
+# Scheduled inside one window (see `time`/`timezone`) so the bot wave is
+# predictable. Grouped PRs use `rebase-strategy: disabled`: with `auto`, every
+# push to main rebases each open bot PR and re-runs their CI, and bot PRs run on
+# hosted runners because the runner-setup trust rule sends untrusted authors
+# there.
 version: 2
 updates:
   - package-ecosystem: npm
@@ -8,13 +14,15 @@ updates:
     schedule:
       interval: weekly
       day: monday
+      time: '04:00'
+      timezone: 'Asia/Kuala_Lumpur'
     open-pull-requests-limit: 10
     labels:
       - dependencies
       - security
     assignees:
       - nerowentah
-    rebase-strategy: auto
+    rebase-strategy: disabled
     commit-message:
       prefix: 'chore(deps):'
       prefix-development: 'chore(dev-deps):'
@@ -66,14 +74,15 @@ updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: weekly
-      day: tuesday
+      interval: monthly
+      time: '04:10'
+      timezone: 'Asia/Kuala_Lumpur'
     labels:
       - dependencies
       - security
     assignees:
       - nerowentah
-    rebase-strategy: auto
+    rebase-strategy: disabled
     commit-message:
       prefix: 'chore(ci):'
     open-pull-requests-limit: 10
