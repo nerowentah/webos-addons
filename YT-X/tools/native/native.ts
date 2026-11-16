@@ -75,7 +75,11 @@ import {
   writeTarGz,
   type ArMember
 } from './native-ipk.ts';
-import { checkRuntimeContract, resolveRuntime } from './runtime.ts';
+import {
+  checkRuntimeContract,
+  nativeAppInfo,
+  resolveRuntime
+} from './runtime.ts';
 
 const APP_ID = 'youtube.leanback.v4';
 const APP_DIR = `/media/developer/apps/usr/palm/applications/${APP_ID}`;
@@ -221,6 +225,16 @@ function nativeInstalled(device: Device, key: string): boolean {
   return out.includes('NATIVE');
 }
 
+/**
+ * Whether the installed appinfo carries YT-X's exit lifecycle. A package built
+ * before it still freezes on webOS 6, and only a reinstall (`setup`) replaces
+ * appinfo, so `deploy` must not settle for a script-only `update` there.
+ */
+function lifecyclePatched(device: Device, key: string): boolean {
+  const info = remote(device, key, `cat '${APP_DIR}/appinfo.json' 2>/dev/null`);
+  return /"closeOnBackground"\s*:\s*true/.test(info);
+}
+
 function sshArgs(device: Device, key: string): string[] {
   return [
     '-q',
@@ -334,6 +348,15 @@ function buildPackage(options: PackageOptions): string {
   }
   const note = untestedRuntimeNote(runtimeVersion);
   if (note) console.warn(`native: warning: ${note}`);
+  // SAM only re-reads appinfo on install, so this is what `setup` applies; a
+  // script-only `update` cannot change it.
+  if (info) {
+    setFile(
+      entries,
+      `${DATA_ROOT}/appinfo.json`,
+      Buffer.from(nativeAppInfo(info.data.toString('utf8')))
+    );
+  }
   const scripts = nativeScripts(options.modelFull);
   const adblock = `${DATA_ROOT}/content/web/adblock`;
   setFile(
@@ -438,19 +461,29 @@ async function main(): Promise<void> {
     modelFullFlag ?? infoOf(device).modelFull ?? '';
 
   // `deploy` picks the step the TV needs: `update` keeps the session of an
-  // installed native app; anything else (the web app, the stock app, nothing)
-  // has no native session to keep and gets a full `setup`.
+  // installed native app whose appinfo already has the exit lifecycle; a fresh
+  // install, or one built before that lifecycle, has no session worth keeping
+  // and gets a full `setup` (SAM only re-reads appinfo on install).
   let action = command;
   if (command === 'deploy') {
     const device = resolveDevice(deviceName);
-    const native = nativeInstalled(device, needKey(device));
-    action = native ? 'update' : 'setup';
-    console.log(
-      native
-        ? 'native: the native app is installed; updating its scripts'
-        : 'native: the native app is not installed; running a full setup'
-    );
-    if (!native && !rest.includes('--device-strings')) {
+    const key = needKey(device);
+    const native = nativeInstalled(device, key);
+    if (!native) {
+      action = 'setup';
+      console.log(
+        'native: the native app is not installed; running a full setup'
+      );
+    } else if (!lifecyclePatched(device, key)) {
+      action = 'setup';
+      console.log(
+        'native: the installed appinfo lacks the exit lifecycle; running a full setup (this signs the app out)'
+      );
+    } else {
+      action = 'update';
+      console.log('native: the native app is installed; updating its scripts');
+    }
+    if (action === 'setup' && !rest.includes('--device-strings')) {
       console.log(
         'native: no --device-strings: the binary keeps its stock platform strings'
       );
@@ -495,6 +528,11 @@ async function main(): Promise<void> {
     }
     case 'update': {
       const device = resolveDevice(deviceName);
+      if (!lifecyclePatched(device, needKey(device))) {
+        console.warn(
+          'native: the installed appinfo lacks the exit lifecycle; run setup once to apply it (it signs the app out)'
+        );
+      }
       const scripts = nativeScripts(modelFull(device));
       if (runtime) {
         // A new patched binary goes in beside the old one and is renamed over it, so the stored session stays.

@@ -198,3 +198,20 @@ export function checkRuntimeContract(
     );
   }
 }
+
+/**
+ * The runtime's appinfo.json with the lifecycle YT-X needs. RF1705's package
+ * keeps the app suspended in the background (`handlesRelaunch: true`, quick
+ * start on); on webOS 6 a suspended Cobalt is SIGSTOPped and
+ * webos-preload-manager then restarts it frozen, so the next launch shows
+ * nothing (RF1705 issue #74). Closing on background, disabling quick start and
+ * dropping relaunch support is the fix verified there. Everything else in the
+ * file is preserved; SAM only re-reads it on install, so `setup` applies it.
+ */
+export function nativeAppInfo(source: string): string {
+  const info = JSON.parse(source) as Record<string, unknown>;
+  info['closeOnBackground'] = true;
+  info['supportQuickStart'] = false;
+  info['handlesRelaunch'] = false;
+  return JSON.stringify(info, null, 2);
+}

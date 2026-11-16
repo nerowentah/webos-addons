@@ -25,7 +25,6 @@ export function syncConfigCheckboxes(): void {
 
 /** Settings that do nothing on the native build: the cast wake is a web-app request. */
 const NATIVE_INACTIVE: readonly string[] = ['blockWebosCast'];
-// closeOnExit stays active on native: window.close() alone ends Cobalt there.
 
 const isNativeInactive = (key: BoolKey): boolean =>
   isNativeBuild() && NATIVE_INACTIVE.includes(key);
