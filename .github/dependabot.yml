@@ -17,57 +17,97 @@ updates:
       time: '04:00'
       timezone: 'Asia/Kuala_Lumpur'
     open-pull-requests-limit: 10
+    allow:
+      - dependency-type: production
     labels:
-      - dependencies
-      - security
+      - 'dependencies'
     assignees:
       - nerowentah
     rebase-strategy: disabled
     commit-message:
       prefix: 'chore(deps):'
-      prefix-development: 'chore(dev-deps):'
+    groups:
+      npm-deps:
+        applies-to: version-updates
+        patterns:
+          - '*'
+        update-types:
+          - 'minor'
+          - 'patch'
+      security:
+        applies-to: security-updates
+        patterns:
+          - '*'
+    versioning-strategy: increase
+    cooldown:
+      default-days: 7
+
+  - package-ecosystem: npm
+    directory: /YT-X
+    schedule:
+      interval: weekly
+      day: monday
+      time: '04:05'
+      timezone: 'Asia/Kuala_Lumpur'
+    open-pull-requests-limit: 10
+    allow:
+      - dependency-type: development
+    labels:
+      - 'dependencies'
+      - 'devdeps'
+    assignees:
+      - nerowentah
+    rebase-strategy: disabled
+    commit-message:
+      prefix: 'chore(dev-deps):'
     groups:
       webpack:
         applies-to: version-updates
         patterns:
-          - webpack
-          - webpack-*
-          - terser-webpack-plugin
+          - 'webpack'
+          - 'webpack-*'
+          - 'terser-webpack-plugin'
         update-types:
-          - minor
-          - patch
+          - 'minor'
+          - 'patch'
       babel:
         applies-to: version-updates
         patterns:
           - '@babel/*'
         update-types:
-          - minor
-          - patch
+          - 'minor'
+          - 'patch'
       typescript-eslint:
         applies-to: version-updates
         patterns:
-          - typescript-eslint
+          - 'typescript-eslint'
           - '@typescript-eslint/*'
         update-types:
-          - minor
-          - patch
+          - 'minor'
+          - 'patch'
       types:
         applies-to: version-updates
         patterns:
           - '@types/*'
         update-types:
-          - minor
-          - patch
-      dev-dependencies:
+          - 'minor'
+          - 'patch'
+      npm-dev-deps:
         applies-to: version-updates
-        dependency-type: development
-        update-types:
-          - minor
-          - patch
-      security:
-        applies-to: security-updates
         patterns:
           - '*'
+        exclude-patterns:
+          - 'webpack'
+          - 'webpack-*'
+          - 'terser-webpack-plugin'
+          - '@babel/*'
+          - 'typescript-eslint'
+          - '@typescript-eslint/*'
+          - '@types/*'
+        update-types:
+          - 'minor'
+          - 'patch'
+    versioning-strategy: increase
     cooldown:
       default-days: 7
 
@@ -79,7 +119,7 @@ updates:
       timezone: 'Asia/Kuala_Lumpur'
     labels:
       - dependencies
-      - security
+      - ci
     assignees:
       - nerowentah
     rebase-strategy: disabled
