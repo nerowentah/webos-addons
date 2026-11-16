@@ -6,16 +6,12 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 interface ExitOnBackModule {
-  shouldExitOnBack(state: {
-    enabled: boolean;
-    panelVisible: boolean;
-    hash: string;
-  }): boolean;
+  shouldExitOnBack(state: { panelVisible: boolean; hash: string }): boolean;
 }
 
 const href = new URL('../../src/core/exit-on-back.ts', import.meta.url).href;
 const load = async () => (await import(href)) as ExitOnBackModule;
-const base = { enabled: true, panelVisible: false };
+const base = { panelVisible: false };
 
 test('exits on Back at the root', async () => {
   const { shouldExitOnBack } = await load();
@@ -36,12 +32,8 @@ test('does not exit from sub-pages', async () => {
   }
 });
 
-test('does not exit when disabled or while the panel is open', async () => {
+test('does not exit while the panel is open', async () => {
   const { shouldExitOnBack } = await load();
-  assert.equal(
-    shouldExitOnBack({ ...base, enabled: false, hash: '#/' }),
-    false
-  );
   assert.equal(
     shouldExitOnBack({ ...base, panelVisible: true, hash: '#/' }),
     false

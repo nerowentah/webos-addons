@@ -12,7 +12,8 @@ import { initPanelCare } from './panel-care';
 import { initPanelKeys } from './panel-keys';
 import { initTextScale } from './text-scale';
 import { initOpenShortcut } from './shortcut';
-import { initCobaltBack } from '../core/cobalt-back';
+import { initExitKeys } from '../core/exit-keys';
+import { initExitDialogKeys } from './exit-dialog';
 import { panelState, setSponsorBlockPanelSync } from './panel-state';
 
 export { showNotification } from './notifications';
@@ -20,8 +21,10 @@ export { setSponsorBlockPanelSync };
 
 initPanelKeys();
 initOpenShortcut();
+// Before Back handling, so an open exit dialog owns every key.
+initExitDialogKeys();
 // After the panel's handler, so an open panel still consumes Back first.
-initCobaltBack();
+initExitKeys();
 
 initBadge(() => showOptionsPanel(!panelState.visible));
 

@@ -33,7 +33,9 @@ export const SCALED_TEXT: readonly ScaledText[] = [
   { selector: '.sb-header-text', base: 2.4, unit: 'vh' },
   { selector: '.sb-header-subtitle', base: 1.4, unit: 'vh' },
   { selector: '.sb-segment-category', base: 1.9, unit: 'vh' },
-  { selector: '.sb-segment-time', base: 1.9, unit: 'vh' }
+  { selector: '.sb-segment-time', base: 1.9, unit: 'vh' },
+  { selector: '.ytx-exit-title', base: 3.2, unit: 'vh' },
+  { selector: '.ytx-exit-btn', base: 2.6, unit: 'vh' }
 ];
 
 export const TEXT_SCALE_FACTORS: Readonly<Record<string, number>> = {

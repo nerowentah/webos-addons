@@ -78,7 +78,7 @@ Both upstream projects are licensed GPL-3.0, which this project matches (see
 
 - [Autostart support](#autostart)
 - **Screen Off (Audio Only)**: a System-tab button that turns the TV panel off while audio keeps playing; any remote key wakes it. On the web build the TV powers its panel down; on the native build (no Luna bridge) a black layer covers the screen instead, so the panel stays lit.
-- **Fully Close on Exit** (off by default): when YouTube's exit dialog closes the app, also ask the application manager to close it, so no instance stays in the background (see Autostart).
+- **Exit confirmation**: every in-app exit (Back on the YouTube home screen, YouTube's own exit dialog, anything that calls `window.close()`) first asks "Close YouTube-X?" with **Exit** / **Cancel** (Left/Right to choose, Enter to confirm, Back to cancel). **Exit** asks the application manager to close the app, so no instance stays in the background. The Home button and `ares-launch -c` are handled by the platform and show no dialog. With Screen Off active the app closes without asking, because the dialog would be hidden under the black layer.
 
 > [!NOTE]
 > Click the on-screen **YT-X** badge with the Magic Remote pointer to open the
@@ -238,7 +238,7 @@ luna-send-pub -n 1 'luna://com.webos.service.eim/addDevice' '{"appId":"youtube.l
 
 This lets the app appear as an input source and launch automatically if it was
 the last-used app. It stays active in the background for faster startup
-(minor increase in idle memory usage). Turn on **Fully Close on Exit** to close the app instead of leaving it running.
+(minor increase in idle memory usage). Choosing **Exit** in the exit dialog closes the app instead of leaving it running.
 
 To disable autostart:
 
@@ -354,11 +354,24 @@ npm run deploy:native -- --device-strings --model QNED86 --year 2025
 node tools/native/native.ts setup --device-strings --model QNED86 --year 2025
 ```
 
-`deploy:native` looks at the TV first. When the native app is installed it only
-swaps the two scripts (`update`) and keeps the session; otherwise (the web app,
-the stock app, nothing) it runs a full `setup`, which has no native session to
-lose. Pass `--device-strings` so that a setup also patches the platform strings;
-`--firmware` defaults to the TV's `firmwareVersion`.
+`deploy:native` looks at the TV first. When the native app is installed _and_
+its appinfo already has the exit lifecycle it only swaps the two scripts
+(`update`) and keeps the session; otherwise (the web app, the stock app,
+nothing, or an install from before the lifecycle fix) it runs a full `setup`,
+which has no native session to lose. Pass `--device-strings` so that a setup
+also patches the platform strings; `--firmware` defaults to the TV's
+`firmwareVersion`.
+
+The packaged appinfo asks SAM to close the app when it leaves the foreground
+(`closeOnBackground`), disables quick start and drops relaunch support. Without
+that, a backgrounded Cobalt is SIGSTOPped on webOS 6 and
+`webos-preload-manager` restarts it frozen, so the next launch shows a black
+screen (RF1705 issue #74). SAM only re-reads appinfo on install, so a
+script-only `update` cannot apply it: `deploy` switches to `setup` itself, and
+`update` warns. If the freeze survives the reinstall on webOS 6, the remaining
+cause is the preload-manager entry, which only root can remove from
+`/var/preferences/webos-preload-manager-conf.json` (then restart
+`preload-manager.service`).
 
 The runtime IPK needs no manual download: `tools/native/runtime.lock.json` pins
 one exact file (URL, sha256, size, and the sources it was built from).
@@ -391,7 +404,7 @@ Engine version: the native build runs on RF1705's runtime 2.0.6, which embeds Co
 What differs on the native build:
 
 - SponsorBlock is not built in: YouTube's page CSP for the Cobalt user agent blocks its servers, which is deliberate and not worked around.
-- "Screen Off (Audio Only)" shows a black layer instead of switching the panel off (Cobalt has no Luna bridge); "Fully Close on Exit" makes Back on the YouTube home screen call `window.close()`.
+- "Screen Off (Audio Only)" shows a black layer instead of switching the panel off (Cobalt has no Luna bridge); Back on the YouTube home screen shows the same exit dialog as on the web build.
 - "Block Cast Wake" is inactive (greyed out); Force Video Codec is likely a no-op because the Cobalt binary negotiates codecs itself.
 - The stock app id `youtube.leanback.v4` is required, the `cobalt` binary stays the stock ELF, and a relaunch needs a full exit first. See the header of `tools/native/native.ts`.
 - Browse previews play on native: the webOS-only muting and the thumbnail rule are not loaded, and `native-previews.ts` lifts the tile's thumbnail layer while a preview plays and puts the player back to full size if it is left on the preview's size after entering a video.

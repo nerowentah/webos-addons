@@ -29,7 +29,8 @@ const RETIRED_KEYS: readonly string[] = [
   'poi_highlightColor',
   'fillerColor',
   'hookColor',
-  'segmentColorScheme'
+  'segmentColorScheme',
+  'closeOnExit' // exit always asks first now (src/ui/exit-dialog.ts)
 ];
 
 // The Shortcuts tab is gone, so its remote-key bindings are too.
