@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 
 import {
   deviceStringPatches,
+  elfModelName,
   patchDeviceStrings,
   untestedRuntimeNote
 } from './native-device.ts';
@@ -59,6 +60,15 @@ test('a model that does not fit, or a bad year, is refused', () => {
   assert.throws(() =>
     patchDeviceStrings(stockPool(), { ...strings, year: '25' })
   );
+});
+
+test('the model token keeps the family in the 9-character slot', () => {
+  // The Cast name carries the full model (src/native/device-model.ts); the UA
+  // tail can only hold this much, so the size and the region suffix go.
+  assert.equal(elfModelName('65QNED86ASA.ATSFLJD'), 'QNED86ASA');
+  assert.equal(elfModelName('OLED65C3AUA.BEUCLJP'), 'OLED65C3A');
+  assert.equal(elfModelName(''), 'webOS TV');
+  assert.equal(elfModelName('65'), 'webOS TV');
 });
 
 test('only the verified RF1705 runtime passes without a warning', () => {

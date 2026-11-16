@@ -8,8 +8,16 @@ export interface ExitOnBackState {
   panelVisible: boolean;
   /** `location.hash` of the page. */
   hash: string;
+  /**
+   * Whether the body reports a player page (watch or shorts). The hash can
+   * read as root while a video plays, and then Back belongs to the player,
+   * not to the exit dialog.
+   */
+  onPlayerPage: boolean;
 }
 
 export function shouldExitOnBack(state: ExitOnBackState): boolean {
-  return !state.panelVisible && ROOT_HASH.test(state.hash);
+  return (
+    !state.panelVisible && !state.onPlayerPage && ROOT_HASH.test(state.hash)
+  );
 }

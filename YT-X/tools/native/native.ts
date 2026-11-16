@@ -5,11 +5,14 @@
 //        [--device-strings [--model QNED86] [--firmware 33.31.75] [--year 2025]]
 //   node tools/native/native.ts clean   [--device tv]
 //   node tools/native/native.ts setup   [--runtime <ipk>]           (clean, install, launch)
-//   node tools/native/native.ts update  [--runtime <ipk> [--device-strings ...]]
+//   node tools/native/native.ts update  [--runtime <ipk> [--no-device-strings]]
 //        (swap the two scripts in place; with --runtime also the binary)
 //   node tools/native/native.ts deploy  (update when the native app is installed, else setup)
 //        --model-full defaults to the selected device's `ares-device -i` modelName,
-//        and on a device --firmware defaults to its firmwareVersion.
+//        and on a device --model/--firmware default to that modelName (in the
+//        9-character ELF slot) and firmwareVersion. `setup` and `deploy` patch the
+//        platform strings unless `--no-device-strings` is passed: the stock binary
+//        reports "BrandName, ModelName", which the phone shows as the cast name.
 //
 // The runtime IPK is the prebuilt Cobalt package and is never committed. Without
 // --runtime (or YTX_NATIVE_RUNTIME) `package`, `setup` and `deploy` use the file
@@ -62,6 +65,7 @@ import { join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as sleep } from 'node:timers/promises';
 import {
+  elfModelName,
   patchDeviceStrings,
   untestedRuntimeNote,
   type DeviceStrings
@@ -233,6 +237,22 @@ function nativeInstalled(device: Device, key: string): boolean {
 function lifecyclePatched(device: Device, key: string): boolean {
   const info = remote(device, key, `cat '${APP_DIR}/appinfo.json' 2>/dev/null`);
   return /"closeOnBackground"\s*:\s*true/.test(info);
+}
+
+/**
+ * Whether the installed binary has the real platform strings. Unpatched, the
+ * Cobalt UA reports "BrandName, ModelName" and phones list the TV under those
+ * placeholders. The stock `ChipsetModelNumber` literal appears exactly once in
+ * the ELF and every patch replaces it, so it is the marker; the binary is only
+ * swapped by a reinstall, hence `deploy` cannot fix it with an update.
+ */
+function deviceStringsPatched(device: Device, key: string): boolean {
+  const out = remote(
+    device,
+    key,
+    `grep -a -c 'ChipsetModelNumber' '${APP_DIR}/cobalt' 2>/dev/null || true`
+  );
+  return /^\s*0\s*$/.test(out.trim());
 }
 
 function sshArgs(device: Device, key: string): string[] {
@@ -421,12 +441,22 @@ async function main(): Promise<void> {
   const runtime = flag(rest, '--runtime') ?? process.env['YTX_NATIVE_RUNTIME'];
   const out = flag(rest, '--out') ?? repoPath('dist-native');
   const firmwareFlag = flag(rest, '--firmware');
-  /** The `--device-strings` values; `firmware` is the fallback when the flag is absent. */
-  const deviceStrings = (firmware = '1.0'): DeviceStrings | undefined =>
-    rest.includes('--device-strings')
+  /**
+   * The platform strings patched into the stock binary. On by default for the
+   * device commands: unpatched, the Cobalt UA reports "BrandName, ModelName"
+   * and phones list the TV under those placeholders. `package` stays opt-in so
+   * a release artifact carries no TV identity, and `--no-device-strings` opts
+   * out everywhere. Model and firmware come from `ares-device -i` on a device.
+   */
+  const deviceStrings = (
+    info: DeviceInfo | undefined,
+    byDefault: boolean
+  ): DeviceStrings | undefined =>
+    (byDefault || rest.includes('--device-strings')) &&
+    !rest.includes('--no-device-strings')
       ? {
-          model: flag(rest, '--model') ?? 'webOS TV',
-          firmware: firmwareFlag ?? firmware,
+          model: flag(rest, '--model') ?? elfModelName(info?.modelFull ?? ''),
+          firmware: firmwareFlag ?? info?.firmware ?? '1.0',
           year: flag(rest, '--year') ?? '2025'
         }
       : undefined;
@@ -461,9 +491,11 @@ async function main(): Promise<void> {
     modelFullFlag ?? infoOf(device).modelFull ?? '';
 
   // `deploy` picks the step the TV needs: `update` keeps the session of an
-  // installed native app whose appinfo already has the exit lifecycle; a fresh
-  // install, or one built before that lifecycle, has no session worth keeping
-  // and gets a full `setup` (SAM only re-reads appinfo on install).
+  // installed native app whose appinfo already has the exit lifecycle and whose
+  // binary has real platform strings; a fresh install, one built before that
+  // lifecycle, or one still reporting placeholders has no session worth keeping
+  // and gets a full `setup` (SAM only re-reads appinfo and only an install swaps
+  // the binary).
   let action = command;
   if (command === 'deploy') {
     const device = resolveDevice(deviceName);
@@ -479,14 +511,14 @@ async function main(): Promise<void> {
       console.log(
         'native: the installed appinfo lacks the exit lifecycle; running a full setup (this signs the app out)'
       );
+    } else if (!deviceStringsPatched(device, key)) {
+      action = 'setup';
+      console.log(
+        'native: the installed binary still reports the stock platform strings; running a full setup (this signs the app out)'
+      );
     } else {
       action = 'update';
       console.log('native: the native app is installed; updating its scripts');
-    }
-    if (action === 'setup' && !rest.includes('--device-strings')) {
-      console.log(
-        'native: no --device-strings: the binary keeps its stock platform strings'
-      );
     }
   }
 
@@ -495,7 +527,7 @@ async function main(): Promise<void> {
       buildPackage({
         runtime: await needRuntime(),
         out,
-        deviceStrings: deviceStrings(),
+        deviceStrings: deviceStrings(undefined, false),
         // A release package must not carry this machine's TV identity.
         modelFull: modelFullFlag ?? ''
       });
@@ -510,7 +542,7 @@ async function main(): Promise<void> {
       const file = buildPackage({
         runtime: await needRuntime(),
         out,
-        deviceStrings: deviceStrings(infoOf(device).firmware),
+        deviceStrings: deviceStrings(infoOf(device), true),
         modelFull: modelFull(device)
       });
       await clean(device, needKey(device));
@@ -532,6 +564,10 @@ async function main(): Promise<void> {
         console.warn(
           'native: the installed appinfo lacks the exit lifecycle; run setup once to apply it (it signs the app out)'
         );
+      } else if (!deviceStringsPatched(device, needKey(device))) {
+        console.warn(
+          'native: the installed binary still reports the stock platform strings; run setup once to patch it (it signs the app out)'
+        );
       }
       const scripts = nativeScripts(modelFull(device));
       if (runtime) {
@@ -543,7 +579,7 @@ async function main(): Promise<void> {
         checkRuntimeContract(entries, APP_ID);
         const elf = entries.find((e) => e.name === `${DATA_ROOT}/cobalt`);
         if (!elf) throw new Error('runtime IPK has no cobalt binary');
-        const strings = deviceStrings(infoOf(device).firmware);
+        const strings = deviceStrings(infoOf(device), true);
         const body = strings ? patchDeviceStrings(elf.data, strings) : elf.data;
         const tmp = join(process.env['TEMP'] ?? '.', 'ytx-native-update');
         mkdirSync(tmp, { recursive: true });
