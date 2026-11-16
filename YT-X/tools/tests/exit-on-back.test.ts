@@ -6,12 +6,16 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 interface ExitOnBackModule {
-  shouldExitOnBack(state: { panelVisible: boolean; hash: string }): boolean;
+  shouldExitOnBack(state: {
+    panelVisible: boolean;
+    hash: string;
+    onPlayerPage: boolean;
+  }): boolean;
 }
 
 const href = new URL('../../src/core/exit-on-back.ts', import.meta.url).href;
 const load = async () => (await import(href)) as ExitOnBackModule;
-const base = { panelVisible: false };
+const base = { panelVisible: false, onPlayerPage: false };
 
 test('exits on Back at the root', async () => {
   const { shouldExitOnBack } = await load();
@@ -29,6 +33,17 @@ test('does not exit from sub-pages', async () => {
     '#/shorts'
   ]) {
     assert.equal(shouldExitOnBack({ ...base, hash }), false, hash);
+  }
+});
+
+test('does not exit while a player page is up, even with a root hash', async () => {
+  const { shouldExitOnBack } = await load();
+  for (const hash of ['', '#/', '#/watch?v=abc']) {
+    assert.equal(
+      shouldExitOnBack({ ...base, hash, onPlayerPage: true }),
+      false,
+      hash
+    );
   }
 });
 

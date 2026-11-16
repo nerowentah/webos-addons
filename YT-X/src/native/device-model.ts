@@ -29,13 +29,19 @@ export function rewriteDeviceCodeBody(
 }
 
 const LOUNGE_URL = '/api/lounge/bc/';
-/** The phone prints brand then model, so the app's prefix goes in the brand. */
-const LOUNGE_BRAND = '[YT-X]';
+/**
+ * The phone prints brand then model, so the prefix goes in the brand; the
+ * result reads "YTX - LG webOS TV <full model>".
+ */
+const LOUNGE_BRAND = 'YTX - LG';
 
-/** "65QNED86ASA.ATSFLJD" -> "webOS TV QNED86ASA", the name the TV's Cast receiver uses. */
+/**
+ * "65QNED86ASA.ATSFLJD" -> "webOS TV 65QNED86ASA.ATSFLJD", the name the TV's
+ * Cast receiver uses. The full model is kept: the size prefix and the region
+ * suffix are what tells one TV from another in the phone's list.
+ */
 export function castModelName(fullModel: string): string {
-  const base = fullModel.split('.')[0] ?? fullModel;
-  return `webOS TV ${base.replace(/^\d+/, '')}`;
+  return `webOS TV ${fullModel}`;
 }
 
 /**
