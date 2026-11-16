@@ -19,6 +19,7 @@ import {
   RUNTIME_LOCK,
   cachePath,
   checkRuntimeContract,
+  nativeAppInfo,
   resolveRuntime,
   verifyRuntime,
   type RuntimeLock
@@ -201,4 +202,29 @@ test('the contract check reports every problem in one error', () => {
       error.message.includes('cobalt binary') &&
       error.message.includes('adblockMain.css')
   );
+});
+
+test('nativeAppInfo forces the exit lifecycle and keeps everything else', () => {
+  const source = JSON.stringify({
+    id: APP_ID,
+    version: '2.0.6',
+    type: 'native',
+    main: 'cobalt',
+    handlesRelaunch: true,
+    nativeLifeCycleInterfaceVersion: 2,
+    requiredMemory: 512
+  });
+  const parsed = JSON.parse(nativeAppInfo(source)) as Record<string, unknown>;
+  assert.equal(parsed['closeOnBackground'], true);
+  assert.equal(parsed['supportQuickStart'], false);
+  assert.equal(parsed['handlesRelaunch'], false);
+  assert.equal(parsed['id'], APP_ID);
+  assert.equal(parsed['version'], '2.0.6');
+  assert.equal(parsed['nativeLifeCycleInterfaceVersion'], 2);
+  assert.equal(parsed['requiredMemory'], 512);
+});
+
+test('nativeAppInfo is idempotent', () => {
+  const once = nativeAppInfo(JSON.stringify({ id: APP_ID }));
+  assert.equal(nativeAppInfo(once), once);
 });

@@ -48,7 +48,7 @@ test('only the device-code body changes, and only device_model', () => {
 });
 
 test('lounge deviceInfo model becomes the Cast receiver name', () => {
-  assert.equal(castModelName(FULL), 'webOS TV QNED86ASA');
+  assert.equal(castModelName(FULL), 'webOS TV 65QNED86ASA.ATSFLJD');
   const info = encodeURIComponent(
     JSON.stringify({ brand: 'LG', model: 'QNED86' })
   );
@@ -59,8 +59,8 @@ test('lounge deviceInfo model becomes the Cast receiver name', () => {
     )
   );
   assert.deepEqual(JSON.parse(out.searchParams.get('deviceInfo') ?? ''), {
-    brand: '[YT-X]',
-    model: 'webOS TV QNED86ASA'
+    brand: 'YTX - LG',
+    model: 'webOS TV 65QNED86ASA.ATSFLJD'
   });
   assert.equal(out.searchParams.get('name'), 'x');
   const other = 'https://www.youtube.com/api/other?deviceInfo=1';
