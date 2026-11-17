@@ -1,40 +1,47 @@
-// "Fully Close on Exit": with supportQuickStart the app stays in the background
-// after YouTube's exit dialog calls window.close(). When enabled, also ask the
-// application manager to close this app so no instance is left behind.
+// Page-level close hook. YouTube's own exit path ends in window.close(), and the
+// cast handoff may too. Every such call is routed to a handler: exit-keys.ts
+// installs requestExit() (the Exit / Cancel dialog) at init; until then, and in a
+// build where the UI failed to load, the default handler force-closes so the
+// app still exits cleanly.
 //
 // The page (YouTube's cast shim on Cobalt) assigns its own window.close after
 // this module runs, so a plain wrapper would be overwritten; the property is an
-// accessor that wraps whatever gets assigned.
+// accessor that wraps whatever gets assigned. YT-X's own confirmed exit calls
+// forceClose(), which runs the raw inner close directly and never passes
+// through the wrapper, so there is no recursion.
 
-import { configRead } from '../config/config';
-import { APPMANAGER_URI, lunaCall } from './luna';
-
-// Stock app id, required by the native build too (tools/native/native.ts).
-const APP_ID = 'youtube.leanback.v4';
+import { closeAppFully } from './app-close';
 
 type CloseFn = () => void;
 
-function wrapClose(inner: CloseFn): CloseFn {
-  return function wrappedClose(this: unknown): void {
-    if (configRead('closeOnExit')) {
-      // Without the Luna bridge (native Cobalt) the page's own close is all there is.
-      lunaCall(APPMANAGER_URI + 'close', { id: APP_ID });
-    }
-    inner.call(this);
-  };
+let rawInnerClose: CloseFn = window.close.bind(window);
+
+/** Closes the app now, with no dialog: Luna close chain, then the page's own close. */
+export function forceClose(): void {
+  closeAppFully(() => rawInnerClose());
 }
 
-let current: CloseFn = window.close.bind(window);
-let wrapped = wrapClose(current);
+let pageCloseHandler: CloseFn = forceClose;
+
+/** Replaces what a page-initiated window.close() does (default: force-close). */
+export function setPageCloseHandler(handler: CloseFn): void {
+  pageCloseHandler = handler;
+}
+
+const wrappedClose: CloseFn = function wrappedClose(): void {
+  pageCloseHandler();
+};
 
 try {
   Object.defineProperty(window, 'close', {
     configurable: true,
-    get: () => wrapped,
+    get: () => wrappedClose,
     set: (fn: unknown) => {
       if (typeof fn !== 'function') return;
-      current = fn as CloseFn;
-      wrapped = wrapClose(current);
+      const assigned = fn as CloseFn;
+      rawInnerClose = function (this: unknown): void {
+        assigned.call(window);
+      };
     }
   });
 } catch {

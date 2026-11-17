@@ -38,7 +38,6 @@ export const UI_LABELS = {
   blockWebosCast: 'Block Cast Wake (webOS 25)',
   removeEndscreen: 'Remove End Screens',
   keepPlaying: 'Keep Playing when Idle',
-  closeOnExit: 'Fully Close on Exit',
   autoAccountSelect: 'Skip Family Account Picker',
   panelCareMode: 'Panel Care Mode',
   disableAnimations: 'Disable Animations',
@@ -59,6 +58,11 @@ export const PANEL = {
   closeLabel: 'Close settings',
   tabsLabel: 'Settings sections',
   screenOff: 'Screen Off (Audio Only)',
+  exitDialog: {
+    title: 'Close YouTube-X?',
+    exit: 'Exit',
+    cancel: 'Cancel'
+  },
   tabs: ['Main', 'UI', 'System', 'Privacy', 'Adblock'],
   sections: {
     videoPlayer: 'Video Player',

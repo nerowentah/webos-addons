@@ -228,7 +228,6 @@ export function createOptionsPanel(onClose: () => void): OptionsPanel {
       pageSystem.appendChild(
         createSection(PANEL.sections.system, [
           createConfigCheckbox('blockWebosCast'),
-          createConfigCheckbox('closeOnExit'),
           createAlignedCycleControl('panelCareMode', panelCareModes),
           ...(canTurnOffScreen()
             ? [

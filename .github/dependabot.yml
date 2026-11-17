@@ -7,6 +7,11 @@
 # push to main rebases each open bot PR and re-runs their CI, and bot PRs run on
 # hosted runners because the runner-setup trust rule sends untrusted authors
 # there.
+#
+# One entry per package-ecosystem + directory + target-branch. Dependabot
+# rejects a second entry for the same triple, so production and development
+# updates are separated inside `groups` (`dependency-type`) plus
+# `prefix-development`, never by duplicating an entry.
 version: 2
 updates:
   - package-ecosystem: npm
@@ -18,8 +23,7 @@ updates:
       timezone: 'Asia/Kuala_Lumpur'
     open-pull-requests-limit: 10
     labels:
-      - dependencies
-      - security
+      - 'dependencies'
     assignees:
       - nerowentah
     rebase-strategy: disabled
@@ -30,44 +34,59 @@ updates:
       webpack:
         applies-to: version-updates
         patterns:
-          - webpack
-          - webpack-*
-          - terser-webpack-plugin
+          - 'webpack'
+          - 'webpack-*'
+          - 'terser-webpack-plugin'
         update-types:
-          - minor
-          - patch
+          - 'minor'
+          - 'patch'
       babel:
         applies-to: version-updates
         patterns:
           - '@babel/*'
         update-types:
-          - minor
-          - patch
+          - 'minor'
+          - 'patch'
       typescript-eslint:
         applies-to: version-updates
         patterns:
-          - typescript-eslint
+          - 'typescript-eslint'
           - '@typescript-eslint/*'
         update-types:
-          - minor
-          - patch
+          - 'minor'
+          - 'patch'
       types:
         applies-to: version-updates
         patterns:
           - '@types/*'
         update-types:
-          - minor
-          - patch
-      dev-dependencies:
+          - 'minor'
+          - 'patch'
+      npm-deps:
         applies-to: version-updates
-        dependency-type: development
+        dependency-type: 'production'
         update-types:
-          - minor
-          - patch
+          - 'minor'
+          - 'patch'
+      npm-dev-deps:
+        applies-to: version-updates
+        dependency-type: 'development'
+        exclude-patterns:
+          - 'webpack'
+          - 'webpack-*'
+          - 'terser-webpack-plugin'
+          - '@babel/*'
+          - 'typescript-eslint'
+          - '@typescript-eslint/*'
+          - '@types/*'
+        update-types:
+          - 'minor'
+          - 'patch'
       security:
         applies-to: security-updates
         patterns:
           - '*'
+    versioning-strategy: increase
     cooldown:
       default-days: 7
 
@@ -79,7 +98,7 @@ updates:
       timezone: 'Asia/Kuala_Lumpur'
     labels:
       - dependencies
-      - security
+      - ci
     assignees:
       - nerowentah
     rebase-strategy: disabled
