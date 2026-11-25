@@ -1,55 +1,85 @@
-// Cobalt's YouTube build stops the player on the first Escape but only finishes
-// leaving the playback route on the next one: one Back press leaves the watch
-// page torn down behind a black screen, and a second press lands on browse. So
-// one remote Back becomes two Escapes - the second sent as soon as the player
-// actually stopped, not on a fixed delay.
+// Cobalt's YouTube build peels a player page back one layer per Escape, and how
+// many layers there are depends on what the user was doing:
+// - the controls overlay is open (a D-pad press or the Magic Remote pointer put
+//   focus on it): one Escape just closes it;
+// - the video is loaded: one Escape tears the player down (readyState drops to
+//   0) but leaves the watch route behind a black screen;
+// - the player is already torn down, or the video is merely paused: one Escape
+//   leaves the route.
+// So one remote Back becomes as many Escapes as it takes, each sent as soon as
+// the previous one visibly took effect (the overlay closed or the player tore
+// down), not on a fixed delay.
+//
+// A paused video is not a torn-down one: pausing with the pointer keeps the
+// overlay open and the media loaded, and treating it as "already stopped" sent a
+// single Escape that only closed the overlay.
 //
 // The page type is re-read between the steps: once it is no longer a player
 // page the route changed, and another Escape would navigate past the screen the
 // user asked for. A press that arrives while a leave is already running is
 // swallowed by the caller (see exit-keys.ts), so a quick double press cannot
-// turn into three Escapes.
-//
-// A player page whose video is already stopped is the half-left state a single
-// Escape leaves behind; one Escape is enough there, so no second is sent.
+// add Escapes.
 
-/** Escapes one Back press may produce. */
-export const MAX_ESCAPES = 2;
-/** How often the player state is re-checked while waiting for it to stop. */
+/** Escapes one Back press may produce: close the overlay, stop, leave. */
+export const MAX_ESCAPES = 3;
+/** How often the page is re-checked between Escapes. */
 const POLL_MS = 150;
 /**
- * How long the second Escape waits for the player to report itself stopped.
- * Past this the Escape goes out anyway: a player that never stops is the black
- * screen the second press exists to clear, so waiting longer only helps the
- * page's own transition, not the user.
+ * How long an Escape that changed nothing visible waits before the next goes
+ * out anyway: the page may have reacted in a way the checks cannot see.
  */
-const STOP_TIMEOUT_MS = 1500;
+export const RETRY_MS = 1500;
+/**
+ * How long to wait for the route to change once the player is torn down and
+ * the leave Escape was sent. No retry here: an Escape sent while the route is
+ * still changing would land on the page after it.
+ */
+export const GIVE_UP_MS = 3000;
 
-export interface LeaveStepState {
+/** What the page showed at one point in the sequence. */
+export interface LeaveSnapshot {
+  /** Focus is inside the player's controls overlay. */
+  overlayOpen: boolean;
+  /** The player is gone or unloaded (no video, readyState 0, or ended). */
+  tornDown: boolean;
+}
+
+export interface LeaveStepState extends LeaveSnapshot {
   /** Escapes already sent for this press. */
   escapes: number;
   onPlayerPage: boolean;
-  /** The video is gone, paused or ended (the player was torn down). */
-  playerStopped: boolean;
+  /** The page as it was when the last Escape went out (null before the first). */
+  atLastEscape: LeaveSnapshot | null;
+  /** Time since the last Escape. */
+  sinceLastEscapeMs: number;
 }
 
 export type LeaveStep = 'escape' | 'wait' | 'done';
 
 /**
- * Next thing to do for one Back press: send an Escape, wait for the player to
- * stop, or stop because the route changed or the budget is spent.
+ * Next thing to do for one Back press: send an Escape, wait for the last one to
+ * take effect, or stop because the route changed or the budget is spent.
  */
 export function leaveStep(state: LeaveStepState): LeaveStep {
   if (!state.onPlayerPage) return 'done';
-  if (state.escapes === 0) return 'escape';
-  if (state.playerStopped && state.escapes < MAX_ESCAPES) return 'escape';
-  return state.escapes >= MAX_ESCAPES ? 'done' : 'wait';
+  if (state.escapes === 0 || !state.atLastEscape) return 'escape';
+  if (state.escapes >= MAX_ESCAPES) return 'done';
+  const before = state.atLastEscape;
+  const progressed =
+    (before.overlayOpen && !state.overlayOpen) ||
+    (!before.tornDown && state.tornDown);
+  if (progressed) return 'escape';
+  if (state.tornDown) {
+    return state.sinceLastEscapeMs >= GIVE_UP_MS ? 'done' : 'wait';
+  }
+  return state.sinceLastEscapeMs >= RETRY_MS ? 'escape' : 'wait';
 }
 
 export interface LeavePlaybackDeps {
-  sendEscape(): void;
+  sendEscape(escapeNumber: number, at: LeaveSnapshot): void;
   onPlayerPage(): boolean;
-  playerStopped(): boolean;
+  overlayOpen(): boolean;
+  playerTornDown(): boolean;
   setTimer(fn: () => void, ms: number): unknown;
   clearTimer(id: unknown): void;
   now(): number;
@@ -57,7 +87,8 @@ export interface LeavePlaybackDeps {
 
 let running = false;
 let escapes = 0;
-let startedAt = 0;
+let lastEscapeAt = 0;
+let atLastEscape: LeaveSnapshot | null = null;
 let timer: unknown = null;
 
 /** Whether a leave is in progress, so further Back presses should be ignored. */
@@ -72,28 +103,34 @@ function finish(deps: LeavePlaybackDeps): void {
   }
   running = false;
   escapes = 0;
+  atLastEscape = null;
 }
 
 function step(deps: LeavePlaybackDeps): void {
-  const onPlayerPage = deps.onPlayerPage();
-  let action = leaveStep({
+  const snapshot: LeaveSnapshot = {
+    overlayOpen: deps.overlayOpen(),
+    tornDown: deps.playerTornDown()
+  };
+  const action = leaveStep({
+    ...snapshot,
     escapes,
-    onPlayerPage,
-    playerStopped: deps.playerStopped()
+    onPlayerPage: deps.onPlayerPage(),
+    atLastEscape,
+    sinceLastEscapeMs: deps.now() - lastEscapeAt
   });
-  // The stop watch exists to time the retry, not to cancel it: send the second
-  // Escape once the timeout expires even if the player never says it stopped.
-  if (action === 'wait' && deps.now() - startedAt >= STOP_TIMEOUT_MS) {
-    action = 'escape';
+  if (action === 'done') {
+    finish(deps);
+    return;
   }
   if (action === 'escape') {
     escapes += 1;
-    deps.sendEscape();
-  }
-  // Nothing more to send once the route changed or the budget is spent.
-  if (action === 'done' || escapes >= MAX_ESCAPES) {
-    finish(deps);
-    return;
+    lastEscapeAt = deps.now();
+    atLastEscape = snapshot;
+    deps.sendEscape(escapes, snapshot);
+    if (escapes >= MAX_ESCAPES) {
+      finish(deps);
+      return;
+    }
   }
   timer = deps.setTimer(() => {
     timer = null;
@@ -102,21 +139,16 @@ function step(deps: LeavePlaybackDeps): void {
 }
 
 /**
- * Leaves playback for one Back press. From a playing video this sends Escape
- * now and a second one once the player stops; from the half-left state (player
- * already stopped) it sends a single Escape. No-op while one is already
- * running.
+ * Leaves playback for one Back press: sends Escape now, and another each time
+ * the last one closed the overlay or tore the player down, until the route
+ * changes. No-op while one is already running.
  */
 export function beginLeavePlayback(deps: LeavePlaybackDeps): void {
   if (running) return;
   running = true;
   escapes = 0;
-  startedAt = deps.now();
+  atLastEscape = null;
+  lastEscapeAt = deps.now();
   timer = null;
-  if (deps.onPlayerPage() && deps.playerStopped()) {
-    deps.sendEscape();
-    finish(deps);
-    return;
-  }
   step(deps);
 }

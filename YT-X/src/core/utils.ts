@@ -102,6 +102,8 @@ export function waitForChildAdd(
 export const SELECTORS = {
   PLAYER_ID: 'ytlr-player__player-container-player',
   PLAYER_CONTAINER: 'ytlr-player__player-container',
+  /** Holds focus while the watch page's controls overlay is open. */
+  PLAYER_OVERLAY: 'ytlr-squeezeback-player-overlay',
   WATCH_PAGE_CLASS: 'WEB_PAGE_TYPE_WATCH',
   SHORTS_PAGE_CLASS: 'WEB_PAGE_TYPE_SHORTS',
   ACCOUNT_SELECTOR: 'WEB_PAGE_TYPE_ACCOUNT_SELECTOR',
