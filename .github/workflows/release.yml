@@ -52,6 +52,9 @@ jobs:
       os: linux
 
   release:
+    # Tag pushes only. Dispatched by hand, GITHUB_REF_NAME is the branch name and
+    # gh release create would publish a release tagged after the branch.
+    if: startsWith(github.ref, 'refs/tags/v')
     needs: runners
     runs-on: ${{ fromJSON(needs.runners.outputs.linux-runner) }}
     timeout-minutes: 30
@@ -125,7 +128,8 @@ jobs:
   # pinned (URL, sha256, size) in YT-X/tools/native/runtime.lock.json, which
   # native.ts downloads and verifies; runtime_url + runtime_sha256 override it.
   native:
-    if: github.event_name == 'workflow_dispatch' && (inputs.native || inputs.runtime_url != '')
+    # Dispatch from main only, so no draft is built from an unmerged commit.
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && (inputs.native || inputs.runtime_url != '')
     needs: runners
     runs-on: ${{ fromJSON(needs.runners.outputs.linux-runner) }}
     timeout-minutes: 30

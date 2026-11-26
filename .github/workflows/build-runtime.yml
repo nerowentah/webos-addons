@@ -50,6 +50,8 @@ env:
 
 jobs:
   build:
+    # Publish from main only, so no pre-release is built from an unmerged commit.
+    if: github.ref == 'refs/heads/main'
     # A hosted runner on purpose: the build needs Docker, tens of GB of disk and
     # runs third-party build scripts, none of which belongs on a persistent runner.
     runs-on: ubuntu-latest
