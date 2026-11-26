@@ -154,9 +154,13 @@ jobs:
           mkdir -p "$COBALT_SOURCE_DIR"
           git -C "$COBALT_SOURCE_DIR" init
           git -C "$COBALT_SOURCE_DIR" remote add origin https://github.com/youtube/cobalt.git
-          git -C "$COBALT_SOURCE_DIR" fetch --depth 1 origin "$COBALT_COMMIT"
-          git -C "$COBALT_SOURCE_DIR" checkout --detach FETCH_HEAD
+          # The port's overlay script gates on `git describe --tags`. Fetch the
+          # tag as well as the pinned commit, otherwise a shallow commit-only
+          # fetch describes as a bare SHA and the overlay refuses to build.
+          git -C "$COBALT_SOURCE_DIR" fetch --depth 1 origin tag "$COBALT_REF"
+          git -C "$COBALT_SOURCE_DIR" checkout --detach "$COBALT_REF"
           test "$(git -C "$COBALT_SOURCE_DIR" rev-parse HEAD)" = "$COBALT_COMMIT"
+          test "$(git -C "$COBALT_SOURCE_DIR" describe --tags --exact-match)" = "$COBALT_REF"
 
       # Cobalt 23's Docker definitions predate today's Compose and Debian mirrors;
       # these are the port's own adjustments, undone again after the images exist.
