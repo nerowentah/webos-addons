@@ -1,0 +1,105 @@
+name: Code Quality
+
+# Thin caller of the shared CI platform in nerowentah/scripts (BRANCH_PROTECTION.md,
+# "Shared CI platform"). Pinned to a commit: a mutable ref on a workflow holding
+# pull-requests: write is a supply-chain surface. Bump the pins by hand (Dependabot
+# cannot read the private platform repository).
+#
+# No push trigger on main: the ruleset requires strict up-to-date checks, so a PR's
+# last run already validated the tree that lands; the weekly schedule is main's own
+# run. workflow_dispatch on a PR branch is how the PR queue (pr-auto-update.yml)
+# re-runs the required checks after it updates a branch.
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+  schedule:
+    - cron: "0 2 * * 1"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  # Superseded PR pushes and PR-branch dispatches are cancelled; runs on
+  # refs/heads/main (schedule, dispatch) must not cancel each other.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main') }}
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  queue:
+    permissions:
+      contents: read
+      pull-requests: read
+    uses: nerowentah/scripts/.github/workflows/shared-pr-queue.yml@9bf3624e56d8e03a782eb9db55b35d5d184f510a # v1.0.0
+    with:
+      dispatch-workflows: code-quality.yml codeql.yml
+
+  shared-ci:
+    needs: queue
+    # Queue deferral first (a skipped caller leaves the required "shared-ci / *"
+    # checks unreported, so a deferred PR cannot merge untested), then the trust
+    # gate: code-executing PR checks run only for same-repository branches of
+    # trusted authors, the update bots, or a PR marked safe-to-test.
+    if: >-
+      needs.queue.outputs.defer != 'true' &&
+      (github.event_name != 'pull_request' ||
+      (github.event.pull_request.head.repo.full_name == github.repository &&
+      (contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.pull_request.author_association) ||
+      contains(github.event.pull_request.labels.*.name, 'safe-to-test') ||
+      contains(fromJSON('["dependabot[bot]","renovate[bot]"]'), github.event.pull_request.user.login))))
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: write
+      issues: write
+    uses: nerowentah/scripts/.github/workflows/shared-ci.yml@9bf3624e56d8e03a782eb9db55b35d5d184f510a # v1.0.0
+    with:
+      labels-linux: ${{ vars.SELF_HOSTED }}
+      node-version: "24"
+      setup-python: false
+      install-deps: false
+      enable-eslint: false
+      enable-ruff: false
+      enable-npm-audit: false
+      enable-pip-audit: false
+      enable-gap-linting: true
+      working-directory: YT-X
+      setup-extra: |
+        cd YT-X && npm ci --ignore-scripts
+      test-command: |
+        set -euo pipefail
+        npm test
+        npm run check:text
+        npm run verify
+        npm run build:hd && npm run test:compat
+        npm run build:fhd && npm run package:dist
+        npm run lint
+        npm run lint:css
+        npm run type-check
+        npm run audit
+        npm run prettier-check
+
+  # Not a required check: it needs the pull_request base/head, so it runs on PR
+  # events only (a queue dispatch on the branch has no PR context).
+  dependency-review:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@aebdcf6156ab6691adf63218240e476564a1ed4c # v2.23.0
+        with:
+          egress-policy: block
+          allowed-endpoints: >
+            api.github.com:443
+            github.com:443
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0

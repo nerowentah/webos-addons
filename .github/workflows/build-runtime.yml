@@ -168,6 +168,7 @@ jobs:
         run: |
           set -euo pipefail
           perl -0pi -e 's/^(\s*)<<: \*common-definitions\n\1<<: \*build-volumes/$1<<: [*common-definitions, *build-volumes]/mg' "$COBALT_SOURCE_DIR/docker-compose.yml"
+          # shellcheck disable=SC2016 # ${BASE_OS...} is Dockerfile syntax, not shell
           sed -i 's#FROM ${BASE_OS:-gcr.io/cloud-marketplace-containers/google/debian10}:${BASE_OS_TAG:-latest}#FROM ${BASE_OS:-debian}:${BASE_OS_TAG:-10-slim}#' "$COBALT_SOURCE_DIR/docker/linux/base/Dockerfile"
           grep -q 'archive.debian.org/debian-security' "$COBALT_SOURCE_DIR/docker/linux/base/Dockerfile" || perl -0pi -e 's{ENV PYTHONUNBUFFERED 1\n}{ENV PYTHONUNBUFFERED 1\n\nRUN sed -i -e "s|http://security.debian.org/debian-security|http://archive.debian.org/debian-security|" -e "s|http://deb.debian.org/debian|http://archive.debian.org/debian|" -e "s|http://httpredir.debian.org/debian|http://archive.debian.org/debian|" -e "s|deb http://archive.debian.org/debian buster-updates|# deb http://archive.debian.org/debian buster-updates|" /etc/apt/sources.list && printf "%s\\\\n" "Acquire::Check-Valid-Until false;" > /etc/apt/apt.conf.d/99archive\n}' "$COBALT_SOURCE_DIR/docker/linux/base/Dockerfile"
           perl -0pi -e 's/&& \. \/tmp\/install\.sh/&& bash \/tmp\/install.sh/g; s/nvm install --lts \$\{LTS_VERSION\}/nvm install 16/g; s/nvm alias default \$\{LTS_VERSION\}\/\*/nvm alias default 16\/*/g' "$COBALT_SOURCE_DIR/docker/linux/base/build/Dockerfile"
