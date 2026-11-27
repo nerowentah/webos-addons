@@ -4,7 +4,7 @@ name: Red Run Audit
 # later success (see nerowentah/scripts shared-red-run-audit.yml).
 on:
   schedule:
-    - cron: "23 6 * * 1"
+    - cron: '23 6 * * 1'
   workflow_dispatch:
 
 permissions: {}
