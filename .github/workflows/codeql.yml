@@ -1,72 +1,46 @@
 name: CodeQL
 
+# Thin caller of nerowentah/scripts shared-codeql.yml. Checks surface as
+# "codeql / analyze (<language>)" and are deferred by the PR queue like shared-ci.
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'YT-X/**'
-      - '.github/workflows/codeql.yml'
   pull_request:
     branches: [main]
-  schedule:
-    - cron: '17 6 * * 1'
+    types: [opened, synchronize, reopened]
   workflow_dispatch:
+  schedule:
+    - cron: '23 4 * * 1'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  # Superseded PR pushes and PR-branch dispatches are cancelled; runs on
+  # refs/heads/main (schedule, dispatch) must not cancel each other.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main') }}
 
 permissions:
   contents: read
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
-  runners:
+  queue:
     permissions:
       contents: read
-    uses: ./.github/workflows/runner-setup.yml
+      pull-requests: read
+    uses: ./.github/workflows/shared-pr-queue.yml
     with:
-      os: linux
+      dispatch-workflows: code-quality.yml codeql.yml
 
-  analyze:
-    name: Analyze (${{ matrix.language }})
-    needs: runners
-    runs-on: ${{ fromJSON(needs.runners.outputs.linux-runner) }}
-    timeout-minutes: 30
+  codeql:
+    needs: queue
+    if: >-
+      needs.queue.outputs.defer != 'true' &&
+      (github.event_name != 'pull_request' ||
+      (github.event.pull_request.head.repo.full_name == github.repository &&
+      (contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.pull_request.author_association) ||
+      contains(github.event.pull_request.labels.*.name, 'safe-to-test') ||
+      contains(fromJSON('["dependabot[bot]","renovate[bot]"]'), github.event.pull_request.user.login))))
     permissions:
       contents: read
       security-events: write
-
-    strategy:
-      fail-fast: false
-      matrix:
-        language: [javascript-typescript]
-
-    steps:
-      - name: Harden Runner
-        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
-        with:
-          egress-policy: block
-          allowed-endpoints: >
-            api.github.com:443
-            github.com:443
-            codeload.github.com:443
-            objects.githubusercontent.com:443
-            release-assets.githubusercontent.com:443
-            raw.githubusercontent.com:443
-            *.githubusercontent.com:443
-            *.blob.core.windows.net:443
-            uploads.github.com:443
-
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - name: Initialize CodeQL
-        uses: github/codeql-action/init@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
-        with:
-          languages: ${{ matrix.language }}
-          build-mode: none
-          queries: security-extended
-
-      - name: Perform CodeQL analysis
-        uses: github/codeql-action/analyze@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+    uses: ./.github/workflows/shared-codeql.yml
+    with:
+      labels-linux: ${{ vars.SELF_HOSTED }}
+      languages: '["javascript-typescript"]'

@@ -47,7 +47,7 @@ jobs:
   runners:
     permissions:
       contents: read
-    uses: ./.github/workflows/runner-setup.yml
+    uses: ./.github/workflows/shared-runner-setup.yml
     with:
       os: linux
 
@@ -89,8 +89,9 @@ jobs:
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
-          cache: npm
-          cache-dependency-path: YT-X/package-lock.json
+          # No dependency cache: a release build must not restore state another
+          # workflow run could have written (cache poisoning).
+          package-manager-cache: false
 
       - name: Install dependencies
         run: npm ci --ignore-scripts
@@ -114,7 +115,7 @@ jobs:
       - name: Homebrew manifest and feed
         run: |
           base="https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}"
-          ipk="$(ls ./*.ipk | head -n1)"
+          ipk="$(find . -maxdepth 1 -name '*.ipk' -print -quit)"
           node tools/build/gen-manifest.ts youtube.leanback.v4.manifest.json --ipk-url "$base/$(basename "$ipk")"
           node tools/build/gen-repo.ts --base-url "$base"
 
@@ -149,8 +150,9 @@ jobs:
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
-          cache: npm
-          cache-dependency-path: YT-X/package-lock.json
+          # No dependency cache: a release build must not restore state another
+          # workflow run could have written (cache poisoning).
+          package-manager-cache: false
 
       - name: Install dependencies
         run: npm ci --ignore-scripts
